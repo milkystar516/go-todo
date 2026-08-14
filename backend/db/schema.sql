@@ -1,8 +1,8 @@
 create table users (
     id                  bigserial primary key,
-    username            varchar(255) unique not null,
-    nickname            timestamptz not null,
-    encrypted_password  timestamptz
+    username            varchar(50) unique not null,
+    nickname            varchar(50),
+    password_hash       text
 );
 
 create table todos (
