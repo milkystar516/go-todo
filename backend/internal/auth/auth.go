@@ -2,8 +2,11 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
@@ -112,9 +115,38 @@ func findUser(ctx context.Context, db *pgxpool.Pool, username string) (loginUser
 	return user, err
 }
 
+func createSession(ctx context.Context, db *pgxpool.Pool, userID string, ttl time.Duration) (string, error) {
+	token, err := generateSessionToken()
+	if err != nil {
+		return "", err
+	}
+
+	expiresAt := time.Now().Add(ttl)
+
+	_, err = db.Exec(
+		ctx,
+		"INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, $3)",
+		token,
+		userID,
+		expiresAt,
+	)
+
+	return token, err
+}
+
 func checkPassword(user loginUser, password string) error {
 	return bcrypt.CompareHashAndPassword(
 		[]byte(user.PasswordHash),
 		[]byte(password),
 	)
+}
+
+func generateSessionToken() (string, error) {
+	bytes := make([]byte, 32)
+
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+
+	return base64.RawURLEncoding.EncodeToString(bytes), nil
 }
