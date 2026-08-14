@@ -25,7 +25,13 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	auth.RegisterRoutes(mux, db)
+	authHandler := auth.NewHandler(db, auth.Config{
+		CookieName: cfg.SessionCookieName,
+		SessionTTL: cfg.SessionTTL,
+		Secure:     cfg.SessionSecure,
+	})
+
+	authHandler.RegisterRoutes(mux)
 
 	addr := cfg.Host + ":" + cfg.Port
 	log.Printf("server listening on http://%s", addr)

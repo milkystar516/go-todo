@@ -18,6 +18,11 @@ type Config struct {
 	Secure     bool
 }
 
+type Handler struct {
+	db  *pgxpool.Pool
+	cfg Config
+}
+
 type SignupRequest struct {
 	Username string  `json:"username"`
 	Nickname *string `json:"nickname"`
@@ -34,24 +39,26 @@ type loginUser struct {
 	PasswordHash string
 }
 
-func RegisterRoutes(mux *http.ServeMux, db *pgxpool.Pool, cfg Config) {
-	mux.HandleFunc("POST /signup", func(w http.ResponseWriter, r *http.Request) {
-		signup(w, r, db)
-	})
-
-	mux.HandleFunc("POST /login", func(w http.ResponseWriter, r *http.Request) {
-		login(w, r, db, cfg)
-	})
+func NewHandler(db *pgxpool.Pool, cfg Config) *Handler {
+	return &Handler{
+		db:  db,
+		cfg: cfg,
+	}
 }
 
-func signup(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool) {
+func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("POST /signup", h.signup)
+	mux.HandleFunc("POST /login", h.login)
+}
+
+func (h *Handler) signup(w http.ResponseWriter, r *http.Request) {
 	req, err := readSignupRequest(r)
 	if err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 
-	if err := createUser(r.Context(), db, req); err != nil {
+	if err := createUser(r.Context(), h.db, req); err != nil {
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
@@ -59,7 +66,7 @@ func signup(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func login(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool, cfg Config) {
+func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -67,7 +74,7 @@ func login(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool, cfg Config)
 		return
 	}
 
-	user, err := findUser(r.Context(), db, req.Username)
+	user, err := findUser(r.Context(), h.db, req.Username)
 	if err != nil {
 		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
 		return
@@ -78,19 +85,19 @@ func login(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool, cfg Config)
 		return
 	}
 
-	token, err := createSession(r.Context(), db, user.ID, cfg.SessionTTL)
+	token, err := createSession(r.Context(), h.db, user.ID, h.cfg.SessionTTL)
 	if err != nil {
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     cfg.CookieName,
+		Name:     h.cfg.CookieName,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   cfg.Secure,
-		Expires:  time.Now().Add(cfg.SessionTTL),
+		Secure:   h.cfg.Secure,
+		Expires:  time.Now().Add(h.cfg.SessionTTL),
 	})
 
 	w.WriteHeader(http.StatusOK)
