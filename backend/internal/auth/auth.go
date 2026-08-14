@@ -39,6 +39,10 @@ type loginUser struct {
 	PasswordHash string
 }
 
+type contextKey string
+
+const userIDKey contextKey = "userID"
+
 func NewHandler(db *pgxpool.Pool, cfg Config) *Handler {
 	return &Handler{
 		db:  db,
@@ -49,6 +53,26 @@ func NewHandler(db *pgxpool.Pool, cfg Config) *Handler {
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /signup", h.signup)
 	mux.HandleFunc("POST /login", h.login)
+}
+
+func (h *Handler) RequireAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie(h.cfg.CookieName)
+		if err != nil {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		userID, err := findSessionUser(r.Context(), h.db, cookie.Value)
+		if err != nil {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), userIDKey, userID)
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
 func (h *Handler) signup(w http.ResponseWriter, r *http.Request) {
@@ -160,6 +184,18 @@ func createSession(ctx context.Context, db *pgxpool.Pool, userID string, ttl tim
 	)
 
 	return token, err
+}
+
+func findSessionUser(ctx context.Context, db *pgxpool.Pool, token string) (int64, error) {
+	var userID int64
+
+	err := db.QueryRow(
+		ctx,
+		"SELECT user_id FROM sessions WHERE token = $1 AND expires_at > NOW()",
+		token,
+	).Scan(&userID)
+
+	return userID, err
 }
 
 func checkPassword(user loginUser, password string) error {
