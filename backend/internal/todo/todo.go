@@ -1,6 +1,7 @@
 package todo
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -32,6 +33,7 @@ func NewHandler(db *pgxpool.Pool) *Handler {
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth func(http.Handler) http.Handler) {
 	mux.Handle("POST /todos", requireAuth(http.HandlerFunc(h.createTodo)))
+	mux.Handle("GET /todos", requireAuth(http.HandlerFunc(h.todosList)))
 }
 
 func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
@@ -46,7 +48,7 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.db.Exec(
 		r.Context(),
-		"INSERT INTO todos (owner_id, title) VALUES ($1, $2)",
+		"INSERT INTO todos (owner_id, title, created_at) VALUES ($1, $2, NOW())",
 		userID,
 		req.Title,
 	)
@@ -56,4 +58,50 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *Handler) todosList(w http.ResponseWriter, r *http.Request) {
+	ownerID := auth.UserID(r.Context())
+
+	todos, err := h.getTodos(r.Context(), h.db, ownerID)
+	if err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(todos)
+}
+
+func (h *Handler) getTodos(ctx context.Context, db *pgxpool.Pool, ownerID int64) ([]Todo, error) {
+	rows, err := db.Query(
+		ctx,
+		"SELECT * FROM todos WHERE owner_id = $1 ORDER BY id",
+		ownerID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var todos []Todo
+
+	for rows.Next() {
+		var todo Todo
+
+		if err := rows.Scan(
+			&todo.ID,
+			&todo.OwnerID,
+			&todo.Title,
+			&todo.Completed,
+			&todo.CreatedAt,
+			&todo.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+
+		todos = append(todos, todo)
+	}
+
+	return todos, rows.Err()
 }
