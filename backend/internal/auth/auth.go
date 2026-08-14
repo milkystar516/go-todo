@@ -12,6 +12,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type Config struct {
+	CookieName string
+	SessionTTL time.Duration
+	Secure     bool
+}
+
 type SignupRequest struct {
 	Username string  `json:"username"`
 	Nickname *string `json:"nickname"`
@@ -28,13 +34,13 @@ type loginUser struct {
 	PasswordHash string
 }
 
-func RegisterRoutes(mux *http.ServeMux, db *pgxpool.Pool) {
+func RegisterRoutes(mux *http.ServeMux, db *pgxpool.Pool, cfg Config) {
 	mux.HandleFunc("POST /signup", func(w http.ResponseWriter, r *http.Request) {
 		signup(w, r, db)
 	})
 
 	mux.HandleFunc("POST /login", func(w http.ResponseWriter, r *http.Request) {
-		login(w, r, db)
+		login(w, r, db, cfg)
 	})
 }
 
@@ -53,7 +59,7 @@ func signup(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func login(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool) {
+func login(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool, cfg Config) {
 	var req LoginRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -71,6 +77,21 @@ func login(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool) {
 		http.Error(w, "invalid username or password", http.StatusUnauthorized)
 		return
 	}
+
+	token, err := createSession(r.Context(), db, user.ID, cfg.SessionTTL)
+	if err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     cfg.CookieName,
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   cfg.Secure,
+		Expires:  time.Now().Add(cfg.SessionTTL),
+	})
 
 	w.WriteHeader(http.StatusOK)
 }
