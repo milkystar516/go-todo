@@ -75,6 +75,10 @@ func (h *Handler) RequireAuth(next http.Handler) http.Handler {
 	})
 }
 
+func UserID(ctx context.Context) int64 {
+	return ctx.Value(userIDKey).(int64)
+}
+
 func (h *Handler) signup(w http.ResponseWriter, r *http.Request) {
 	req, err := readSignupRequest(r)
 	if err != nil {
