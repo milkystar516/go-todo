@@ -46,11 +46,21 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 
 	userID := auth.UserID(r.Context())
 
-	todo, err := h.db.Exec(
+	var todo Todo
+
+	err := h.db.QueryRow(
 		r.Context(),
-		"INSERT INTO todos (owner_id, title, created_at) VALUES ($1, $2, NOW())",
+		`INSERT INTO todos (owner_id, title, created_at) VALUES ($1, $2)
+		RETURNING id, owner_id, title, completed, created_at, updated_at`,
 		userID,
 		req.Title,
+	).Scan(
+		&todo.ID,
+		&todo.OwnerID,
+		&todo.Title,
+		&todo.Completed,
+		&todo.CreatedAt,
+		&todo.UpdatedAt,
 	)
 	if err != nil {
 		http.Error(w, "server error", http.StatusInternalServerError)
