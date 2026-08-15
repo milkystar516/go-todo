@@ -1,47 +1,63 @@
 package todorule
 
-func Compile(fields []FieldDefinition) (JSONSchema, error) {
+func Compile(fields []FieldDefinition) (map[string]any, error) {
 	if err := ValidateDefinition(fields); err != nil {
-		return JSONSchema{}, err
+		return nil, err
 	}
 
-	schema := JSONSchema{
-		Schema:               jsonSchemaDraft2020,
-		Type:                 "object",
-		Properties:           make(map[string]PropertySchema),
-		AdditionalProperties: false,
-	}
+	properties := make(map[string]any, len(fields))
+	required := make([]any, 0)
 
 	for _, field := range fields {
-		property := PropertySchema{
-			Title:   field.Label,
-			Default: field.DefaultValue,
+		property := map[string]any{
+			"title": field.Label,
 		}
 
 		switch field.Type {
 		case FieldShortText, FieldLongText:
-			property.Type = "string"
+			property["type"] = "string"
 
 		case FieldInteger:
-			property.Type = "integer"
+			property["type"] = "integer"
 
 		case FieldBoolean:
-			property.Type = "boolean"
+			property["type"] = "boolean"
 
 		case FieldDate:
-			property.Type = "string"
-			property.Format = "date"
+			property["type"] = "string"
+			property["format"] = "date"
 
 		case FieldSingleSelect:
-			property.Type = "string"
-			property.Enum = field.Options
+			property["type"] = "string"
+
+			options := make([]any, len(field.Options))
+			for i, option := range field.Options {
+				options[i] = option
+			}
+
+			property["enum"] = options
 		}
 
-		schema.Properties[field.Key] = property
+		if field.DefaultValue != nil {
+			property["default"] = field.DefaultValue
+		}
+
+		properties[field.Key] = property
 
 		if field.Required {
-			schema.Required = append(schema.Required, field.Key)
+			required = append(required, field.Key)
 		}
+	}
+
+	schema := map[string]any{
+		"$schema":              "https://json-schema.org/draft/2020-12/schema",
+		"type":                 "object",
+		"properties":           properties,
+		"additionalProperties": false,
+	}
+
+	if len(required) > 0 {
+		schema["required"] = required
 	}
 
 	return schema, nil
