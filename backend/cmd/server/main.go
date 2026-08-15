@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/milkystar516/go-todo/backend/internal/auth"
@@ -16,11 +17,11 @@ func main() {
 	cfg := config.Load()
 	ctx := context.Background()
 
-	logger := logging.New()
+	slog.SetDefault(logging.New())
 
 	db, err := postgres.Open(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("failed to open pgsql", "error", err)
 	}
 	defer db.Close()
 
@@ -40,6 +41,6 @@ func main() {
 	log.Printf("server listening on http://%s", addr)
 
 	if err := http.ListenAndServe(addr, mux); err != nil {
-		logger.Error("server stopped", "error", err)
+		slog.Error("server stopped", "error", err)
 	}
 }
