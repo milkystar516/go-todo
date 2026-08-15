@@ -46,7 +46,7 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 
 	userID := auth.UserID(r.Context())
 
-	_, err := h.db.Exec(
+	todo, err := h.db.Exec(
 		r.Context(),
 		"INSERT INTO todos (owner_id, title, created_at) VALUES ($1, $2, NOW())",
 		userID,
@@ -57,7 +57,9 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(todo)
 }
 
 func (h *Handler) todosList(w http.ResponseWriter, r *http.Request) {
