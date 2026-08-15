@@ -155,7 +155,7 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 				WHEN $2 THEN COALESCE(completed_at, now())
 				ELSE NULL
 			END
-		WHERE owner_id = $1 AND id = $2
+		WHERE id = $3 AND owner_id = $4
 		RETURNING id, owner_id, title, created_at, completed_at`,
 		req.Title,
 		req.CompetedAt,
