@@ -3,6 +3,7 @@ package todo
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -61,6 +62,7 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 		&todo.CompletedAt,
 	)
 	if err != nil {
+		slog.ErrorContext(r.Context(), "create todo failed", "error", err)
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
@@ -75,6 +77,7 @@ func (h *Handler) todosList(w http.ResponseWriter, r *http.Request) {
 
 	todos, err := h.getTodos(r.Context(), h.db, ownerID)
 	if err != nil {
+		slog.ErrorContext(r.Context(), "get todo list failed", "error", err)
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
