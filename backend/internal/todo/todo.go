@@ -207,7 +207,7 @@ func (h *Handler) toggleTodoComplete(w http.ResponseWriter, r *http.Request) {
 			WHEN completed_at IS NULL THEN now()
 			ELSE NULL
 		END
-		WHERE id = $2 AND owner_id = $3
+		WHERE id = $1 AND owner_id = $2
 		RETURNING id, owner_id, content, created_at, completed_at`,
 		todoID,
 		userID,
