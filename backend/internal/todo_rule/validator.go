@@ -10,11 +10,11 @@ import (
 
 const schemaResource = "todo-content.schema.json"
 
-type Validator struct {
+type ContentValidator struct {
 	schema *jsonschema.Schema
 }
 
-func NewValidator(schema JSONSchema) (*Validator, error) {
+func NewVContentalidator(schema JSONSchema) (*ContentValidator, error) {
 	schemaJSON, err := json.Marshal(schema)
 	if err != nil {
 		return nil, fmt.Errorf("marshal todo schema: %w", err)
@@ -43,12 +43,12 @@ func NewValidator(schema JSONSchema) (*Validator, error) {
 		return nil, fmt.Errorf("compile todo schema validator: %w", err)
 	}
 
-	return &Validator{
+	return &ContentValidator{
 		schema: compiledSchema,
 	}, nil
 }
 
-func (v *Validator) Validate(content map[string]any) error {
+func (v *ContentValidator) Validate(content map[string]any) error {
 	if content == nil {
 		return fmt.Errorf("todo content must not be nil")
 	}
