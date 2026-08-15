@@ -15,12 +15,11 @@ type Handler struct {
 }
 
 type Todo struct {
-	ID        int64     `json:"id"`
-	OwnerID   int64     `json:"owner_id"`
-	Title     string    `json:"title"`
-	Completed bool      `json:"completed"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          int64     `json:"id"`
+	OwnerID     int64     `json:"owner_id"`
+	Title       string    `json:"title"`
+	CreatedAt   time.Time `json:"created_at"`
+	CompletedAt time.Time `json:"completed_at"`
 }
 
 type TodoCreateRequest struct {
@@ -50,17 +49,16 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 
 	err := h.db.QueryRow(
 		r.Context(),
-		`INSERT INTO todos (owner_id, title, created_at) VALUES ($1, $2)
-		RETURNING id, owner_id, title, completed, created_at, updated_at`,
+		`INSERT INTO todos (owner_id, title) VALUES ($1, $2)
+		RETURNING id, owner_id, title, created_at, completed_at`,
 		userID,
 		req.Title,
 	).Scan(
 		&todo.ID,
 		&todo.OwnerID,
 		&todo.Title,
-		&todo.Completed,
 		&todo.CreatedAt,
-		&todo.UpdatedAt,
+		&todo.CompletedAt,
 	)
 	if err != nil {
 		http.Error(w, "server error", http.StatusInternalServerError)
@@ -105,9 +103,8 @@ func (h *Handler) getTodos(ctx context.Context, db *pgxpool.Pool, ownerID int64)
 			&todo.ID,
 			&todo.OwnerID,
 			&todo.Title,
-			&todo.Completed,
 			&todo.CreatedAt,
-			&todo.UpdatedAt,
+			&todo.CompletedAt,
 		); err != nil {
 			return nil, err
 		}
