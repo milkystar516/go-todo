@@ -6,6 +6,7 @@ func Compile(fields []FieldDefinition) (JSONSchema, error) {
 	}
 
 	schema := JSONSchema{
+		Schema:               jsonSchemaDraft2020,
 		Type:                 "object",
 		Properties:           make(map[string]PropertySchema),
 		AdditionalProperties: false,
