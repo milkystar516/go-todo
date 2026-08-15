@@ -149,7 +149,7 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 	err = h.db.QueryRow(
 		r.Context(),
 		`UPDATE todos SET 
-			title = COALESCE($1::text, title)
+			title = COALESCE($1::text, title),
 			completed_at = CASE
 				WHEN $2::boolean IS NULL THEN completed_at
 				WHEN $2 THEN COALESCE(completed_at, now())
@@ -157,9 +157,10 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 			END
 		WHERE owner_id = $1 AND id = $2
 		RETURNING id, owner_id, title, created_at, completed_at`,
+		req.Title,
+		req.CompetedAt,
 		todoID,
 		userID,
-		req.Title,
 	).Scan(
 		&todo.ID,
 		&todo.OwnerID,
