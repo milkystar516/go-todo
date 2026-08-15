@@ -15,11 +15,11 @@ type Handler struct {
 }
 
 type Todo struct {
-	ID          int64     `json:"id"`
-	OwnerID     int64     `json:"owner_id"`
-	Title       string    `json:"title"`
-	CreatedAt   time.Time `json:"created_at"`
-	CompletedAt time.Time `json:"completed_at"`
+	ID          int64      `json:"id"`
+	OwnerID     int64      `json:"owner_id"`
+	Title       string     `json:"title"`
+	CreatedAt   time.Time  `json:"created_at"`
+	CompletedAt *time.Time `json:"completed_at"`
 }
 
 type TodoCreateRequest struct {
