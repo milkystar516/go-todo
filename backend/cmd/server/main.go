@@ -11,6 +11,7 @@ import (
 	"github.com/milkystar516/go-todo/backend/internal/logging"
 	"github.com/milkystar516/go-todo/backend/internal/postgres"
 	"github.com/milkystar516/go-todo/backend/internal/todo"
+	todorule "github.com/milkystar516/go-todo/backend/internal/todo_rule"
 )
 
 func main() {
@@ -34,6 +35,9 @@ func main() {
 		Secure:     cfg.SessionSecure,
 	})
 	authHandler.RegisterRoutes(mux)
+
+	todoRuleHandler := todorule.NewHandler(db)
+	todoRuleHandler.RegisterRoutes(mux, authHandler.RequireAuth)
 
 	todoHandler := todo.NewHandler(db)
 	todoHandler.RegisterRoutes(mux, authHandler.RequireAuth)
