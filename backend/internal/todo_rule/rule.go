@@ -11,7 +11,7 @@ const (
 	FieldSingleSelect FieldType = "single_select"
 )
 
-type FieldDefintion struct {
+type FieldDefinition struct {
 	Key          string    `json:"key"`
 	Label        string    `json:"label"`
 	Type         FieldType `json:"type"`

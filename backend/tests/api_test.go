@@ -111,7 +111,9 @@ func TestSignupLoginCreateAndGetTodos(t *testing.T) {
 			client,
 			server.URL+"/todos",
 			map[string]any{
-				"title": title,
+				"content": map[string]any{
+					"title": title,
+				},
 			},
 		)
 
@@ -133,11 +135,18 @@ func TestSignupLoginCreateAndGetTodos(t *testing.T) {
 			t.Fatal("created todo has no owner_id")
 		}
 
-		if created.Title != title {
+		if created.Content["title"] != title {
 			t.Fatalf(
-				"created title = %q, want %q",
-				created.Title,
+				"created content.title = %v, want %q",
+				created.Content["title"],
 				title,
+			)
+		}
+
+		if created.CompletedAt != nil {
+			t.Fatalf(
+				"created completed_at = %v, want nil",
+				created.CompletedAt,
 			)
 		}
 	}
@@ -167,12 +176,20 @@ func TestSignupLoginCreateAndGetTodos(t *testing.T) {
 	for i, got := range todos {
 		wantTitle := fmt.Sprintf("테스트 Todo %02d", i+1)
 
-		if got.Title != wantTitle {
+		if got.Content["title"] != wantTitle {
 			t.Errorf(
-				"todos[%d].title = %q, want %q",
+				"todos[%d].content.title = %v, want %q",
 				i,
-				got.Title,
+				got.Content["title"],
 				wantTitle,
+			)
+		}
+
+		if got.CompletedAt != nil {
+			t.Errorf(
+				"todos[%d].completed_at = %v, want nil",
+				i,
+				got.CompletedAt,
 			)
 		}
 	}

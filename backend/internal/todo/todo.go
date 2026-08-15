@@ -23,7 +23,7 @@ type Todo struct {
 	OwnerID     int64          `json:"owner_id"`
 	Content     map[string]any `json:"content"`
 	CreatedAt   time.Time      `json:"created_at"`
-	CompletedAt time.Time      `json:"completed_at"`
+	CompletedAt *time.Time     `json:"completed_at"`
 }
 
 type TodoCreateRequest struct {
@@ -31,7 +31,8 @@ type TodoCreateRequest struct {
 }
 
 type TodoUpdateRequest struct {
-	Content map[string]any `json:"content"`
+	Content     map[string]any `json:"content"`
+	CompletedAt *time.Time     `json:"completed_at"`
 }
 
 func NewHandler(db *pgxpool.Pool) *Handler {

@@ -2,7 +2,7 @@ package todorule
 
 import "fmt"
 
-func ValidateDefinition(fields []FieldDefintion) error {
+func ValidateDefinition(fields []FieldDefinition) error {
 	seen := make(map[string]struct{})
 
 	for _, field := range fields {

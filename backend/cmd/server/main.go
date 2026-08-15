@@ -22,6 +22,7 @@ func main() {
 	db, err := postgres.Open(ctx, cfg.DatabaseURL)
 	if err != nil {
 		slog.Error("failed to open pgsql", "error", err)
+		return
 	}
 	defer db.Close()
 

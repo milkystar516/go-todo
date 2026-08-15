@@ -1,6 +1,6 @@
 package todorule
 
-func Compile(fields []FieldDefintion) (JSONSchema, error) {
+func Compile(fields []FieldDefinition) (JSONSchema, error) {
 	if err := ValidateDefinition(fields); err != nil {
 		return JSONSchema{}, err
 	}
