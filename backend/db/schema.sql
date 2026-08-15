@@ -5,6 +5,12 @@ CREATE TABLE users (
     password_hash       text NOT NULL
 );
 
+CREATE TABLE sessions (
+    token        text PRIMARY KEY,
+    user_id      bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at   timestamptz NOT NULL
+);
+
 CREATE TABLE todos (
     id                  bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     owner_id            bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -13,8 +19,7 @@ CREATE TABLE todos (
     completed_at        timestamptz DEFAULT NULL
 );
 
-CREATE TABLE sessions (
-    token        text PRIMARY KEY,
-    user_id      bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    expires_at   timestamptz NOT NULL
+CREATE TABLE todo_rule (
+    id      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    fields  jsonb NOT NULL
 );

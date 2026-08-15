@@ -3,18 +3,17 @@ package todorule
 import (
 	"errors"
 	"fmt"
-	"strings"
 )
 
 func ValidateDefinition(fields []FieldDefinition) error {
 	seenKeys := make(map[string]struct{}, len(fields))
 
 	for _, field := range fields {
-		if strings.TrimSpace(field.Key) == "" {
+		if field.Key == "" {
 			return errors.New("field key must not be empty")
 		}
 
-		if strings.TrimSpace(field.Label) == "" {
+		if field.Label == "" {
 			return fmt.Errorf(
 				"field %q label must not be empty",
 				field.Key,
@@ -34,7 +33,6 @@ func ValidateDefinition(fields []FieldDefinition) error {
 				field.Key,
 			)
 		}
-
 		seenKeys[field.Key] = struct{}{}
 
 		switch field.Type {
@@ -43,7 +41,6 @@ func ValidateDefinition(fields []FieldDefinition) error {
 			FieldInteger,
 			FieldBoolean,
 			FieldDate:
-
 			if len(field.Options) > 0 {
 				return fmt.Errorf(
 					"field %q of type %q must not define options",
@@ -80,7 +77,7 @@ func validateSingleSelectOptions(field FieldDefinition) error {
 	seenOptions := make(map[string]struct{}, len(field.Options))
 
 	for _, option := range field.Options {
-		if strings.TrimSpace(option) == "" {
+		if option == "" {
 			return fmt.Errorf(
 				"single_select field %q contains an empty option",
 				field.Key,
@@ -94,7 +91,6 @@ func validateSingleSelectOptions(field FieldDefinition) error {
 				option,
 			)
 		}
-
 		seenOptions[option] = struct{}{}
 	}
 
@@ -109,7 +105,6 @@ func isReservedFieldKey(key string) bool {
 		"created_at",
 		"completed_at":
 		return true
-
 	default:
 		return false
 	}

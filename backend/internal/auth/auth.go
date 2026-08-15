@@ -35,7 +35,7 @@ type LoginRequest struct {
 }
 
 type loginUser struct {
-	ID           string
+	ID           int64
 	PasswordHash string
 }
 
@@ -171,7 +171,7 @@ func findUser(ctx context.Context, db *pgxpool.Pool, username string) (loginUser
 	return user, err
 }
 
-func createSession(ctx context.Context, db *pgxpool.Pool, userID string, ttl time.Duration) (string, error) {
+func createSession(ctx context.Context, db *pgxpool.Pool, userID int64, ttl time.Duration) (string, error) {
 	token, err := generateSessionToken()
 	if err != nil {
 		return "", err
