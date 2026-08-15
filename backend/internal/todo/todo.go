@@ -31,8 +31,7 @@ type TodoCreateRequest struct {
 }
 
 type TodoUpdateRequest struct {
-	Content     map[string]any `json:"content"`
-	CompletedAt *time.Time     `json:"completed_at"`
+	Content map[string]any `json:"content"`
 }
 
 func NewHandler(db *pgxpool.Pool) *Handler {
@@ -43,6 +42,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth func(http.Handl
 	mux.Handle("POST /todos", requireAuth(http.HandlerFunc(h.createTodo)))
 	mux.Handle("GET /todos", requireAuth(http.HandlerFunc(h.todosList)))
 	mux.Handle("PATCH /todos/{todo_id}", requireAuth(http.HandlerFunc(h.updateTodo)))
+	mux.Handle("PATCH /todos/{todo_id}/complete", requireAuth(http.HandlerFunc(h.toggleTodoComplete)))
 	mux.Handle("DELETE /todos/{todo_id}", requireAuth(http.HandlerFunc(h.deleteTodo)))
 }
 
@@ -180,7 +180,52 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		slog.ErrorContext(r.Context(), "update todo failed", "error", err)
+		slog.ErrorContext(r.Context(), "update todo content failed", "error", err)
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(todo)
+}
+
+func (h *Handler) toggleTodoComplete(w http.ResponseWriter, r *http.Request) {
+	todoID, err := strconv.ParseInt(r.PathValue("todo_id"), 10, 64)
+	if err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	var todo Todo
+
+	userID := auth.UserID(r.Context())
+
+	err = h.db.QueryRow(
+		r.Context(),
+		`UPDATE todos 
+		SET completed_at = CASE
+			WHEN completed_at IS NULL THEN now()
+			ELSE NULL
+		END
+		WHERE id = $2 AND owner_id = $3
+		RETURNING id, owner_id, content, created_at, completed_at`,
+		todoID,
+		userID,
+	).Scan(
+		&todo.ID,
+		&todo.OwnerID,
+		&todo.Content,
+		&todo.CreatedAt,
+		&todo.CompletedAt,
+	)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		http.Error(w, "todo not found", http.StatusNotFound)
+		return
+	}
+
+	if err != nil {
+		slog.ErrorContext(r.Context(), "update todo complete status failed", "error", err)
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
