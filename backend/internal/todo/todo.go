@@ -202,6 +202,7 @@ func (h *Handler) deleteTodo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.ErrorContext(r.Context(), "delete todo failed", "error", err)
 		http.Error(w, "server error", http.StatusInternalServerError)
+		return
 	}
 
 	if res.RowsAffected() == 0 {
