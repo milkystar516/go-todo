@@ -9,7 +9,7 @@ CREATE TABLE todos (
     id                  bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     owner_id            bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     content             jsonb NOT NULL,
-    created_at          timestamptz NOT NULL DEFAULT now(),
+    created_at          timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE sessions (

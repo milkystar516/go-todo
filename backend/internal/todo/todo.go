@@ -19,20 +19,18 @@ type Handler struct {
 }
 
 type Todo struct {
-	ID          int64      `json:"id"`
-	OwnerID     int64      `json:"owner_id"`
-	Title       string     `json:"title"`
-	CreatedAt   time.Time  `json:"created_at"`
-	CompletedAt *time.Time `json:"completed_at"`
+	ID        int64          `json:"id"`
+	OwnerID   int64          `json:"owner_id"`
+	Content   map[string]any `json:"content"`
+	CreatedAt time.Time      `json:"created_at"`
 }
 
 type TodoCreateRequest struct {
-	Title string `json:"title"`
+	Content map[string]any `json:"content"`
 }
 
 type TodoUpdateRequest struct {
-	Title      *string    `json:"title"`
-	CompetedAt *time.Time `json:"completed_at"`
+	Content map[string]any `json:"content"`
 }
 
 func NewHandler(db *pgxpool.Pool) *Handler {
@@ -54,22 +52,26 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Content == nil {
+		http.Error(w, "content is required", http.StatusBadRequest)
+		return
+	}
+
 	userID := auth.UserID(r.Context())
 
 	var todo Todo
 
 	err := h.db.QueryRow(
 		r.Context(),
-		`INSERT INTO todos (owner_id, title) VALUES ($1, $2)
-		RETURNING id, owner_id, title, created_at, completed_at`,
+		`INSERT INTO todos (owner_id, content) VALUES ($1, $2)
+		RETURNING id, owner_id, content, created_at`,
 		userID,
-		req.Title,
+		req.Content,
 	).Scan(
 		&todo.ID,
 		&todo.OwnerID,
-		&todo.Title,
+		&todo.Content,
 		&todo.CreatedAt,
-		&todo.CompletedAt,
 	)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "create todo failed", "error", err)
@@ -99,7 +101,9 @@ func (h *Handler) todosList(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) getTodos(ctx context.Context, ownerID int64) ([]Todo, error) {
 	rows, err := h.db.Query(
 		ctx,
-		"SELECT * FROM todos WHERE owner_id = $1 ORDER BY id",
+		`SELECT id, owner_id, content, created_at 
+		FROM todos WHERE owner_id = $1 
+		ORDER BY id`,
 		ownerID,
 	)
 	if err != nil {
@@ -115,9 +119,8 @@ func (h *Handler) getTodos(ctx context.Context, ownerID int64) ([]Todo, error) {
 		if err := rows.Scan(
 			&todo.ID,
 			&todo.OwnerID,
-			&todo.Title,
+			&todo.Content,
 			&todo.CreatedAt,
-			&todo.CompletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -142,31 +145,28 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Content == nil {
+		http.Error(w, "content is required", http.StatusBadRequest)
+		return
+	}
+
 	userID := auth.UserID(r.Context())
 
 	var todo Todo
 
 	err = h.db.QueryRow(
 		r.Context(),
-		`UPDATE todos SET 
-			title = COALESCE($1::text, title),
-			completed_at = CASE
-				WHEN $2::boolean IS NULL THEN completed_at
-				WHEN $2 THEN COALESCE(completed_at, now())
-				ELSE NULL
-			END
-		WHERE id = $3 AND owner_id = $4
-		RETURNING id, owner_id, title, created_at, completed_at`,
-		req.Title,
-		req.CompetedAt,
+		`UPDATE todos SET content = $1
+		WHERE id = $2 AND owner_id = $3
+		RETURNING id, owner_id, content, created_at`,
+		req.Content,
 		todoID,
 		userID,
 	).Scan(
 		&todo.ID,
 		&todo.OwnerID,
-		&todo.Title,
+		&todo.Content,
 		&todo.CreatedAt,
-		&todo.CompletedAt,
 	)
 
 	if errors.Is(err, pgx.ErrNoRows) {
