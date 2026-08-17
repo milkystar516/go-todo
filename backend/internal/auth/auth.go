@@ -135,7 +135,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 
 	user, err := findUser(r.Context(), h.db, req.Username)
 	if errors.Is(err, pgx.ErrNoRows) {
-		httpx.WriteProblem(w, http.StatusUnauthorized, "unauthorized")
+		httpx.WriteProblem(w, http.StatusUnauthorized, "invalid username or password")
 		return
 	}
 	if err != nil {
