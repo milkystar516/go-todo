@@ -16,7 +16,7 @@ type Handler struct {
 }
 
 type ruleRequest struct {
-	RuleName string            `json:"rule_name"`
+	RuleName string            `json:"rule_name" validate:"max=50"`
 	Fields   []FieldDefinition `json:"fields"`
 }
 
