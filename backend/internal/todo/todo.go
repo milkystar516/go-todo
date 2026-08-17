@@ -27,11 +27,11 @@ type Todo struct {
 }
 
 type TodoCreateRequest struct {
-	Content map[string]any `json:"content"`
+	Content map[string]any `json:"content" validate:"required"`
 }
 
 type TodoUpdateRequest struct {
-	Content map[string]any `json:"content"`
+	Content map[string]any `json:"content" validate:"required"`
 }
 
 func NewHandler(db *pgxpool.Pool) *Handler {
@@ -51,11 +51,6 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-
-	if req.Content == nil {
-		http.Error(w, "content is required", http.StatusBadRequest)
 		return
 	}
 
@@ -146,11 +141,6 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-
-	if req.Content == nil {
-		http.Error(w, "content is required", http.StatusBadRequest)
 		return
 	}
 

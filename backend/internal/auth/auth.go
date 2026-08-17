@@ -26,8 +26,8 @@ type Handler struct {
 }
 
 type SignupRequest struct {
-	Username string  `json:"username"`
-	Nickname *string `json:"nickname"`
+	Username string  `json:"username" validate:"max=50"`
+	Nickname *string `json:"nickname" validate:"omitempty,max=50"`
 	Password string  `json:"password"`
 }
 
