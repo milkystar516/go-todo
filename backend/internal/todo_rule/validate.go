@@ -5,6 +5,19 @@ import (
 	"fmt"
 )
 
+type validationError struct {
+	message string
+	err     error
+}
+
+func (e *validationError) Error() string {
+	return e.message
+}
+
+func (e *validationError) Unwrap() error {
+	return e.err
+}
+
 func validateDefinition(fields []FieldDefinition) error {
 	seenKeys := make(map[string]struct{}, len(fields))
 

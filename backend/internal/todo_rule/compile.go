@@ -2,7 +2,10 @@ package todorule
 
 func Compile(fields []FieldDefinition) (*ContentValidator, error) {
 	if err := validateDefinition(fields); err != nil {
-		return nil, err
+		return nil, &validationError{
+			message: err.Error(),
+			err:     err,
+		}
 	}
 
 	return newContentValidator(buildSchema(fields))

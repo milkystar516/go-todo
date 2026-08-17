@@ -41,6 +41,29 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := httpx.Validate(req); err != nil {
+		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid rule request")
+		return
+	}
+
+	_, err = Compile(req.Fields)
+
+	var validationErr *validationError
+
+	if errors.As(err, &validationErr) {
+		httpx.WriteProblem(
+			w,
+			http.StatusUnprocessableEntity,
+			validationErr.Error(),
+		)
+		return
+	}
+
+	if err != nil {
+		httpx.ServerError(w, r, err)
+		return
+	}
+
 	var rule ruleResponse
 
 	err = h.db.QueryRow(
@@ -66,18 +89,29 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
+	ruleID, err := strconv.ParseInt(r.PathValue("rule_id"), 10, 64)
+	if err != nil {
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		return
+	}
+
 	req, err := readRuleRequest(r)
 	if err != nil {
 		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
 		return
 	}
 
-	validator, err := Compile(req.Fields)
+	if err := httpx.Validate(req); err != nil {
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		return
+	}
+
+	_, err = Compile(req.Fields)
 
 	var validationErr *validationError
 
 	if errors.As(err, &validationErr) {
-		http.Error(w, validationErr.Error(), http.StatusBadRequest)
+		httpx.WriteProblem(w, http.StatusUnprocessableEntity, validationErr.Error())
 		return
 	}
 	if err != nil {
@@ -85,13 +119,21 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = h.db.Exec(
+	result, err := h.db.Exec(
 		r.Context(),
-		`INSERT INTO todo_rule (fields) SET fields = EXCLUDED.fields`,
+		`UPDATE todo_rule
+		 SET rule_name = $1, fields = $2
+		 WHERE id = $3`,
+		req.RuleName,
 		req.Fields,
+		ruleID,
 	)
 	if err != nil {
 		httpx.ServerError(w, r, err)
+		return
+	}
+	if result.RowsAffected() == 0 {
+		httpx.WriteProblem(w, http.StatusNotFound, "todo rule not found")
 		return
 	}
 
@@ -101,10 +143,7 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 func readRuleRequest(r *http.Request) (ruleRequest, error) {
 	var req ruleRequest
 
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-
-	if err := decoder.Decode(&req); err != nil {
+	if err := httpx.DecodeJSON(r, &req); err != nil {
 		return ruleRequest{}, err
 	}
 
