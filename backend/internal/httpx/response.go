@@ -13,17 +13,11 @@ type problem struct {
 }
 
 func WriteProblem(w http.ResponseWriter, status int, detail string) {
-	title := http.StatusText(status)
-
-	if status == http.StatusUnprocessableEntity {
-		title = "Unprocessable Content"
-	}
-
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(status)
 
 	_ = json.NewEncoder(w).Encode(problem{
-		Title:  title,
+		Title:  http.StatusText(status),
 		Status: status,
 		Detail: detail,
 	})
