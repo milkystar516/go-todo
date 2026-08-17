@@ -17,7 +17,6 @@ type FieldDefinition struct {
 	Type         FieldType `json:"type"`
 	Required     bool      `json:"required"`
 	ShowInList   bool      `json:"show_in_list"`
-	Order        int       `json:"order"`
 	DefaultValue any       `json:"default_value,omitempty"`
 	Options      []string  `json:"options,omitempty"`
 }
