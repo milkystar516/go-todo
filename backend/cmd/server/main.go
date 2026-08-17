@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"log/slog"
 	"net/http"
 
@@ -43,7 +42,7 @@ func main() {
 	todoHandler.RegisterRoutes(mux, authHandler.RequireAuth)
 
 	addr := cfg.Host + ":" + cfg.Port
-	log.Printf("server listening on http://%s", addr)
+	slog.Info("server listening", "address", "http://"+addr)
 
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		slog.Error("server stopped", "error", err)
