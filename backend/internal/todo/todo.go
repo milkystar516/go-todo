@@ -21,12 +21,14 @@ type Handler struct {
 type Todo struct {
 	ID          int64          `json:"id"`
 	OwnerID     int64          `json:"owner_id"`
+	RuleID      int64          `json:"rule_id"`
 	Content     map[string]any `json:"content"`
 	CreatedAt   time.Time      `json:"created_at"`
 	CompletedAt *time.Time     `json:"completed_at"`
 }
 
 type TodoCreateRequest struct {
+	RuleID  int64          `json:"rule_id" validate:"required,gt=0"`
 	Content map[string]any `json:"content" validate:"required"`
 }
 
@@ -66,7 +68,7 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 	err := h.db.QueryRow(
 		r.Context(),
 		`INSERT INTO todos (owner_id, content) VALUES ($1, $2)
-		RETURNING id, owner_id, content, created_at, completed_at`,
+		RETURNING id, rule_id, owner_id, content, created_at, completed_at`,
 		userID,
 		req.Content,
 	).Scan(
@@ -161,7 +163,7 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		`UPDATE todos SET content = $1
 		WHERE id = $2 AND owner_id = $3
-		RETURNING id, owner_id, content, created_at, completed_at`,
+		RETURNING id, rule_id, owner_id, content, created_at, completed_at`,
 		req.Content,
 		todoID,
 		userID,
@@ -206,7 +208,7 @@ func (h *Handler) toggleTodoComplete(w http.ResponseWriter, r *http.Request) {
 			ELSE NULL
 		END
 		WHERE id = $1 AND owner_id = $2
-		RETURNING id, owner_id, content, created_at, completed_at`,
+		RETURNING id, rule_id, owner_id, content, created_at, completed_at`,
 		todoID,
 		userID,
 	).Scan(
