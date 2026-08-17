@@ -128,9 +128,14 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := httpx.Validate(req); err != nil {
+		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid login request")
+		return
+	}
+
 	user, err := findUser(r.Context(), h.db, req.Username)
 	if errors.Is(err, pgx.ErrNoRows) {
-		http.Error(w, "invalid username or password", http.StatusUnauthorized)
+		httpx.WriteProblem(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 	if err != nil {
@@ -139,9 +144,12 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = checkPassword(user, req.Password)
-
 	if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 		httpx.WriteProblem(w, http.StatusUnauthorized, "invalid username or password")
+		return
+	}
+	if err != nil {
+		httpx.ServerError(w, r, err)
 		return
 	}
 
@@ -167,7 +175,7 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(h.cfg.CookieName)
 	if err == nil {
 		if err := deleteSession(r.Context(), h.db, cookie.Value); err != nil {
-			http.Error(w, "server error", http.StatusInternalServerError)
+			httpx.ServerError(w, r, err)
 			return
 		}
 	}
