@@ -3,8 +3,8 @@ package todorule
 import (
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -47,24 +47,22 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		`INSERT INTO todo_rule (rule_name, fields)
 		VALUES ($1, $2)
-		RETURNING rule_name, id`,
+		RETURNING id, rule_name`,
 		req.RuleName,
 		req.Fields,
-	).Scan(&ruleID)
+	).Scan(
+		&rule.ID,
+		&rule.RuleName,
+	)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "create todo rule failed", "error", err)
-		http.Error(w, "server error", http.StatusInternalServerError)
+		httpx.ServerError(w, r, err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Location", "/todo-rule/"+strconv.FormatInt(rule.ID, 10))
 	w.WriteHeader(http.StatusCreated)
-
-	if err := json.NewEncoder(w).Encode(map[string]int64{
-		"id": ruleID,
-	}); err != nil {
-		slog.ErrorContext(r.Context(), "encode todo rule response failed", "error", err)
-	}
+	json.NewEncoder(w).Encode(rule)
 }
 
 func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
@@ -93,8 +91,7 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 		req.Fields,
 	)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "update todo rule failed", "error", err)
-		http.Error(w, "server error", http.StatusInternalServerError)
+		httpx.ServerError(w, r, err)
 		return
 	}
 
