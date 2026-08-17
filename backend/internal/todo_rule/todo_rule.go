@@ -37,7 +37,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth func(http.Handl
 func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 	req, err := readRuleRequest(r)
 	if err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
 		return
 	}
 
@@ -70,7 +70,7 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 	req, err := readRuleRequest(r)
 	if err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
 		return
 	}
 

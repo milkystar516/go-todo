@@ -3,16 +3,19 @@ package auth
 import (
 	"context"
 	"crypto/rand"
-	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/milkystar516/go-todo/backend/internal/httpx"
 	"golang.org/x/crypto/bcrypt"
 )
+
+var errUsernameExists = errors.New("username already exists")
 
 type Config struct {
 	CookieName string
@@ -32,7 +35,7 @@ type SignupRequest struct {
 }
 
 type LoginRequest struct {
-	Username string `json:"username"`
+	Username string `json:"username" validate:"max=50"`
 	Password string `json:"password"`
 }
 
@@ -62,13 +65,17 @@ func (h *Handler) RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(h.cfg.CookieName)
 		if err != nil {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			httpx.WriteProblem(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
 
 		userID, err := findSessionUser(r.Context(), h.db, cookie.Value)
+		if errors.Is(err, pgx.ErrNoRows) {
+			httpx.WriteProblem(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
 		if err != nil {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			httpx.ServerError(w, r, err)
 			return
 		}
 
@@ -83,14 +90,30 @@ func UserID(ctx context.Context) int64 {
 }
 
 func (h *Handler) signup(w http.ResponseWriter, r *http.Request) {
-	req, err := readSignupRequest(r)
-	if err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
+	var req SignupRequest
+
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
 		return
 	}
 
-	if err := createUser(r.Context(), h.db, req); err != nil {
-		http.Error(w, "server error", http.StatusInternalServerError)
+	if err := httpx.Validate(req); err != nil {
+		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid signup request")
+		return
+	}
+
+	err := createUser(r.Context(), h.db, req)
+	switch {
+	case errors.Is(err, errUsernameExists):
+		httpx.WriteProblem(w, http.StatusConflict, "username already exists")
+		return
+
+	case errors.Is(err, bcrypt.ErrPasswordTooLong):
+		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "password is too long")
+		return
+
+	case err != nil:
+		httpx.ServerError(w, r, err)
 		return
 	}
 
@@ -100,8 +123,8 @@ func (h *Handler) signup(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
 		return
 	}
 
@@ -115,14 +138,16 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := checkPassword(user, req.Password); err != nil {
-		http.Error(w, "invalid username or password", http.StatusUnauthorized)
+	err = checkPassword(user, req.Password)
+
+	if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+		httpx.WriteProblem(w, http.StatusUnauthorized, "invalid username or password")
 		return
 	}
 
 	token, err := createSession(r.Context(), h.db, user.ID, h.cfg.SessionTTL)
 	if err != nil {
-		http.Error(w, "server error", http.StatusInternalServerError)
+		httpx.ServerError(w, r, err)
 		return
 	}
 
@@ -160,14 +185,6 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func readSignupRequest(r *http.Request) (SignupRequest, error) {
-	var req SignupRequest
-
-	err := json.NewDecoder(r.Body).Decode(&req)
-
-	return req, err
-}
-
 func createUser(ctx context.Context, db *pgxpool.Pool, req SignupRequest) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -182,7 +199,20 @@ func createUser(ctx context.Context, db *pgxpool.Pool, req SignupRequest) error 
 		string(hash),
 	)
 
-	return err
+	if err == nil {
+		return nil
+	}
+
+	var pgErr *pgconn.PgError
+
+	if errors.As(err, &pgErr) &&
+		pgErr.Code == "23505" &&
+		pgErr.ConstraintName == "users_username_key" {
+
+		return errUsernameExists
+	}
+
+	return fmt.Errorf("insert user: %w", err)
 }
 
 func findUser(ctx context.Context, db *pgxpool.Pool, username string) (loginUser, error) {

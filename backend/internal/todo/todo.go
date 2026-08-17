@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/milkystar516/go-todo/backend/internal/auth"
+	"github.com/milkystar516/go-todo/backend/internal/httpx"
 )
 
 type Handler struct {
@@ -49,8 +49,13 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth func(http.Handl
 func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 	var req TodoCreateRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		return
+	}
+
+	if err := httpx.Validate(req); err != nil {
+		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid todo request")
 		return
 	}
 
@@ -72,12 +77,12 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 		&todo.CompletedAt,
 	)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "create todo failed", "error", err)
-		http.Error(w, "server error", http.StatusInternalServerError)
+		httpx.ServerError(w, r, err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Location", "/todos/"+strconv.FormatInt(todo.ID, 10))
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(todo)
 }
@@ -87,8 +92,7 @@ func (h *Handler) todosList(w http.ResponseWriter, r *http.Request) {
 
 	todos, err := h.getTodos(r.Context(), ownerID)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "get todo list failed", "error", err)
-		http.Error(w, "server error", http.StatusInternalServerError)
+		httpx.ServerError(w, r, err)
 		return
 	}
 
@@ -133,14 +137,19 @@ func (h *Handler) getTodos(ctx context.Context, ownerID int64) ([]Todo, error) {
 func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 	todoID, err := strconv.ParseInt(r.PathValue("todo_id"), 10, 64)
 	if err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
 		return
 	}
 
 	var req TodoUpdateRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		return
+	}
+
+	if err := httpx.Validate(req); err != nil {
+		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid todo request")
 		return
 	}
 
@@ -165,13 +174,12 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		http.Error(w, "todo not found", http.StatusNotFound)
+		httpx.WriteProblem(w, http.StatusNotFound, "todo not found")
 		return
 	}
 
 	if err != nil {
-		slog.ErrorContext(r.Context(), "update todo content failed", "error", err)
-		http.Error(w, "server error", http.StatusInternalServerError)
+		httpx.ServerError(w, r, err)
 		return
 	}
 
@@ -182,7 +190,7 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) toggleTodoComplete(w http.ResponseWriter, r *http.Request) {
 	todoID, err := strconv.ParseInt(r.PathValue("todo_id"), 10, 64)
 	if err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
 		return
 	}
 
@@ -210,13 +218,12 @@ func (h *Handler) toggleTodoComplete(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		http.Error(w, "todo not found", http.StatusNotFound)
+		httpx.WriteProblem(w, http.StatusNotFound, "todo not found")
 		return
 	}
 
 	if err != nil {
-		slog.ErrorContext(r.Context(), "update todo complete status failed", "error", err)
-		http.Error(w, "server error", http.StatusInternalServerError)
+		httpx.ServerError(w, r, err)
 		return
 	}
 
@@ -227,7 +234,7 @@ func (h *Handler) toggleTodoComplete(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) deleteTodo(w http.ResponseWriter, r *http.Request) {
 	todoID, err := strconv.ParseInt(r.PathValue("todo_id"), 10, 64)
 	if err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
 		return
 	}
 
@@ -240,13 +247,12 @@ func (h *Handler) deleteTodo(w http.ResponseWriter, r *http.Request) {
 		userID,
 	)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "delete todo failed", "error", err)
-		http.Error(w, "server error", http.StatusInternalServerError)
+		httpx.ServerError(w, r, err)
 		return
 	}
 
 	if res.RowsAffected() == 0 {
-		http.Error(w, "todo not found", http.StatusNotFound)
+		httpx.WriteProblem(w, http.StatusNotFound, "todo not found")
 		return
 	}
 
