@@ -14,7 +14,13 @@ type Handler struct {
 }
 
 type ruleRequest struct {
-	Fields []FieldDefinition `json:"fields"`
+	RuleName string            `json:"rule_name"`
+	Fields   []FieldDefinition `json:"fields"`
+}
+
+type ruleResponse struct {
+	ID       int64  `json:"id"`
+	RuleName string `json:"rule_name"`
 }
 
 func NewHandler(db *pgxpool.Pool) *Handler {
@@ -33,29 +39,30 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	schema, err := Compile(req.Fields)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	var rule ruleResponse
 
-	if _, err := newContentValidator(schema); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	_, err = h.db.Exec(
+	err = h.db.QueryRow(
 		r.Context(),
-		`UPDATE todo_rules SET fields = EXCLUDED.fields`,
+		`INSERT INTO todo_rule (rule_name, fields)
+		VALUES ($1, $2)
+		RETURNING rule_name, id`,
+		req.RuleName,
 		req.Fields,
-	)
+	).Scan(&ruleID)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "update todo rule failed", "error", err)
+		slog.ErrorContext(r.Context(), "create todo rule failed", "error", err)
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
+	if err := json.NewEncoder(w).Encode(map[string]int64{
+		"id": ruleID,
+	}); err != nil {
+		slog.ErrorContext(r.Context(), "encode todo rule response failed", "error", err)
+	}
 }
 
 func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
@@ -65,13 +72,7 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	schema, err := Compile(req.Fields)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if _, err := newContentValidator(schema); err != nil {
+	if _, err := Compile(req.Fields); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -93,7 +94,10 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 func readRuleRequest(r *http.Request) (ruleRequest, error) {
 	var req ruleRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(&req); err != nil {
 		return ruleRequest{}, err
 	}
 

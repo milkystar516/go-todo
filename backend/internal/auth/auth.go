@@ -132,23 +132,12 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
-	var req LoginRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-
-	user, err := findUser(r.Context(), h.db, req.Username)
-	if err != nil {
-		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
-		return
-	}
-
-	err = deleteSession(r.Context(), h.db, user.ID)
-	if err != nil {
-		http.Error(w, "server error", http.StatusInternalServerError)
-		return
+	cookie, err := r.Cookie(h.cfg.CookieName)
+	if err == nil {
+		if err := deleteSession(r.Context(), h.db, cookie.Value); err != nil {
+			http.Error(w, "server error", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	c := &http.Cookie{
@@ -219,11 +208,11 @@ func createSession(ctx context.Context, db *pgxpool.Pool, userID int64, ttl time
 	return token, err
 }
 
-func deleteSession(ctx context.Context, db *pgxpool.Pool, userID int64) error {
+func deleteSession(ctx context.Context, db *pgxpool.Pool, token string) error {
 	_, err := db.Exec(
 		ctx,
-		"DELETE FROM sessions WHERE user_id = $1",
-		userID,
+		"DELETE FROM sessions WHERE token = $1",
+		token,
 	)
 
 	return err

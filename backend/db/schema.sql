@@ -21,5 +21,6 @@ CREATE TABLE todos (
 
 CREATE TABLE todo_rule (
     id                  bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    rule_name           varchar(50) NOT NULL,
     fields              jsonb NOT NULL
 );
