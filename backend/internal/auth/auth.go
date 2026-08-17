@@ -52,6 +52,7 @@ func NewHandler(db *pgxpool.Pool, cfg Config) *Handler {
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /signup", h.signup)
 	mux.HandleFunc("POST /login", h.login)
+	mux.HandleFunc("DELETE /logout", h.logout)
 }
 
 func (h *Handler) RequireAuth(next http.Handler) http.Handler {
@@ -130,6 +131,39 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
+	var req LoginRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	user, err := findUser(r.Context(), h.db, req.Username)
+	if err != nil {
+		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+		return
+	}
+
+	err = deleteSession(r.Context(), h.db, user.ID)
+	if err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+
+	c := &http.Cookie{
+		Name:     h.cfg.CookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   h.cfg.Secure,
+		Expires:  time.Now(),
+	}
+
+	http.SetCookie(w, c)
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func readSignupRequest(r *http.Request) (SignupRequest, error) {
 	var req SignupRequest
 
@@ -183,6 +217,16 @@ func createSession(ctx context.Context, db *pgxpool.Pool, userID int64, ttl time
 	)
 
 	return token, err
+}
+
+func deleteSession(ctx context.Context, db *pgxpool.Pool, userID int64) error {
+	_, err := db.Exec(
+		ctx,
+		"DELETE FROM sessions WHERE user_id = $1",
+		userID,
+	)
+
+	return err
 }
 
 func findSessionUser(ctx context.Context, db *pgxpool.Pool, token string) (int64, error) {

@@ -12,7 +12,7 @@ type ContentValidator struct {
 	schema *jsonschema.Schema
 }
 
-func NewContentValidator(schemaDocument map[string]any) (*ContentValidator, error) {
+func newContentValidator(schemaDocument map[string]any) (*ContentValidator, error) {
 	compiler := jsonschema.NewCompiler()
 	compiler.DefaultDraft(jsonschema.Draft2020)
 	compiler.AssertFormat()

@@ -1,10 +1,14 @@
 package todorule
 
-func Compile(fields []FieldDefinition) (map[string]any, error) {
-	if err := ValidateDefinition(fields); err != nil {
+func Compile(fields []FieldDefinition) (*ContentValidator, error) {
+	if err := validateDefinition(fields); err != nil {
 		return nil, err
 	}
 
+	return newContentValidator(buildSchema(fields))
+}
+
+func buildSchema(fields []FieldDefinition) map[string]any {
 	properties := make(map[string]any, len(fields))
 	required := make([]any, 0)
 
@@ -60,5 +64,5 @@ func Compile(fields []FieldDefinition) (map[string]any, error) {
 		schema["required"] = required
 	}
 
-	return schema, nil
+	return schema
 }

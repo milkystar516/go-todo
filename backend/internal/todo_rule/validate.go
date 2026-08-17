@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-func ValidateDefinition(fields []FieldDefinition) error {
+func validateDefinition(fields []FieldDefinition) error {
 	seenKeys := make(map[string]struct{}, len(fields))
 
 	for _, field := range fields {
@@ -16,13 +16,6 @@ func ValidateDefinition(fields []FieldDefinition) error {
 		if field.Label == "" {
 			return fmt.Errorf(
 				"field %q label must not be empty",
-				field.Key,
-			)
-		}
-
-		if isReservedFieldKey(field.Key) {
-			return fmt.Errorf(
-				"field key %q is reserved",
 				field.Key,
 			)
 		}
@@ -95,17 +88,4 @@ func validateSingleSelectOptions(field FieldDefinition) error {
 	}
 
 	return nil
-}
-
-func isReservedFieldKey(key string) bool {
-	switch key {
-	case "id",
-		"owner_id",
-		"content",
-		"created_at",
-		"completed_at":
-		return true
-	default:
-		return false
-	}
 }

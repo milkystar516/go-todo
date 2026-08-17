@@ -13,11 +13,7 @@ type Handler struct {
 	db *pgxpool.Pool
 }
 
-type CreateRuleRequest struct {
-	Fields []FieldDefinition `json:"fields"`
-}
-
-type UpdateRuleRequest struct {
+type ruleRequest struct {
 	Fields []FieldDefinition `json:"fields"`
 }
 
@@ -31,7 +27,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth func(http.Handl
 }
 
 func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
-	req, err := readUpdateRuleRequest(r)
+	req, err := readRuleRequest(r)
 	if err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
@@ -43,7 +39,7 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := NewContentValidator(schema); err != nil {
+	if _, err := newContentValidator(schema); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -63,7 +59,7 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
-	req, err := readUpdateRuleRequest(r)
+	req, err := readRuleRequest(r)
 	if err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
@@ -75,7 +71,7 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := NewContentValidator(schema); err != nil {
+	if _, err := newContentValidator(schema); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -94,11 +90,11 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func readUpdateRuleRequest(r *http.Request) (UpdateRuleRequest, error) {
-	var req UpdateRuleRequest
+func readRuleRequest(r *http.Request) (ruleRequest, error) {
+	var req ruleRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return UpdateRuleRequest{}, err
+		return ruleRequest{}, err
 	}
 
 	for i := range req.Fields {

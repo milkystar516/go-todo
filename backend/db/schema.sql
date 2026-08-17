@@ -20,6 +20,6 @@ CREATE TABLE todos (
 );
 
 CREATE TABLE todo_rule (
-    id      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    fields  jsonb NOT NULL
+    id                  bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    fields              jsonb NOT NULL
 );
