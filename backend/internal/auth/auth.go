@@ -4,10 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/milkystar516/go-todo/backend/internal/httpx"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -103,8 +106,12 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := findUser(r.Context(), h.db, req.Username)
+	if errors.Is(err, pgx.ErrNoRows) {
+		http.Error(w, "invalid username or password", http.StatusUnauthorized)
+		return
+	}
 	if err != nil {
-		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+		httpx.ServerError(w, r, err)
 		return
 	}
 

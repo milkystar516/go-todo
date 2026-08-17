@@ -2,11 +2,13 @@ package todorule
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/milkystar516/go-todo/backend/internal/httpx"
 )
 
 type Handler struct {
@@ -72,8 +74,16 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := Compile(req.Fields); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	validator, err := Compile(req.Fields)
+
+	var validationErr *validationError
+
+	if errors.As(err, &validationErr) {
+		http.Error(w, validationErr.Error(), http.StatusBadRequest)
+		return
+	}
+	if err != nil {
+		httpx.ServerError(w, r, err)
 		return
 	}
 
