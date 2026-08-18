@@ -68,14 +68,13 @@ func (s *Service) ValidatorTx(ctx context.Context, tx pgx.Tx, ruleID int64) (*Co
 }
 
 func (s *Service) CreateTodoRule(ctx context.Context, ruleName string, fields []FieldDefinition) (ruleResponse, error) {
-	validator, err := Compile(fields)
-	if err != nil {
+	if _, err := Compile(fields); err != nil {
 		return ruleResponse{}, err
 	}
 
 	var rule ruleResponse
 
-	err = s.db.QueryRow(
+	err := s.db.QueryRow(
 		ctx,
 		`INSERT INTO todo_rule(rule_name, fields)
 		VALUES ($1, $2)
@@ -87,12 +86,8 @@ func (s *Service) CreateTodoRule(ctx context.Context, ruleName string, fields []
 		&rule.RuleName,
 	)
 	if err != nil {
-		return ruleResponse{}, fmt.Errorf("update todo rule: %w", err)
+		return ruleResponse{}, fmt.Errorf("create todo rule: %w", err)
 	}
-
-	s.mu.Lock()
-	s.validators[rule.ID] = validator
-	s.mu.Unlock()
 
 	return rule, nil
 }
