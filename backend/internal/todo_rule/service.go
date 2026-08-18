@@ -97,30 +97,35 @@ func (s *Service) CreateTodoRule(ctx context.Context, ruleName string, fields []
 	return rule, nil
 }
 
-func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName string, fields []FieldDefinition) error {
+func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName string, fields []FieldDefinition) (ruleResponse, error) {
 	validator, err := Compile(fields)
 	if err != nil {
-		return err
+		return ruleResponse{}, err
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	result, err := s.db.Exec(
+	var rule ruleResponse
+
+	err = s.db.QueryRow(
 		ctx,
 		"UPDATE todo_rule SET rule_name = $1, fields = $2 WHERE id = $3",
 		ruleName,
 		fields,
 		ruleID,
+	).Scan(
+		&rule.ID,
+		&rule.RuleName,
 	)
-	if err != nil {
-		return fmt.Errorf("update todo rule: %w", err)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ruleResponse{}, ErrRuleNotFound
 	}
-	if result.RowsAffected() == 0 {
-		return ErrRuleNotFound
+	if err != nil {
+		return ruleResponse{}, fmt.Errorf("update todo rule: %w", err)
 	}
 
 	s.validators[ruleID] = validator
 
-	return nil
+	return rule, nil
 }

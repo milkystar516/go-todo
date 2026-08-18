@@ -45,16 +45,10 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = Compile(req.Fields)
+	rule, err := h.rules.CreateTodoRule(r.Context(), req.RuleName, req.Fields)
 
-	var validationErr *validationError
-
-	if errors.As(err, &validationErr) {
-		httpx.WriteProblem(
-			w,
-			http.StatusUnprocessableEntity,
-			validationErr.Error(),
-		)
+	if validationErr, ok := errors.AsType[*validationError](err); ok {
+		httpx.WriteProblem(w, http.StatusUnprocessableEntity, validationErr.Error())
 		return
 	}
 
@@ -62,8 +56,6 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 		httpx.ServerError(w, r, err)
 		return
 	}
-
-	rule, err := h.rules.CreateTodoRule(r.Context(), req.RuleName, req.Fields)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Location", "/todo-rule/"+strconv.FormatInt(rule.ID, 10))
@@ -89,11 +81,9 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = Compile(req.Fields)
+	rule, err := h.rules.UpdateTodoRule(r.Context(), ruleID, req.RuleName, req.Fields)
 
-	var validationErr *validationError
-
-	if errors.As(err, &validationErr) {
+	if validationErr, ok := errors.AsType[*validationError](err); ok {
 		httpx.WriteProblem(w, http.StatusUnprocessableEntity, validationErr.Error())
 		return
 	}
@@ -102,9 +92,8 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.rules.UpdateTodoRule(r.Context(), ruleID, req.RuleName, req.Fields)
-
-	w.WriteHeader(http.StatusNoContent)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rule)
 }
 
 func readRuleRequest(r *http.Request) (ruleRequest, error) {
