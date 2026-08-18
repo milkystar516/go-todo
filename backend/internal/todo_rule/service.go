@@ -93,34 +93,85 @@ func (s *Service) CreateTodoRule(ctx context.Context, ruleName string, fields []
 }
 
 func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName string, fields []FieldDefinition) (ruleResponse, error) {
-	validator, err := Compile(fields)
-	if err != nil {
+	if _, err := Compile(fields); err != nil {
 		return ruleResponse{}, err
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	var rule ruleResponse
 
-	err = s.db.QueryRow(
+	err := pgx.BeginFunc(
 		ctx,
-		"UPDATE todo_rule SET rule_name = $1, fields = $2 WHERE id = $3",
-		ruleName,
-		fields,
-		ruleID,
-	).Scan(
-		&rule.ID,
-		&rule.RuleName,
-	)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ruleResponse{}, ErrRuleNotFound
-	}
-	if err != nil {
-		return ruleResponse{}, fmt.Errorf("update todo rule: %w", err)
-	}
+		s.db,
+		func(tx pgx.Tx) error {
+			var exists int
 
-	s.validators[ruleID] = validator
+			err := tx.QueryRow(
+				ctx,
+				`SELECT 1 FROM todo_rule WHERE id = $1
+				FOR NO KEY UPDATE`,
+				ruleID,
+			).Scan(&exists)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrRuleNotFound
+			}
+			if err != nil {
+				return fmt.Errorf("lock todo rule for update: %w", err)
+			}
+
+			_, err = tx.Exec(
+				ctx,
+				`WITH deleted AS (
+					SELECT ARRAY(
+						SELECT old_field ->> 'key'
+						FROM todo_rule AS rule
+						CROSS JOIN LATERAL
+							jsonb_array_elements(rule.fields) AS old_field
+						WHERE rule.id = $1
+
+						EXCEPT
+
+						SELECT new_field ->> 'key'
+						FROM jsonb_array_elements($2::jsonb) AS new_field
+					) AS keys
+				)
+				UPDATE todos
+				SET content = content - deleted.keys
+				FROM deleted
+				WHERE todos.rule_id = $1 AND cardinality(deleted.keys) > 0`,
+				ruleID,
+				fields,
+			)
+			if err != nil {
+				return fmt.Errorf("prune removed todo fields: %w", err)
+			}
+
+			err = tx.QueryRow(
+				ctx,
+				`UPDATE todo_rule 
+				 SET rule_name = $1, fields = $2
+				 WHERE id = $3
+				 RETURNING id, rule_name`,
+				ruleName,
+				fields,
+				ruleID,
+			).Scan(
+				&rule.ID,
+				&rule.RuleName,
+			)
+			if err != nil {
+				return fmt.Errorf("update todo rule: %w", err)
+			}
+
+			s.mu.Lock()
+			delete(s.validators, ruleID)
+			s.mu.Unlock()
+
+			return nil
+		},
+	)
+	if err != nil {
+		return ruleResponse{}, err
+	}
 
 	return rule, nil
 }

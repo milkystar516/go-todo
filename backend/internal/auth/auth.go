@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/milkystar516/go-todo/backend/internal/httpx"
 	"golang.org/x/crypto/bcrypt"
@@ -199,28 +198,22 @@ func createUser(ctx context.Context, db *pgxpool.Pool, req SignupRequest) error 
 		return err
 	}
 
-	_, err = db.Exec(
+	result, err := db.Exec(
 		ctx,
-		"INSERT INTO users (username, nickname, password_hash) VALUES ($1, $2, $3)",
+		`INSERT INTO users (username, nickname, password_hash) VALUES ($1, $2, $3)
+		ON CONFLICT (username) DO NOTHING`,
 		req.Username,
 		req.Nickname,
 		string(hash),
 	)
-
-	if err == nil {
-		return nil
+	if err != nil {
+		return fmt.Errorf("insert user: %w", err)
 	}
-
-	var pgErr *pgconn.PgError
-
-	if errors.As(err, &pgErr) &&
-		pgErr.Code == "23505" &&
-		pgErr.ConstraintName == "users_username_key" {
-
+	if result.RowsAffected() == 0 {
 		return errUsernameExists
 	}
 
-	return fmt.Errorf("insert user: %w", err)
+	return nil
 }
 
 func findUser(ctx context.Context, db *pgxpool.Pool, username string) (loginUser, error) {
