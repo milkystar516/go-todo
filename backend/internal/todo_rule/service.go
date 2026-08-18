@@ -67,7 +67,7 @@ func (s *Service) Validator(ctx context.Context, ruleID int64) (*ContentValidato
 	return validator, nil
 }
 
-func (s *Service) CreateTodoRule(ctx context.Context, ruleID int64, ruleName string, fields []FieldDefinition) (ruleResponse, error) {
+func (s *Service) CreateTodoRule(ctx context.Context, ruleName string, fields []FieldDefinition) (ruleResponse, error) {
 	validator, err := Compile(fields)
 	if err != nil {
 		return ruleResponse{}, err

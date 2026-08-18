@@ -7,12 +7,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/milkystar516/go-todo/backend/internal/httpx"
 )
 
 type Handler struct {
-	db *pgxpool.Pool
+	rules *Service
 }
 
 type ruleRequest struct {
@@ -25,8 +24,8 @@ type ruleResponse struct {
 	RuleName string `json:"rule_name"`
 }
 
-func NewHandler(db *pgxpool.Pool) *Handler {
-	return &Handler{db: db}
+func NewHandler(rules *Service) *Handler {
+	return &Handler{rules: rules}
 }
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth func(http.Handler) http.Handler) {
@@ -64,23 +63,7 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var rule ruleResponse
-
-	err = h.db.QueryRow(
-		r.Context(),
-		`INSERT INTO todo_rule (rule_name, fields)
-		VALUES ($1, $2)
-		RETURNING id, rule_name`,
-		req.RuleName,
-		req.Fields,
-	).Scan(
-		&rule.ID,
-		&rule.RuleName,
-	)
-	if err != nil {
-		httpx.ServerError(w, r, err)
-		return
-	}
+	rule, err := h.rules.CreateTodoRule(r.Context(), req.RuleName, req.Fields)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Location", "/todo-rule/"+strconv.FormatInt(rule.ID, 10))
@@ -119,23 +102,7 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.db.Exec(
-		r.Context(),
-		`UPDATE todo_rule
-		 SET rule_name = $1, fields = $2
-		 WHERE id = $3`,
-		req.RuleName,
-		req.Fields,
-		ruleID,
-	)
-	if err != nil {
-		httpx.ServerError(w, r, err)
-		return
-	}
-	if result.RowsAffected() == 0 {
-		httpx.WriteProblem(w, http.StatusNotFound, "todo rule not found")
-		return
-	}
+	err = h.rules.UpdateTodoRule(r.Context(), ruleID, req.RuleName, req.Fields)
 
 	w.WriteHeader(http.StatusNoContent)
 }
