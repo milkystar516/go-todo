@@ -35,10 +35,12 @@ func main() {
 	})
 	authHandler.RegisterRoutes(mux)
 
-	todoRuleHandler := todorule.NewHandler(todorule.NewService(db))
+	ruleSerivce := todorule.NewService(db)
+
+	todoRuleHandler := todorule.NewHandler(ruleSerivce)
 	todoRuleHandler.RegisterRoutes(mux, authHandler.RequireAuth)
 
-	todoHandler := todo.NewHandler(db)
+	todoHandler := todo.NewHandler(db, ruleSerivce)
 	todoHandler.RegisterRoutes(mux, authHandler.RequireAuth)
 
 	addr := cfg.Host + ":" + cfg.Port

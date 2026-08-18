@@ -17,6 +17,7 @@ import (
 	"github.com/milkystar516/go-todo/backend/internal/auth"
 	"github.com/milkystar516/go-todo/backend/internal/postgres"
 	"github.com/milkystar516/go-todo/backend/internal/todo"
+	todorule "github.com/milkystar516/go-todo/backend/internal/todo_rule"
 )
 
 func TestSignupLoginCreateAndGetTodos(t *testing.T) {
@@ -41,7 +42,12 @@ func TestSignupLoginCreateAndGetTodos(t *testing.T) {
 	})
 	authHandler.RegisterRoutes(mux)
 
-	todoHandler := todo.NewHandler(db)
+	ruleSerivce := todorule.NewService(db)
+
+	todoRuleHandler := todorule.NewHandler(ruleSerivce)
+	todoRuleHandler.RegisterRoutes(mux, authHandler.RequireAuth)
+
+	todoHandler := todo.NewHandler(db, ruleSerivce)
 	todoHandler.RegisterRoutes(mux, authHandler.RequireAuth)
 
 	server := httptest.NewServer(mux)

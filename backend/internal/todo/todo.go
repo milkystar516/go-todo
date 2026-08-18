@@ -12,10 +12,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/milkystar516/go-todo/backend/internal/auth"
 	"github.com/milkystar516/go-todo/backend/internal/httpx"
+	todorule "github.com/milkystar516/go-todo/backend/internal/todo_rule"
 )
 
 type Handler struct {
-	db *pgxpool.Pool
+	db    *pgxpool.Pool
+	rules *todorule.Service
 }
 
 type Todo struct {
@@ -28,7 +30,7 @@ type Todo struct {
 }
 
 type TodoCreateRequest struct {
-	RuleID  int64          `json:"rule_id" validate:"required,gt=0"`
+	RuleID  int64          `json:"rule_id" validate:"gt=0"`
 	Content map[string]any `json:"content" validate:"required"`
 }
 
@@ -36,8 +38,10 @@ type TodoUpdateRequest struct {
 	Content map[string]any `json:"content" validate:"required"`
 }
 
-func NewHandler(db *pgxpool.Pool) *Handler {
-	return &Handler{db: db}
+var errInvalidTodoContent = errors.New("invalid todo content")
+
+func NewHandler(db *pgxpool.Pool, rules *todorule.Service) *Handler {
+	return &Handler{db: db, rules: rules}
 }
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth func(http.Handler) http.Handler) {
@@ -65,19 +69,47 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 
 	var todo Todo
 
-	err := h.db.QueryRow(
+	err := pgx.BeginFunc(
 		r.Context(),
-		`INSERT INTO todos (owner_id, content) VALUES ($1, $2)
-		RETURNING id, rule_id, owner_id, content, created_at, completed_at`,
-		userID,
-		req.Content,
-	).Scan(
-		&todo.ID,
-		&todo.OwnerID,
-		&todo.Content,
-		&todo.CreatedAt,
-		&todo.CompletedAt,
+		h.db,
+		func(tx pgx.Tx) error {
+			validator, err := h.rules.ValidatorTx(
+				r.Context(),
+				tx,
+				req.RuleID,
+			)
+			if err != nil {
+				return err
+			}
+
+			if err := validator.Validate(req.Content); err != nil {
+				return errors.Join(errInvalidTodoContent, err)
+			}
+
+			return tx.QueryRow(
+				r.Context(),
+				`INSERT INTO todos (owner_id, content) VALUES ($1, $2, $3)
+				RETURNING id, rule_id, owner_id, content, created_at, completed_at`,
+				userID,
+				req.RuleID,
+				req.Content,
+			).Scan(
+				&todo.ID,
+				&todo.OwnerID,
+				&todo.Content,
+				&todo.CreatedAt,
+				&todo.CompletedAt,
+			)
+		},
 	)
+	if errors.Is(err, todorule.ErrRuleNotFound) {
+		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "unknown rule_id")
+		return
+	}
+	if errors.Is(err, errInvalidTodoContent) {
+		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid todo content")
+		return
+	}
 	if err != nil {
 		httpx.ServerError(w, r, err)
 		return
@@ -105,7 +137,7 @@ func (h *Handler) todosList(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) getTodos(ctx context.Context, ownerID int64) ([]Todo, error) {
 	rows, err := h.db.Query(
 		ctx,
-		`SELECT id, owner_id, content, created_at, completed_at 
+		`SELECT id, owner_id, rule_id, content, created_at, completed_at 
 		FROM todos WHERE owner_id = $1 
 		ORDER BY id`,
 		ownerID,
@@ -123,6 +155,7 @@ func (h *Handler) getTodos(ctx context.Context, ownerID int64) ([]Todo, error) {
 		if err := rows.Scan(
 			&todo.ID,
 			&todo.OwnerID,
+			&todo.RuleID,
 			&todo.Content,
 			&todo.CreatedAt,
 			&todo.CompletedAt,
@@ -159,27 +192,58 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 
 	var todo Todo
 
-	err = h.db.QueryRow(
+	err = pgx.BeginFunc(
 		r.Context(),
-		`UPDATE todos SET content = $1
-		WHERE id = $2 AND owner_id = $3
-		RETURNING id, rule_id, owner_id, content, created_at, completed_at`,
-		req.Content,
-		todoID,
-		userID,
-	).Scan(
-		&todo.ID,
-		&todo.OwnerID,
-		&todo.Content,
-		&todo.CreatedAt,
-		&todo.CompletedAt,
-	)
+		h.db,
+		func(tx pgx.Tx) error {
+			var ruleID int64
 
+			err := tx.QueryRow(
+				r.Context(),
+				"SELECT rule_id FROM todos WHERE id = $1 AND owner_id = $2",
+				req.Content,
+				todoID,
+				userID,
+			).Scan(&todo.RuleID)
+			if err != nil {
+				return err
+			}
+
+			validator, err := h.rules.ValidatorTx(r.Context(), tx, ruleID)
+			if err != nil {
+				return err
+			}
+
+			if err := validator.Validate(req.Content); err != nil {
+				return errors.Join(errInvalidTodoContent, err)
+			}
+
+			return tx.QueryRow(
+				r.Context(),
+				`UPDATE todos SET content = $1
+				WHERE id = $2 AND owner_id = $3
+				RETURNING id, rule_id, owner_id, content, created_at, completed_at`,
+				req.Content,
+				todoID,
+				userID,
+			).Scan(
+				&todo.ID,
+				&todo.OwnerID,
+				&todo.RuleID,
+				&todo.Content,
+				&todo.CreatedAt,
+				&todo.CompletedAt,
+			)
+		},
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpx.WriteProblem(w, http.StatusNotFound, "todo not found")
 		return
 	}
-
+	if errors.Is(err, errInvalidTodoContent) {
+		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid todo content")
+		return
+	}
 	if err != nil {
 		httpx.ServerError(w, r, err)
 		return
@@ -214,6 +278,7 @@ func (h *Handler) toggleTodoComplete(w http.ResponseWriter, r *http.Request) {
 	).Scan(
 		&todo.ID,
 		&todo.OwnerID,
+		&todo.RuleID,
 		&todo.Content,
 		&todo.CreatedAt,
 		&todo.CompletedAt,
