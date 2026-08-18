@@ -25,7 +25,22 @@ func NewService(db *pgxpool.Pool) *Service {
 	}
 }
 
-func (s *Service) Validator(ctx context.Context, ruleID int64) (*ContentValidator, error) {
+func (s *Service) ValidatorTx(ctx context.Context, tx pgx.Tx, ruleID int64) (*ContentValidator, error) {
+	var fields []FieldDefinition
+
+	err := s.db.QueryRow(
+		ctx,
+		`SELECT fields FROM todo_rule WHERE id = $1
+		FOR SHARE`,
+		ruleID,
+	).Scan(&fields)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrRuleNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("load todo rule %d: %w", ruleID, err)
+	}
+
 	s.mu.RLock()
 	validator, ok := s.validators[ruleID]
 	s.mu.RUnlock()
@@ -34,35 +49,20 @@ func (s *Service) Validator(ctx context.Context, ruleID int64) (*ContentValidato
 		return validator, nil
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if validator, ok := s.validators[ruleID]; ok {
-		return validator, nil
-	}
-
-	var fields []FieldDefinition
-
-	err := s.db.QueryRow(
-		ctx,
-		"SELECT fields FROM todo_rule WHERE id = $1",
-		ruleID,
-	).Scan(&fields)
-
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrRuleNotFound
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("load todo rule %d: %w", ruleID, err)
-	}
-
 	validator, err = Compile(fields)
 	if err != nil {
 		return nil, fmt.Errorf("compile stored todo rule %d: %w", ruleID, err)
 	}
 
-	s.validators[ruleID] = validator
+	s.mu.Lock()
+
+	if cached, ok := s.validators[ruleID]; ok {
+		validator = cached
+	} else {
+		s.validators[ruleID] = validator
+	}
+
+	s.mu.Unlock()
 
 	return validator, nil
 }
