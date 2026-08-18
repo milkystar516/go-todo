@@ -28,7 +28,7 @@ func NewService(db *pgxpool.Pool) *Service {
 func (s *Service) ValidatorTx(ctx context.Context, tx pgx.Tx, ruleID int64) (*ContentValidator, error) {
 	var fields []FieldDefinition
 
-	err := s.db.QueryRow(
+	err := tx.QueryRow(
 		ctx,
 		`SELECT fields FROM todo_rule WHERE id = $1
 		FOR SHARE`,

@@ -77,7 +77,7 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := httpx.Validate(req); err != nil {
-		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid rule request")
 		return
 	}
 
@@ -85,6 +85,10 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 
 	if validationErr, ok := errors.AsType[*validationError](err); ok {
 		httpx.WriteProblem(w, http.StatusUnprocessableEntity, validationErr.Error())
+		return
+	}
+	if errors.Is(err, ErrRuleNotFound) {
+		httpx.WriteProblem(w, http.StatusNotFound, "todo rule not found")
 		return
 	}
 	if err != nil {
