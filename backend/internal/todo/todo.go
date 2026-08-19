@@ -149,36 +149,18 @@ func (h *Handler) todosList(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) getTodos(ctx context.Context, ownerID int64) ([]Todo, error) {
 	rows, err := h.db.Query(
 		ctx,
-		`SELECT id, owner_id, rule_id, content, created_at, completed_at 
-		FROM todos WHERE owner_id = $1 
+		`SELECT `+todoColumns+
+			`FROM todos WHERE owner_id = @owner_id
 		ORDER BY id`,
-		ownerID,
+		pgx.StrictNamedArgs{
+			"owner_id": ownerID,
+		},
 	)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var todos []Todo
-
-	for rows.Next() {
-		var todo Todo
-
-		if err := rows.Scan(
-			&todo.ID,
-			&todo.OwnerID,
-			&todo.RuleID,
-			&todo.Content,
-			&todo.CreatedAt,
-			&todo.CompletedAt,
-		); err != nil {
-			return nil, err
-		}
-
-		todos = append(todos, todo)
-	}
-
-	return todos, rows.Err()
+	return pgx.CollectRows(rows, pgx.RowToStructByName[Todo])
 }
 
 func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
@@ -212,11 +194,12 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 
 			err := tx.QueryRow(
 				r.Context(),
-				"SELECT rule_id FROM todos WHERE id = $1 AND owner_id = $2",
-				req.Content,
-				todoID,
-				userID,
-			).Scan(&todo.RuleID)
+				"SELECT rule_id FROM todos WHERE id = @todo_id AND owner_id = @owner_id",
+				pgx.StrictNamedArgs{
+					"todo_id":  todoID,
+					"owner_id": userID,
+				},
+			).Scan(&ruleID)
 			if err != nil {
 				return err
 			}
@@ -230,22 +213,23 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 				return errors.Join(errInvalidTodoContent, err)
 			}
 
-			return tx.QueryRow(
+			rows, err := tx.Query(
 				r.Context(),
-				`UPDATE todos SET content = $1
-				WHERE id = $2 AND owner_id = $3
-				RETURNING id, rule_id, owner_id, content, created_at, completed_at`,
-				req.Content,
-				todoID,
-				userID,
-			).Scan(
-				&todo.ID,
-				&todo.OwnerID,
-				&todo.RuleID,
-				&todo.Content,
-				&todo.CreatedAt,
-				&todo.CompletedAt,
+				`UPDATE todos SET content = @content
+				WHERE id = @todo_id AND owner_id = @owner_id
+				RETURNING `+todoColumns,
+				pgx.StrictNamedArgs{
+					"content":  req.Content,
+					"todo_id":  todoID,
+					"owner_id": userID,
+				},
 			)
+			if err != nil {
+				return err
+			}
+
+			todo, err = pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[Todo])
+			return err
 		},
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
