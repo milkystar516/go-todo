@@ -30,9 +30,11 @@ func (s *Service) ValidatorTx(ctx context.Context, tx pgx.Tx, ruleID int64) (*Co
 
 	err := tx.QueryRow(
 		ctx,
-		`SELECT fields FROM todo_rule WHERE id = $1
+		`SELECT fields FROM todo_rule WHERE id = @rule_id
 		FOR SHARE`,
-		ruleID,
+		pgx.StrictNamedArgs{
+			"rule_id": ruleID,
+		},
 	).Scan(&fields)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrRuleNotFound
@@ -72,19 +74,21 @@ func (s *Service) CreateTodoRule(ctx context.Context, ruleName string, fields []
 		return ruleResponse{}, err
 	}
 
-	var rule ruleResponse
-
-	err := s.db.QueryRow(
+	rows, err := s.db.Query(
 		ctx,
 		`INSERT INTO todo_rule(rule_name, fields)
-		VALUES ($1, $2)
-		RETURNING id, rule_name`,
-		ruleName,
-		fields,
-	).Scan(
-		&rule.ID,
-		&rule.RuleName,
+		VALUES (@rule_name, @fields)
+		RETURNING `+ruleResponseColumns,
+		pgx.StrictNamedArgs{
+			"rule_name": ruleName,
+			"fields":    fields,
+		},
 	)
+	if err != nil {
+		return ruleResponse{}, fmt.Errorf("create todo rule: %w", err)
+	}
+
+	rule, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[ruleResponse])
 	if err != nil {
 		return ruleResponse{}, fmt.Errorf("create todo rule: %w", err)
 	}
@@ -107,9 +111,11 @@ func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName str
 
 			err := tx.QueryRow(
 				ctx,
-				`SELECT 1 FROM todo_rule WHERE id = $1
+				`SELECT 1 FROM todo_rule WHERE id = @rule_id
 				FOR NO KEY UPDATE`,
-				ruleID,
+				pgx.StrictNamedArgs{
+					"rule_id": ruleID,
+				},
 			).Scan(&exists)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrRuleNotFound
@@ -126,45 +132,47 @@ func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName str
 						FROM todo_rule AS rule
 						CROSS JOIN LATERAL
 							jsonb_array_elements(rule.fields) AS old_field
-						WHERE rule.id = $1
+						WHERE rule.id = @rule_id
 
 						EXCEPT
 
 						SELECT new_field ->> 'key'
-						FROM jsonb_array_elements($2::jsonb) AS new_field
+						FROM jsonb_array_elements(@fields::jsonb) AS new_field
 					) AS keys
 				)
 				UPDATE todos
 				SET content = content - deleted.keys
 				FROM deleted
 				WHERE todos.rule_id = $1 AND cardinality(deleted.keys) > 0`,
-				ruleID,
-				fields,
+				pgx.StrictNamedArgs{
+					"rule_id": ruleID,
+					"fields":  fields,
+				},
 			)
 			if err != nil {
 				return fmt.Errorf("prune removed todo fields: %w", err)
 			}
 
-			err = tx.QueryRow(
+			rows, err := tx.Query(
 				ctx,
 				`UPDATE todo_rule 
-				 SET rule_name = $1, fields = $2
-				 WHERE id = $3
-				 RETURNING id, rule_name`,
-				ruleName,
-				fields,
-				ruleID,
-			).Scan(
-				&rule.ID,
-				&rule.RuleName,
+				 SET rule_name = @rule_name, fields = @fields
+				 WHERE id = @rule_id
+				 RETURNING `+ruleResponseColumns,
+				pgx.StrictNamedArgs{
+					"rule_name": ruleName,
+					"fields":    fields,
+					"rule_id":   ruleID,
+				},
 			)
 			if err != nil {
 				return fmt.Errorf("update todo rule: %w", err)
 			}
 
-			s.mu.Lock()
-			delete(s.validators, ruleID)
-			s.mu.Unlock()
+			rule, err = pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[ruleResponse])
+			if err != nil {
+				return fmt.Errorf("update todo rule: %w", err)
+			}
 
 			return nil
 		},

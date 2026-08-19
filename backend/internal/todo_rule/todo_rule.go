@@ -20,9 +20,14 @@ type ruleRequest struct {
 }
 
 type ruleResponse struct {
-	ID       int64  `json:"id"`
-	RuleName string `json:"rule_name"`
+	ID       int64  `json:"id" db:"id"`
+	RuleName string `json:"rule_name" db:"rule_name"`
 }
+
+const ruleResponseColumns = `
+	id,
+	rule_name
+`
 
 func NewHandler(rules *Service) *Handler {
 	return &Handler{rules: rules}
