@@ -102,6 +102,23 @@ func (h *Handler) RequireAuth(next http.Handler) http.Handler {
 	})
 }
 
+func (h *Handler) RequireAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, err := h.findPublicUser(r.Context(), UserID(r.Context()))
+		if err != nil {
+			httpx.ServerError(w, r, err)
+			return
+		}
+
+		if user.Role != RoleAdmin {
+			httpx.WriteProblem(w, http.StatusForbidden, "forbidden")
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func UserID(ctx context.Context) int64 {
 	return ctx.Value(userIDKey).(int64)
 }

@@ -52,7 +52,7 @@ func TestSignupLoginCreateAndGetTodos(t *testing.T) {
 	ruleSerivce := todorule.NewService(db)
 
 	todoRuleHandler := todorule.NewHandler(ruleSerivce)
-	todoRuleHandler.RegisterRoutes(mux, authHandler.RequireAuth)
+	todoRuleHandler.RegisterRoutes(mux, authHandler.RequireAuth, authHandler.RequireAdmin)
 
 	todoHandler := todo.NewHandler(db, ruleSerivce)
 	todoHandler.RegisterRoutes(mux, authHandler.RequireAuth)

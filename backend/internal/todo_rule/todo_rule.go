@@ -49,13 +49,13 @@ func NewHandler(rules *Service) *Handler {
 	return &Handler{rules: rules}
 }
 
-func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth func(http.Handler) http.Handler) {
-	mux.Handle("POST /todo-rules", requireAuth(http.HandlerFunc(h.createRule)))
+func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth, requireAdmin func(http.Handler) http.Handler) {
+	mux.Handle("POST /todo-rules", requireAuth(requireAdmin(http.HandlerFunc(h.createRule))))
 	mux.Handle("GET /todo-rules", requireAuth(http.HandlerFunc(h.todosRulesList)))
 	mux.Handle("GET /todo-rules/{rule_id}", requireAuth(http.HandlerFunc(h.getTodoRule)))
-	mux.Handle("PUT /todo-rules/{rule_id}", requireAuth(http.HandlerFunc(h.updateRule)))
-	mux.Handle("PATCH /todo-rules/{rule_id}", requireAuth(http.HandlerFunc(h.updateRuleTitle)))
-	mux.Handle("DELETE /todo-rules/{rule_id}", requireAuth(http.HandlerFunc(h.deleteRule)))
+	mux.Handle("PUT /todo-rules/{rule_id}", requireAuth(requireAdmin(http.HandlerFunc(h.updateRule))))
+	mux.Handle("PATCH /todo-rules/{rule_id}", requireAuth(requireAdmin(http.HandlerFunc(h.updateRuleTitle))))
+	mux.Handle("DELETE /todo-rules/{rule_id}", requireAuth(requireAdmin(http.HandlerFunc(h.deleteRule))))
 }
 
 func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {

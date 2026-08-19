@@ -38,7 +38,7 @@ func main() {
 	ruleService := todorule.NewService(db)
 
 	todoRuleHandler := todorule.NewHandler(ruleService)
-	todoRuleHandler.RegisterRoutes(mux, authHandler.RequireAuth)
+	todoRuleHandler.RegisterRoutes(mux, authHandler.RequireAuth, authHandler.RequireAdmin)
 
 	todoHandler := todo.NewHandler(db, ruleService)
 	todoHandler.RegisterRoutes(mux, authHandler.RequireAuth)
