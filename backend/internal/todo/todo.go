@@ -168,9 +168,7 @@ func (h *Handler) getTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) todosList(w http.ResponseWriter, r *http.Request) {
-	ownerID := auth.UserID(r.Context())
-
-	todos, err := h.getTodos(r.Context(), ownerID)
+	todos, err := h.getTodos(r.Context())
 	if err != nil {
 		httpx.ServerError(w, r, err)
 		return
@@ -180,15 +178,11 @@ func (h *Handler) todosList(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(todos)
 }
 
-func (h *Handler) getTodos(ctx context.Context, ownerID int64) ([]Todo, error) {
+func (h *Handler) getTodos(ctx context.Context) ([]Todo, error) {
 	rows, err := h.db.Query(
 		ctx,
-		`SELECT `+todoColumns+
-			`FROM todos WHERE owner_id = @owner_id
+		`SELECT `+todoColumns+`FROM todos
 		ORDER BY id`,
-		pgx.StrictNamedArgs{
-			"owner_id": ownerID,
-		},
 	)
 	if err != nil {
 		return nil, err
