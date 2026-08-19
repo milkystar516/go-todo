@@ -27,6 +27,7 @@ func main() {
 	defer db.Close()
 
 	mux := http.NewServeMux()
+	mux.Handle("/api/", http.StripPrefix("/api", apiMux))
 
 	authHandler := auth.NewHandler(db, auth.Config{
 		CookieName: cfg.SessionCookieName,
