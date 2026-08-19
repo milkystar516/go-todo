@@ -109,6 +109,7 @@ func TestSignupLoginCreateAndGetTodos(t *testing.T) {
 	loginResp.Body.Close()
 
 	var firstTodoID int64
+	var ownerID int64
 
 	// 3. create 10 todos
 	for i := 1; i <= 10; i++ {
@@ -145,6 +146,7 @@ func TestSignupLoginCreateAndGetTodos(t *testing.T) {
 
 		if i == 1 {
 			firstTodoID = created.ID
+			ownerID = created.OwnerID
 		}
 
 		if created.Content["title"] != title {
@@ -164,7 +166,7 @@ func TestSignupLoginCreateAndGetTodos(t *testing.T) {
 	}
 
 	// 4. get todos
-	resp, err := client.Get(server.URL + "/todos")
+	resp, err := client.Get(fmt.Sprintf("%s/users/%d/todos", server.URL, ownerID))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -377,7 +379,7 @@ func TestSignupLoginCreateAndGetTodos(t *testing.T) {
 	deleteResp.Body.Close()
 
 	// 10. verify deleted todo is gone
-	finalResp, err := client.Get(server.URL + "/todos")
+	finalResp, err := client.Get(fmt.Sprintf("%s/users/%d/todos", server.URL, ownerID))
 	if err != nil {
 		t.Fatal(err)
 	}
