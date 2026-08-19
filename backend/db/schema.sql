@@ -25,3 +25,9 @@ CREATE TABLE todos (
     created_at          timestamptz NOT NULL DEFAULT now(),
     completed_at        timestamptz DEFAULT NULL
 );
+
+CREATE INDEX todos_owner_id_idx
+	ON todos (owner_id);
+
+CREATE INDEX todos_rule_id_idx
+	ON todos (rule_id);

@@ -21,13 +21,22 @@ type Handler struct {
 }
 
 type Todo struct {
-	ID          int64          `json:"id"`
-	OwnerID     int64          `json:"owner_id"`
-	RuleID      int64          `json:"rule_id"`
-	Content     map[string]any `json:"content"`
-	CreatedAt   time.Time      `json:"created_at"`
-	CompletedAt *time.Time     `json:"completed_at"`
+	ID          int64          `json:"id" db:"id"`
+	OwnerID     int64          `json:"owner_id" db:"owner_id"`
+	RuleID      int64          `json:"rule_id" db:"rule_id"`
+	Content     map[string]any `json:"content" db:"content"`
+	CreatedAt   time.Time      `json:"created_at" db:"created_at"`
+	CompletedAt *time.Time     `json:"completed_at" db:"completed_at"`
 }
+
+const todoColumns = `
+	id,
+	owner_id,
+	rule_id,
+	content,
+	created_at,
+	completed_at
+`
 
 type TodoCreateRequest struct {
 	RuleID  int64          `json:"rule_id" validate:"gt=0"`
@@ -86,20 +95,23 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 				return errors.Join(errInvalidTodoContent, err)
 			}
 
-			return tx.QueryRow(
+			rows, err := tx.Query(
 				r.Context(),
-				`INSERT INTO todos (owner_id, content) VALUES ($1, $2, $3)
-				RETURNING id, rule_id, owner_id, content, created_at, completed_at`,
-				userID,
-				req.RuleID,
-				req.Content,
-			).Scan(
-				&todo.ID,
-				&todo.OwnerID,
-				&todo.Content,
-				&todo.CreatedAt,
-				&todo.CompletedAt,
+				`INSERT INTO todos (owner_id, rule_id, content)
+				VALUES (@owner_id, @rule_id, @content)
+				RETURNING `+todoColumns,
+				pgx.StrictNamedArgs{
+					"owner_id": userID,
+					"rule_id":  req.RuleID,
+					"content":  req.Content,
+				},
 			)
+			if err != nil {
+				return err
+			}
+
+			todo, err = pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[Todo])
+			return err
 		},
 	)
 	if errors.Is(err, todorule.ErrRuleNotFound) {
@@ -264,31 +276,30 @@ func (h *Handler) toggleTodoComplete(w http.ResponseWriter, r *http.Request) {
 
 	userID := auth.UserID(r.Context())
 
-	err = h.db.QueryRow(
+	rows, err := h.db.Query(
 		r.Context(),
 		`UPDATE todos 
 		SET completed_at = CASE
 			WHEN completed_at IS NULL THEN now()
 			ELSE NULL
 		END
-		WHERE id = $1 AND owner_id = $2
-		RETURNING id, rule_id, owner_id, content, created_at, completed_at`,
-		todoID,
-		userID,
-	).Scan(
-		&todo.ID,
-		&todo.OwnerID,
-		&todo.RuleID,
-		&todo.Content,
-		&todo.CreatedAt,
-		&todo.CompletedAt,
+		WHERE id = @todo_id AND owner_id = @owner_id
+		RETURNING `+todoColumns,
+		pgx.StrictNamedArgs{
+			"todo_id":  todoID,
+			"owner_id": userID,
+		},
 	)
+	if err != nil {
+		httpx.ServerError(w, r, err)
+		return
+	}
 
+	todo, err = pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[Todo])
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpx.WriteProblem(w, http.StatusNotFound, "todo not found")
 		return
 	}
-
 	if err != nil {
 		httpx.ServerError(w, r, err)
 		return
@@ -309,9 +320,11 @@ func (h *Handler) deleteTodo(w http.ResponseWriter, r *http.Request) {
 
 	res, err := h.db.Exec(
 		r.Context(),
-		"DELETE FROM todos WHERE id = $1 AND owner_id = $2",
-		todoID,
-		userID,
+		"DELETE FROM todos WHERE id = @todo_id AND owner_id = @owner_id",
+		pgx.StrictNamedArgs{
+			"todo_id":  todoID,
+			"owner_id": userID,
+		},
 	)
 	if err != nil {
 		httpx.ServerError(w, r, err)
