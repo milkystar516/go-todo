@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,6 +16,13 @@ import (
 )
 
 var errUsernameExists = errors.New("username already exists")
+
+type Role string
+
+const (
+	RoleUser  Role = "user"
+	RoleAdmin Role = "admin"
+)
 
 type Config struct {
 	CookieName string
@@ -43,15 +51,16 @@ type loginUser struct {
 	PasswordHash string
 }
 
-type publicUserRepsponse struct {
-	ID           int64
+type publicUserResponse struct {
+	ID       int64   `json:"id"`
 	Username string  `json:"username"`
 	Nickname *string `json:"nickname,omitempty"`
+	Role     Role    `json:"role"`
 }
 
 type contextKey string
 
-const userIDKey contextKey = "userID"
+const currentUserKey contextKey = "currentUser"
 
 func NewHandler(db *pgxpool.Pool, cfg Config) *Handler {
 	return &Handler{
@@ -64,7 +73,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /signup", h.signup)
 	mux.HandleFunc("POST /login", h.login)
 	mux.HandleFunc("DELETE /logout", h.logout)
-	mux.HandleFunc("GET /me")
+	mux.Handle("GET /me", h.RequireAuth(http.HandlerFunc(h.me)))
 }
 
 func (h *Handler) RequireAuth(next http.Handler) http.Handler {
@@ -75,7 +84,7 @@ func (h *Handler) RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		userID, err := findSessionUser(r.Context(), h.db, cookie.Value)
+		user, err := findSessionUser(r.Context(), h.db, cookie.Value)
 		if errors.Is(err, pgx.ErrNoRows) {
 			httpx.WriteProblem(w, http.StatusUnauthorized, "unauthorized")
 			return
@@ -85,14 +94,18 @@ func (h *Handler) RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), userIDKey, userID)
+		ctx := context.WithValue(r.Context(), currentUserKey, user)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 func UserID(ctx context.Context) int64 {
-	return ctx.Value(userIDKey).(int64)
+	return currentUser(ctx).ID
+}
+
+func UserRole(ctx context.Context) Role {
+	return currentUser(ctx).Role
 }
 
 func (h *Handler) signup(w http.ResponseWriter, r *http.Request) {
@@ -200,15 +213,15 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie(h.cfg.CookieName)
-	if err == nil {
-		if err := deleteSession(r.Context(), h.db, cookie.Value); err != nil {
-			httpx.ServerError(w, r, err)
-			return
-		}
-	}
+	user := currentUser(r.Context())
 
-	
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	json.NewEncoder(w).Encode(user)
+}
+
+func currentUser(ctx context.Context) publicUserResponse {
+	return ctx.Value(currentUserKey).(publicUserResponse)
 }
 
 func createUser(ctx context.Context, db *pgxpool.Pool, req SignupRequest) error {
@@ -275,16 +288,24 @@ func deleteSession(ctx context.Context, db *pgxpool.Pool, token string) error {
 	return err
 }
 
-func findSessionUser(ctx context.Context, db *pgxpool.Pool, token string) (int64, error) {
-	var userID int64
+func findSessionUser(ctx context.Context, db *pgxpool.Pool, token string) (publicUserResponse, error) {
+	var user publicUserResponse
 
 	err := db.QueryRow(
 		ctx,
-		"SELECT user_id FROM sessions WHERE token = $1 AND expires_at > NOW()",
+		`SELECT users.id, users.username, users.nickname, users.role
+		FROM sessions
+		JOIN users ON users.id = sessions.user_id
+		WHERE sessions.token = $1 AND sessions.expires_at > NOW()`,
 		token,
-	).Scan(&userID)
+	).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Nickname,
+		&user.Role,
+	)
 
-	return userID, err
+	return user, err
 }
 
 func checkPassword(user loginUser, password string) error {

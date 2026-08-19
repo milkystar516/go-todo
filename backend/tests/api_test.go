@@ -20,6 +20,13 @@ import (
 	todorule "github.com/milkystar516/go-todo/backend/internal/todo_rule"
 )
 
+type publicUserResponse struct {
+	ID       int64     `json:"id"`
+	Username string    `json:"username"`
+	Nickname *string   `json:"nickname"`
+	Role     auth.Role `json:"role"`
+}
+
 func TestSignupLoginCreateAndGetTodos(t *testing.T) {
 	if err := godotenv.Load("../../.env"); err != nil {
 		t.Fatal(err)
@@ -61,6 +68,13 @@ func TestSignupLoginCreateAndGetTodos(t *testing.T) {
 	client := &http.Client{
 		Jar: jar,
 	}
+
+	unauthorizedMeResp, err := client.Get(server.URL + "/me")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectStatus(t, unauthorizedMeResp, http.StatusUnauthorized)
+	unauthorizedMeResp.Body.Close()
 
 	username := fmt.Sprintf(
 		"integration_test_%d",
@@ -107,6 +121,56 @@ func TestSignupLoginCreateAndGetTodos(t *testing.T) {
 
 	expectStatus(t, loginResp, http.StatusOK)
 	loginResp.Body.Close()
+
+	meResp, err := client.Get(server.URL + "/me")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectStatus(t, meResp, http.StatusOK)
+
+	var user publicUserResponse
+
+	if err := json.NewDecoder(meResp.Body).Decode(&user); err != nil {
+		meResp.Body.Close()
+		t.Fatal(err)
+	}
+	meResp.Body.Close()
+
+	if user.ID == 0 {
+		t.Fatal("me response has no id")
+	}
+
+	if user.Username != username {
+		t.Fatalf(
+			"me username = %q, want %q",
+			user.Username,
+			username,
+		)
+	}
+
+	if user.Nickname == nil || *user.Nickname != "integration-test" {
+		t.Fatalf(
+			"me nickname = %v, want %q",
+			user.Nickname,
+			"integration-test",
+		)
+	}
+
+	if user.Role != auth.RoleUser {
+		t.Fatalf(
+			"me role = %q, want %q",
+			user.Role,
+			auth.RoleUser,
+		)
+	}
+
+	if cookies := meResp.Cookies(); len(cookies) != 0 {
+		t.Fatalf(
+			"me response set %d cookies, want 0",
+			len(cookies),
+		)
+	}
 
 	var firstTodoID int64
 	var ownerID int64

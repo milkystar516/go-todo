@@ -2,6 +2,7 @@ CREATE TABLE users (
     id                  bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     username            varchar(50) UNIQUE NOT NULL,
     nickname            varchar(50),
+    role                varchar(20) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
     password_hash       text NOT NULL
 );
 
