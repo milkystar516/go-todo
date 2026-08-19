@@ -19,9 +19,19 @@ type ruleRequest struct {
 	Fields   []FieldDefinition `json:"fields"`
 }
 
+type ruleTitleRequest struct {
+	RuleName string `json:"rule_name" validate:"max=50"`
+}
+
 type ruleResponse struct {
 	ID       int64  `json:"id" db:"id"`
 	RuleName string `json:"rule_name" db:"rule_name"`
+}
+
+type ruleDetailResponse struct {
+	ID       int64             `json:"id" db:"id"`
+	RuleName string            `json:"rule_name" db:"rule_name"`
+	Fields   []FieldDefinition `json:"fields" db:"fields"`
 }
 
 const ruleResponseColumns = `
@@ -29,13 +39,23 @@ const ruleResponseColumns = `
 	rule_name
 `
 
+const ruleDetailResponseColumns = `
+	id,
+	rule_name,
+	fields
+`
+
 func NewHandler(rules *Service) *Handler {
 	return &Handler{rules: rules}
 }
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth func(http.Handler) http.Handler) {
-	mux.Handle("POST /todo-rule", requireAuth(http.HandlerFunc(h.createRule)))
-	mux.Handle("PUT /todo-rule/{rule_id}", requireAuth(http.HandlerFunc(h.updateRule)))
+	mux.Handle("POST /todo-rules", requireAuth(http.HandlerFunc(h.createRule)))
+	mux.Handle("GET /todo-rules", requireAuth(http.HandlerFunc(h.todosRulesList)))
+	mux.Handle("GET /todo-rules/{rule_id}", requireAuth(http.HandlerFunc(h.getTodoRule)))
+	mux.Handle("PUT /todo-rules/{rule_id}", requireAuth(http.HandlerFunc(h.updateRule)))
+	mux.Handle("PATCH /todo-rules/{rule_id}", requireAuth(http.HandlerFunc(h.updateRuleTitle)))
+	mux.Handle("DELETE /todo-rules/{rule_id}", requireAuth(http.HandlerFunc(h.deleteRule)))
 }
 
 func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
@@ -63,9 +83,41 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Location", "/todo-rule/"+strconv.FormatInt(rule.ID, 10))
+	w.Header().Set("Location", "/todo-rules/"+strconv.FormatInt(rule.ID, 10))
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(rule)
+}
+
+func (h *Handler) getTodoRule(w http.ResponseWriter, r *http.Request) {
+	ruleID, err := strconv.ParseInt(r.PathValue("rule_id"), 10, 64)
+	if err != nil {
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		return
+	}
+
+	rule, err := h.rules.GetTodoRule(r.Context(), ruleID)
+	if errors.Is(err, ErrRuleNotFound) {
+		httpx.WriteProblem(w, http.StatusNotFound, "todo rule not found")
+		return
+	}
+	if err != nil {
+		httpx.ServerError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rule)
+}
+
+func (h *Handler) todosRulesList(w http.ResponseWriter, r *http.Request) {
+	rules, err := h.rules.ListTodoRules(r.Context())
+	if err != nil {
+		httpx.ServerError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rules)
 }
 
 func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
@@ -103,6 +155,61 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(rule)
+}
+
+func (h *Handler) updateRuleTitle(w http.ResponseWriter, r *http.Request) {
+	ruleID, err := strconv.ParseInt(r.PathValue("rule_id"), 10, 64)
+	if err != nil {
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		return
+	}
+
+	var req ruleTitleRequest
+
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		return
+	}
+
+	req.RuleName = strings.TrimSpace(req.RuleName)
+
+	if err := httpx.Validate(req); err != nil {
+		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid rule request")
+		return
+	}
+
+	rule, err := h.rules.UpdateTodoRuleTitle(r.Context(), ruleID, req.RuleName)
+	if errors.Is(err, ErrRuleNotFound) {
+		httpx.WriteProblem(w, http.StatusNotFound, "todo rule not found")
+		return
+	}
+	if err != nil {
+		httpx.ServerError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rule)
+}
+
+func (h *Handler) deleteRule(w http.ResponseWriter, r *http.Request) {
+	ruleID, err := strconv.ParseInt(r.PathValue("rule_id"), 10, 64)
+	if err != nil {
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		return
+	}
+
+	err = h.rules.DeleteTodoRule(r.Context(), ruleID)
+	if errors.Is(err, ErrRuleNotFound) {
+		httpx.WriteProblem(w, http.StatusNotFound, "todo rule not found")
+		return
+	}
+	if err != nil {
+		httpx.ServerError(w, r, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func readRuleRequest(r *http.Request) (ruleRequest, error) {

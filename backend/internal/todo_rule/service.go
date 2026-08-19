@@ -96,6 +96,50 @@ func (s *Service) CreateTodoRule(ctx context.Context, ruleName string, fields []
 	return rule, nil
 }
 
+func (s *Service) ListTodoRules(ctx context.Context) ([]ruleResponse, error) {
+	rows, err := s.db.Query(
+		ctx,
+		`SELECT `+ruleResponseColumns+`
+		FROM todo_rule
+		ORDER BY id`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list todo rules: %w", err)
+	}
+
+	rules, err := pgx.CollectRows(rows, pgx.RowToStructByName[ruleResponse])
+	if err != nil {
+		return nil, fmt.Errorf("list todo rules: %w", err)
+	}
+
+	return rules, nil
+}
+
+func (s *Service) GetTodoRule(ctx context.Context, ruleID int64) (ruleDetailResponse, error) {
+	rows, err := s.db.Query(
+		ctx,
+		`SELECT `+ruleDetailResponseColumns+`
+		FROM todo_rule
+		WHERE id = @rule_id`,
+		pgx.StrictNamedArgs{
+			"rule_id": ruleID,
+		},
+	)
+	if err != nil {
+		return ruleDetailResponse{}, fmt.Errorf("get todo rule: %w", err)
+	}
+
+	rule, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[ruleDetailResponse])
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ruleDetailResponse{}, ErrRuleNotFound
+	}
+	if err != nil {
+		return ruleDetailResponse{}, fmt.Errorf("get todo rule: %w", err)
+	}
+
+	return rule, nil
+}
+
 func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName string, fields []FieldDefinition) (ruleResponse, error) {
 	if _, err := Compile(fields); err != nil {
 		return ruleResponse{}, err
@@ -181,5 +225,60 @@ func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName str
 		return ruleResponse{}, err
 	}
 
+	s.mu.Lock()
+	delete(s.validators, ruleID)
+	s.mu.Unlock()
+
 	return rule, nil
+}
+
+func (s *Service) UpdateTodoRuleTitle(ctx context.Context, ruleID int64, ruleName string) (ruleResponse, error) {
+	rows, err := s.db.Query(
+		ctx,
+		`UPDATE todo_rule
+		SET rule_name = @rule_name
+		WHERE id = @rule_id
+		RETURNING `+ruleResponseColumns,
+		pgx.StrictNamedArgs{
+			"rule_name": ruleName,
+			"rule_id":   ruleID,
+		},
+	)
+	if err != nil {
+		return ruleResponse{}, fmt.Errorf("update todo rule title: %w", err)
+	}
+
+	rule, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[ruleResponse])
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ruleResponse{}, ErrRuleNotFound
+	}
+	if err != nil {
+		return ruleResponse{}, fmt.Errorf("update todo rule title: %w", err)
+	}
+
+	return rule, nil
+}
+
+func (s *Service) DeleteTodoRule(ctx context.Context, ruleID int64) error {
+	res, err := s.db.Exec(
+		ctx,
+		`DELETE FROM todo_rule
+		WHERE id = @rule_id`,
+		pgx.StrictNamedArgs{
+			"rule_id": ruleID,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("delete todo rule: %w", err)
+	}
+
+	if res.RowsAffected() == 0 {
+		return ErrRuleNotFound
+	}
+
+	s.mu.Lock()
+	delete(s.validators, ruleID)
+	s.mu.Unlock()
+
+	return nil
 }
