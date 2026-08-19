@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -14,8 +15,6 @@ import (
 	"github.com/milkystar516/go-todo/backend/internal/httpx"
 	"golang.org/x/crypto/bcrypt"
 )
-
-var errUsernameExists = errors.New("username already exists")
 
 type Role string
 
@@ -52,15 +51,17 @@ type loginUser struct {
 }
 
 type publicUserResponse struct {
-	ID       int64   `json:"id"`
-	Username string  `json:"username"`
-	Nickname *string `json:"nickname,omitempty"`
-	Role     Role    `json:"role"`
+	ID       int64   `json:"id" db:"id"`
+	Username string  `json:"username" db:"username"`
+	Nickname *string `json:"nickname,omitempty" db:"nickname"`
+	Role     Role    `json:"role" db:"role"`
 }
 
 type contextKey string
 
-const currentUserKey contextKey = "currentUser"
+const userIDKey contextKey = "userID"
+
+var errUsernameExists = errors.New("username already exists")
 
 func NewHandler(db *pgxpool.Pool, cfg Config) *Handler {
 	return &Handler{
@@ -74,6 +75,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /login", h.login)
 	mux.HandleFunc("DELETE /logout", h.logout)
 	mux.Handle("GET /me", h.RequireAuth(http.HandlerFunc(h.me)))
+	mux.Handle("GET /users/{user_id}", h.RequireAuth(http.HandlerFunc(h.getUser)))
 }
 
 func (h *Handler) RequireAuth(next http.Handler) http.Handler {
@@ -84,7 +86,7 @@ func (h *Handler) RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		user, err := findSessionUser(r.Context(), h.db, cookie.Value)
+		userID, err := findSessionUser(r.Context(), h.db, cookie.Value)
 		if errors.Is(err, pgx.ErrNoRows) {
 			httpx.WriteProblem(w, http.StatusUnauthorized, "unauthorized")
 			return
@@ -94,18 +96,14 @@ func (h *Handler) RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), currentUserKey, user)
+		ctx := context.WithValue(r.Context(), userIDKey, userID)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 func UserID(ctx context.Context) int64 {
-	return currentUser(ctx).ID
-}
-
-func UserRole(ctx context.Context) Role {
-	return currentUser(ctx).Role
+	return ctx.Value(userIDKey).(int64)
 }
 
 func (h *Handler) signup(w http.ResponseWriter, r *http.Request) {
@@ -213,15 +211,51 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
-	user := currentUser(r.Context())
+	user, err := h.findPublicUser(r.Context(), UserID(r.Context()))
+	if err != nil {
+		httpx.ServerError(w, r, err)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	json.NewEncoder(w).Encode(user)
 }
 
-func currentUser(ctx context.Context) publicUserResponse {
-	return ctx.Value(currentUserKey).(publicUserResponse)
+func (h *Handler) getUser(w http.ResponseWriter, r *http.Request) {
+	userID, err := strconv.ParseInt(r.PathValue("user_id"), 10, 64)
+	if err != nil {
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		return
+	}
+
+	user, err := h.findPublicUser(r.Context(), userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		httpx.WriteProblem(w, http.StatusNotFound, "user not found")
+		return
+	}
+	if err != nil {
+		httpx.ServerError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(user)
+}
+
+func (h *Handler) findPublicUser(ctx context.Context, userID int64) (publicUserResponse, error) {
+	rows, err := h.db.Query(
+		ctx,
+		"SELECT id, username, nickname, role FROM users WHERE id = @user_id",
+		pgx.StrictNamedArgs{
+			"user_id": userID,
+		},
+	)
+	if err != nil {
+		return publicUserResponse{}, err
+	}
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[publicUserResponse])
 }
 
 func createUser(ctx context.Context, db *pgxpool.Pool, req SignupRequest) error {
@@ -288,24 +322,16 @@ func deleteSession(ctx context.Context, db *pgxpool.Pool, token string) error {
 	return err
 }
 
-func findSessionUser(ctx context.Context, db *pgxpool.Pool, token string) (publicUserResponse, error) {
-	var user publicUserResponse
+func findSessionUser(ctx context.Context, db *pgxpool.Pool, token string) (int64, error) {
+	var userID int64
 
 	err := db.QueryRow(
 		ctx,
-		`SELECT users.id, users.username, users.nickname, users.role
-		FROM sessions
-		JOIN users ON users.id = sessions.user_id
-		WHERE sessions.token = $1 AND sessions.expires_at > NOW()`,
+		"SELECT user_id FROM sessions WHERE token = $1 AND expires_at > NOW()",
 		token,
-	).Scan(
-		&user.ID,
-		&user.Username,
-		&user.Nickname,
-		&user.Role,
-	)
+	).Scan(&userID)
 
-	return user, err
+	return userID, err
 }
 
 func checkPassword(user loginUser, password string) error {

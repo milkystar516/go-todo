@@ -172,6 +172,37 @@ func TestSignupLoginCreateAndGetTodos(t *testing.T) {
 		)
 	}
 
+	userResp, err := client.Get(fmt.Sprintf("%s/users/%d", server.URL, user.ID))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectStatus(t, userResp, http.StatusOK)
+
+	var foundUser publicUserResponse
+
+	if err := json.NewDecoder(userResp.Body).Decode(&foundUser); err != nil {
+		userResp.Body.Close()
+		t.Fatal(err)
+	}
+	userResp.Body.Close()
+
+	if foundUser.ID != user.ID {
+		t.Fatalf(
+			"user id = %d, want %d",
+			foundUser.ID,
+			user.ID,
+		)
+	}
+
+	if foundUser.Username != user.Username {
+		t.Fatalf(
+			"username = %q, want %q",
+			foundUser.Username,
+			user.Username,
+		)
+	}
+
 	var firstTodoID int64
 	var ownerID int64
 
