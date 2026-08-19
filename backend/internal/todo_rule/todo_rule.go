@@ -15,12 +15,12 @@ type Handler struct {
 }
 
 type ruleRequest struct {
-	RuleName string            `json:"rule_name" validate:"max=50"`
+	RuleName string            `json:"rule_name" validate:"required,max=50"`
 	Fields   []FieldDefinition `json:"fields"`
 }
 
 type ruleTitleRequest struct {
-	RuleName string `json:"rule_name" validate:"max=50"`
+	RuleName string `json:"rule_name" validate:"required,max=50"`
 }
 
 type ruleResponse struct {
@@ -204,6 +204,10 @@ func (h *Handler) deleteRule(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteProblem(w, http.StatusNotFound, "todo rule not found")
 		return
 	}
+	if errors.Is(err, ErrRuleInUse) {
+		httpx.WriteProblem(w, http.StatusConflict, "todo rule is in use")
+		return
+	}
 	if err != nil {
 		httpx.ServerError(w, r, err)
 		return
@@ -218,6 +222,8 @@ func readRuleRequest(r *http.Request) (ruleRequest, error) {
 	if err := httpx.DecodeJSON(r, &req); err != nil {
 		return ruleRequest{}, err
 	}
+
+	req.RuleName = strings.TrimSpace(req.RuleName)
 
 	for i := range req.Fields {
 		field := &req.Fields[i]

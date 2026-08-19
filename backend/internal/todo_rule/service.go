@@ -7,10 +7,12 @@ import (
 	"sync"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var ErrRuleNotFound = errors.New("todo rule not found")
+var ErrRuleInUse = errors.New("todo rule is in use")
 
 type Service struct {
 	db         *pgxpool.Pool
@@ -217,16 +219,16 @@ func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName str
 				return fmt.Errorf("update todo rule: %w", err)
 			}
 
+			s.mu.Lock()
+			delete(s.validators, ruleID)
+			s.mu.Unlock()
+
 			return nil
 		},
 	)
 	if err != nil {
 		return ruleResponse{}, err
 	}
-
-	s.mu.Lock()
-	delete(s.validators, ruleID)
-	s.mu.Unlock()
 
 	return rule, nil
 }
@@ -267,6 +269,11 @@ func (s *Service) DeleteTodoRule(ctx context.Context, ruleID int64) error {
 		},
 	)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			return ErrRuleInUse
+		}
+
 		return fmt.Errorf("delete todo rule: %w", err)
 	}
 

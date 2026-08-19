@@ -43,6 +43,12 @@ type loginUser struct {
 	PasswordHash string
 }
 
+type publicUserRepsponse struct {
+	ID           int64
+	Username string  `json:"username"`
+	Nickname *string `json:"nickname,omitempty"`
+}
+
 type contextKey string
 
 const userIDKey contextKey = "userID"
@@ -58,6 +64,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /signup", h.signup)
 	mux.HandleFunc("POST /login", h.login)
 	mux.HandleFunc("DELETE /logout", h.logout)
+	mux.HandleFunc("GET /me")
 }
 
 func (h *Handler) RequireAuth(next http.Handler) http.Handler {
@@ -190,6 +197,18 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, c)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie(h.cfg.CookieName)
+	if err == nil {
+		if err := deleteSession(r.Context(), h.db, cookie.Value); err != nil {
+			httpx.ServerError(w, r, err)
+			return
+		}
+	}
+
+	
 }
 
 func createUser(ctx context.Context, db *pgxpool.Pool, req SignupRequest) error {
