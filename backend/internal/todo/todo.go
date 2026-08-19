@@ -56,6 +56,7 @@ func NewHandler(db *pgxpool.Pool, rules *todorule.Service) *Handler {
 func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth func(http.Handler) http.Handler) {
 	mux.Handle("POST /todos", requireAuth(http.HandlerFunc(h.createTodo)))
 	mux.Handle("GET /todos", requireAuth(http.HandlerFunc(h.todosList)))
+	mux.Handle("GET /todos/{todo_id}", requireAuth(http.HandlerFunc(h.getTodo)))
 	mux.Handle("PATCH /todos/{todo_id}", requireAuth(http.HandlerFunc(h.updateTodo)))
 	mux.Handle("PATCH /todos/{todo_id}/complete", requireAuth(http.HandlerFunc(h.toggleTodoComplete)))
 	mux.Handle("DELETE /todos/{todo_id}", requireAuth(http.HandlerFunc(h.deleteTodo)))
@@ -130,6 +131,39 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Location", "/todos/"+strconv.FormatInt(todo.ID, 10))
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(todo)
+}
+
+func (h *Handler) getTodo(w http.ResponseWriter, r *http.Request) {
+	todoID, err := strconv.ParseInt(r.PathValue("todo_id"), 10, 64)
+	if err != nil {
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		return
+	}
+
+	rows, err := h.db.Query(
+		r.Context(),
+		`SELECT `+todoColumns+` FROM todos WHERE id = @todo_id`,
+		pgx.StrictNamedArgs{
+			"todo_id": todoID,
+		},
+	)
+	if err != nil {
+		httpx.ServerError(w, r, err)
+		return
+	}
+
+	todo, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[Todo])
+	if errors.Is(err, pgx.ErrNoRows) {
+		httpx.WriteProblem(w, http.StatusNotFound, "todo not found")
+		return
+	}
+	if err != nil {
+		httpx.ServerError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(todo)
 }
 

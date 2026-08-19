@@ -143,7 +143,7 @@ func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName str
 				UPDATE todos
 				SET content = content - deleted.keys
 				FROM deleted
-				WHERE todos.rule_id = $1 AND cardinality(deleted.keys) > 0`,
+				WHERE todos.rule_id = @rule_id AND cardinality(deleted.keys) > 0`,
 				pgx.StrictNamedArgs{
 					"rule_id": ruleID,
 					"fields":  fields,
