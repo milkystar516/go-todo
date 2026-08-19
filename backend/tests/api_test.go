@@ -203,6 +203,97 @@ func TestSignupLoginCreateAndGetTodos(t *testing.T) {
 		)
 	}
 
+	forbiddenGrantResp := post(t, client, fmt.Sprintf("%s/users/%d/grant-admin", server.URL, user.ID))
+	expectStatus(t, forbiddenGrantResp, http.StatusForbidden)
+	forbiddenGrantResp.Body.Close()
+
+	adminJar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	adminClient := &http.Client{
+		Jar: adminJar,
+	}
+
+	adminLoginResp := postJSON(
+		t,
+		adminClient,
+		server.URL+"/login",
+		map[string]any{
+			"username": "testuser",
+			"password": "1234",
+		},
+	)
+
+	expectStatus(t, adminLoginResp, http.StatusOK)
+	adminLoginResp.Body.Close()
+
+	defer func() {
+		req, err := http.NewRequest(http.MethodDelete, server.URL+"/logout", nil)
+		if err != nil {
+			t.Logf("admin logout request failed: %v", err)
+			return
+		}
+
+		resp, err := adminClient.Do(req)
+		if err != nil {
+			t.Logf("admin logout failed: %v", err)
+			return
+		}
+		resp.Body.Close()
+	}()
+
+	grantResp := post(t, adminClient, fmt.Sprintf("%s/users/%d/grant-admin", server.URL, user.ID))
+	expectStatus(t, grantResp, http.StatusOK)
+
+	var grantedUser publicUserResponse
+
+	if err := json.NewDecoder(grantResp.Body).Decode(&grantedUser); err != nil {
+		grantResp.Body.Close()
+		t.Fatal(err)
+	}
+	grantResp.Body.Close()
+
+	if grantedUser.Role != auth.RoleAdmin {
+		t.Fatalf(
+			"granted role = %q, want %q",
+			grantedUser.Role,
+			auth.RoleAdmin,
+		)
+	}
+
+	conflictGrantResp := post(t, adminClient, fmt.Sprintf("%s/users/%d/grant-admin", server.URL, user.ID))
+	expectStatus(t, conflictGrantResp, http.StatusConflict)
+	conflictGrantResp.Body.Close()
+
+	revokeResp := post(t, adminClient, fmt.Sprintf("%s/users/%d/revoke-admin", server.URL, user.ID))
+	expectStatus(t, revokeResp, http.StatusOK)
+
+	var revokedUser publicUserResponse
+
+	if err := json.NewDecoder(revokeResp.Body).Decode(&revokedUser); err != nil {
+		revokeResp.Body.Close()
+		t.Fatal(err)
+	}
+	revokeResp.Body.Close()
+
+	if revokedUser.Role != auth.RoleUser {
+		t.Fatalf(
+			"revoked role = %q, want %q",
+			revokedUser.Role,
+			auth.RoleUser,
+		)
+	}
+
+	conflictRevokeResp := post(t, adminClient, fmt.Sprintf("%s/users/%d/revoke-admin", server.URL, user.ID))
+	expectStatus(t, conflictRevokeResp, http.StatusConflict)
+	conflictRevokeResp.Body.Close()
+
+	missingUserResp := post(t, adminClient, server.URL+"/users/9223372036854775807/grant-admin")
+	expectStatus(t, missingUserResp, http.StatusNotFound)
+	missingUserResp.Body.Close()
+
 	var firstTodoID int64
 	var ownerID int64
 
@@ -525,6 +616,22 @@ func postJSON(t *testing.T, client *http.Client, url string, body any) *http.Res
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return resp
+}
+
+func post(t *testing.T, client *http.Client, url string) *http.Response {
+	t.Helper()
+
+	req, err := http.NewRequest(http.MethodPost, url, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {

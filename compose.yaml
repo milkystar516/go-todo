@@ -13,7 +13,8 @@ services:
 
     volumes:
       - postgres_data:/var/lib/postgresql
-      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./backend/db/data.sql:/docker-entrypoint-initdb.d/02-data.sql:ro
 
     healthcheck:
       test:

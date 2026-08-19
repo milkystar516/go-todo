@@ -76,6 +76,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /logout", h.logout)
 	mux.Handle("GET /me", h.RequireAuth(http.HandlerFunc(h.me)))
 	mux.Handle("GET /users/{user_id}", h.RequireAuth(http.HandlerFunc(h.getUser)))
+	mux.Handle("POST /users/{user_id}/grant-admin", h.RequireAuth(h.RequireAdmin(http.HandlerFunc(h.grantAdmin))))
+	mux.Handle("POST /users/{user_id}/revoke-admin", h.RequireAuth(h.RequireAdmin(http.HandlerFunc(h.revokeAdmin))))
 }
 
 func (h *Handler) RequireAuth(next http.Handler) http.Handler {
@@ -249,6 +251,66 @@ func (h *Handler) getUser(w http.ResponseWriter, r *http.Request) {
 	user, err := h.findPublicUser(r.Context(), userID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpx.WriteProblem(w, http.StatusNotFound, "user not found")
+		return
+	}
+	if err != nil {
+		httpx.ServerError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(user)
+}
+
+func (h *Handler) grantAdmin(w http.ResponseWriter, r *http.Request) {
+	h.changeUserRole(w, r, RoleUser, RoleAdmin)
+}
+
+func (h *Handler) revokeAdmin(w http.ResponseWriter, r *http.Request) {
+	h.changeUserRole(w, r, RoleAdmin, RoleUser)
+}
+
+func (h *Handler) changeUserRole(w http.ResponseWriter, r *http.Request, currentRole, nextRole Role) {
+	userID, err := strconv.ParseInt(r.PathValue("user_id"), 10, 64)
+	if err != nil {
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		return
+	}
+
+	if userID == UserID(r.Context()) {
+		httpx.WriteProblem(w, http.StatusForbidden, "cannot change own role")
+		return
+	}
+
+	rows, err := h.db.Query(
+		r.Context(),
+		`UPDATE users SET role = @role
+		WHERE id = @user_id AND role = @current_role
+		RETURNING id, username, nickname, role`,
+		pgx.StrictNamedArgs{
+			"role":         nextRole,
+			"user_id":      userID,
+			"current_role": currentRole,
+		},
+	)
+	if err != nil {
+		httpx.ServerError(w, r, err)
+		return
+	}
+
+	user, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[publicUserResponse])
+	if errors.Is(err, pgx.ErrNoRows) {
+		_, findErr := h.findPublicUser(r.Context(), userID)
+		if errors.Is(findErr, pgx.ErrNoRows) {
+			httpx.WriteProblem(w, http.StatusNotFound, "user not found")
+			return
+		}
+		if findErr != nil {
+			httpx.ServerError(w, r, findErr)
+			return
+		}
+
+		httpx.WriteProblem(w, http.StatusConflict, "user role conflict")
 		return
 	}
 	if err != nil {
