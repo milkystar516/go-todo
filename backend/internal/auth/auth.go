@@ -35,14 +35,14 @@ type Handler struct {
 }
 
 type SignupRequest struct {
-	Username string  `json:"username" validate:"max=50"`
+	Username string  `json:"username" validate:"required,max=50"`
 	Nickname *string `json:"nickname" validate:"omitempty,max=50"`
-	Password string  `json:"password"`
+	Password string  `json:"password" validate:"required"`
 }
 
 type LoginRequest struct {
-	Username string `json:"username" validate:"max=50"`
-	Password string `json:"password"`
+	Username string `json:"username" validate:"required,max=50"`
+	Password string `json:"password" validate:"required"`
 }
 
 type loginUser struct {
