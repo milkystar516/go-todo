@@ -99,8 +99,7 @@ func (s *Service) CreateTodoRule(ctx context.Context, ruleName string, fields []
 func (s *Service) ListTodoRules(ctx context.Context) ([]ruleResponse, error) {
 	rows, err := s.db.Query(
 		ctx,
-		`SELECT `+ruleResponseColumns+`
-		FROM todo_rule
+		`SELECT `+ruleResponseColumns+` FROM todo_rule
 		ORDER BY id`,
 	)
 	if err != nil {
@@ -262,8 +261,7 @@ func (s *Service) UpdateTodoRuleTitle(ctx context.Context, ruleID int64, ruleNam
 func (s *Service) DeleteTodoRule(ctx context.Context, ruleID int64) error {
 	res, err := s.db.Exec(
 		ctx,
-		`DELETE FROM todo_rule
-		WHERE id = @rule_id`,
+		"DELETE FROM todo_rule WHERE id = @rule_id",
 		pgx.StrictNamedArgs{
 			"rule_id": ruleID,
 		},
