@@ -1,6 +1,7 @@
 {
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build"
-  }
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ]
 }

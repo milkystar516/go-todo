@@ -1,0 +1,57 @@
+.shell {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.header {
+  min-height: 4rem;
+  padding-inline: 1rem;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #ddd;
+}
+
+.brand {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.body {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+}
+
+.navigation {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-right: 1px solid #ddd;
+}
+
+.main {
+  min-width: 0;
+  width: min(100% - 2rem, 64rem);
+  margin-inline: auto;
+  padding-block: 2rem;
+}
+
+@media (max-width: 48rem) {
+  .body {
+    display: block;
+  }
+
+  .navigation {
+    overflow-x: auto;
+    flex-direction: row;
+    border-right: 0;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .main {
+    padding-block: 1.25rem;
+  }
+}
