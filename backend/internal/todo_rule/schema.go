@@ -4,7 +4,7 @@ type JSONSchema map[string]any
 
 func buildSchema(fields []FieldDefinition) JSONSchema {
 	properties := make(map[string]any, len(fields))
-	required := make([]string, 0, len(fields))
+	required := make([]any, 0, len(fields))
 
 	for _, field := range fields {
 		property := map[string]any{
@@ -27,7 +27,13 @@ func buildSchema(fields []FieldDefinition) JSONSchema {
 
 		case FieldSingleSelect:
 			property["type"] = "string"
-			property["enum"] = field.Options
+
+			options := make([]any, len(field.Options))
+			for i, option := range field.Options {
+				options[i] = option
+			}
+
+			property["enum"] = options
 		}
 
 		if field.DefaultValue != nil {
@@ -41,7 +47,7 @@ func buildSchema(fields []FieldDefinition) JSONSchema {
 		}
 	}
 
-	schema := map[string]any{
+	schema := JSONSchema{
 		"$schema":              "https://json-schema.org/draft/2020-12/schema",
 		"type":                 "object",
 		"properties":           properties,
