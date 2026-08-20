@@ -33,10 +33,10 @@ type todoRuleResponse struct {
 }
 
 type todoRuleDetailResponse struct {
-    ID       int64
-    RuleName string
-    Fields   []todorule.FieldDefinition
-    Schema   map[string]any `json:"schema"`
+	ID       int64
+	RuleName string
+	Fields   []todorule.FieldDefinition
+	Schema   map[string]any `json:"schema"`
 }
 
 func TestAPI(t *testing.T) {
@@ -360,6 +360,24 @@ func TestAPI(t *testing.T) {
 			"unexpected schema draft: %v",
 			ruleDetail.Schema["$schema"],
 		)
+	}
+	properties, ok := ruleDetail.Schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("schema properties = %T, want object", ruleDetail.Schema["properties"])
+	}
+
+	prioritySchema, ok := properties["priority"].(map[string]any)
+	if !ok {
+		t.Fatalf("priority schema = %T, want object", properties["priority"])
+	}
+
+	options, ok := prioritySchema["enum"].([]any)
+	if !ok {
+		t.Fatalf("priority enum = %T, want array", prioritySchema["enum"])
+	}
+
+	if len(options) != 2 || options[0] != "high" || options[1] != "low" {
+		t.Fatalf("priority enum = %v, want [high low]", options)
 	}
 
 	forbiddenPatchRuleResp := requestJSON(
