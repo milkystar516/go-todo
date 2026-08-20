@@ -63,10 +63,11 @@ func main() {
 	mux.Handle("/api/", http.StripPrefix("/api", apiMux))
 
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+	crossOriginProtection := http.NewCrossOriginProtection()
 
 	server := &http.Server{
 		Addr:              addr,
-		Handler:           mux,
+		Handler:           crossOriginProtection.Handler(mux),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
