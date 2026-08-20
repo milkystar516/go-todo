@@ -138,6 +138,13 @@ func (s *Service) GetTodoRule(ctx context.Context, ruleID int64) (ruleDetailResp
 		return ruleDetailResponse{}, fmt.Errorf("get todo rule: %w", err)
 	}
 
+	schema, err := schemaForFields(rule.Fields)
+	if err != nil {
+		return ruleDetailResponse{}, fmt.Errorf("build todo rule %d schema: %w", ruleID, err)
+	}
+
+	rule.Schema = schema
+
 	return rule, nil
 }
 

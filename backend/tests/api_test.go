@@ -33,9 +33,10 @@ type todoRuleResponse struct {
 }
 
 type todoRuleDetailResponse struct {
-	ID       int64                      `json:"id"`
-	RuleName string                     `json:"rule_name"`
-	Fields   []todorule.FieldDefinition `json:"fields"`
+    ID       int64
+    RuleName string
+    Fields   []todorule.FieldDefinition
+    Schema   map[string]any `json:"schema"`
 }
 
 func TestAPI(t *testing.T) {
@@ -352,6 +353,13 @@ func TestAPI(t *testing.T) {
 	}
 	if ruleDetail.Fields[0].Key != "title" || ruleDetail.Fields[1].Options[0] != "high" {
 		t.Fatalf("todo rule fields were not trimmed: %+v", ruleDetail.Fields)
+	}
+	if ruleDetail.Schema["$schema"] !=
+		"https://json-schema.org/draft/2020-12/schema" {
+		t.Fatalf(
+			"unexpected schema draft: %v",
+			ruleDetail.Schema["$schema"],
+		)
 	}
 
 	forbiddenPatchRuleResp := requestJSON(

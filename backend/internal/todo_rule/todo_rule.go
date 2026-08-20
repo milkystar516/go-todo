@@ -29,9 +29,10 @@ type ruleResponse struct {
 }
 
 type ruleDetailResponse struct {
-	ID       int64             `json:"id" db:"id"`
-	RuleName string            `json:"rule_name" db:"rule_name"`
-	Fields   []FieldDefinition `json:"fields" db:"fields"`
+    ID       int64             `json:"id" db:"id"`
+    RuleName string            `json:"rule_name" db:"rule_name"`
+    Fields   []FieldDefinition `json:"fields" db:"fields"`
+    Schema   JSONSchema        `json:"schema" db:"-"`
 }
 
 const ruleResponseColumns = `
@@ -83,7 +84,7 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Location", "/todo-rules/"+strconv.FormatInt(rule.ID, 10))
+	w.Header().Set("Location", "/api/todo-rules/"+strconv.FormatInt(rule.ID, 10))
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(rule)
 }
