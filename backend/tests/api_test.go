@@ -27,7 +27,18 @@ type publicUserResponse struct {
 	Role     auth.Role `json:"role"`
 }
 
-func TestSignupLoginCreateAndGetTodos(t *testing.T) {
+type todoRuleResponse struct {
+	ID       int64  `json:"id"`
+	RuleName string `json:"rule_name"`
+}
+
+type todoRuleDetailResponse struct {
+	ID       int64                      `json:"id"`
+	RuleName string                     `json:"rule_name"`
+	Fields   []todorule.FieldDefinition `json:"fields"`
+}
+
+func TestAPI(t *testing.T) {
 	if err := godotenv.Load("../../.env"); err != nil {
 		t.Fatal(err)
 	}
@@ -41,196 +52,160 @@ func TestSignupLoginCreateAndGetTodos(t *testing.T) {
 	defer db.Close()
 
 	mux := http.NewServeMux()
+	apiMux := http.NewServeMux()
+	mux.Handle("/api/", http.StripPrefix("/api", apiMux))
 
 	authHandler := auth.NewHandler(db, auth.Config{
 		CookieName: os.Getenv("SESSION_COOKIE_NAME"),
 		SessionTTL: time.Hour,
 		Secure:     false,
 	})
-	authHandler.RegisterRoutes(mux)
+	authHandler.RegisterRoutes(apiMux)
 
-	ruleSerivce := todorule.NewService(db)
+	ruleService := todorule.NewService(db)
 
-	todoRuleHandler := todorule.NewHandler(ruleSerivce)
-	todoRuleHandler.RegisterRoutes(mux, authHandler.RequireAuth, authHandler.RequireAdmin)
+	todoRuleHandler := todorule.NewHandler(ruleService)
+	todoRuleHandler.RegisterRoutes(apiMux, authHandler.RequireAuth, authHandler.RequireAdmin)
 
-	todoHandler := todo.NewHandler(db, ruleSerivce)
-	todoHandler.RegisterRoutes(mux, authHandler.RequireAuth)
+	todoHandler := todo.NewHandler(db, ruleService)
+	todoHandler.RegisterRoutes(apiMux, authHandler.RequireAuth)
 
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	jar, err := cookiejar.New(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	apiURL := server.URL + "/api"
+	username := fmt.Sprintf("integration_test_%d", time.Now().UnixNano())
+	ruleName := fmt.Sprintf("integration rule %d", time.Now().UnixNano())
+	password := "test-password"
 
-	client := &http.Client{
-		Jar: jar,
-	}
+	var ruleID int64
 
-	unauthorizedMeResp, err := client.Get(server.URL + "/me")
-	if err != nil {
-		t.Fatal(err)
-	}
+	defer func() {
+		if _, err := db.Exec(context.Background(), "DELETE FROM users WHERE username = $1", username); err != nil {
+			t.Logf("user cleanup failed: %v", err)
+		}
+
+		if ruleID != 0 {
+			if _, err := db.Exec(context.Background(), "DELETE FROM todo_rule WHERE id = $1", ruleID); err != nil {
+				t.Logf("todo rule cleanup failed: %v", err)
+			}
+		}
+	}()
+
+	client := newClient(t)
+	adminClient := newClient(t)
+
+	rootMeResp := request(t, client, http.MethodGet, server.URL+"/me")
+	expectStatus(t, rootMeResp, http.StatusNotFound)
+	rootMeResp.Body.Close()
+
+	unauthorizedMeResp := request(t, client, http.MethodGet, apiURL+"/me")
 	expectStatus(t, unauthorizedMeResp, http.StatusUnauthorized)
 	unauthorizedMeResp.Body.Close()
 
-	username := fmt.Sprintf(
-		"integration_test_%d",
-		time.Now().UnixNano(),
-	)
-	password := "test-password"
+	invalidSignupResp := requestJSON(t, client, http.MethodPost, apiURL+"/signup", map[string]any{})
+	expectStatus(t, invalidSignupResp, http.StatusUnprocessableEntity)
+	invalidSignupResp.Body.Close()
 
-	t.Cleanup(func() {
-		_, err := db.Exec(
-			context.Background(),
-			"DELETE FROM users WHERE username = $1",
-			username,
-		)
-		if err != nil {
-			t.Logf("test cleanup failed: %v", err)
-		}
-	})
+	signupBody := map[string]any{
+		"username": username,
+		"nickname": "integration-test",
+		"password": password,
+	}
 
-	// 1. signup
-	signupResp := postJSON(
-		t,
-		client,
-		server.URL+"/signup",
-		map[string]any{
-			"username": username,
-			"nickname": "integration-test",
-			"password": password,
-		},
-	)
-
+	signupResp := requestJSON(t, client, http.MethodPost, apiURL+"/signup", signupBody)
 	expectStatus(t, signupResp, http.StatusCreated)
 	signupResp.Body.Close()
 
-	// 2. login
-	loginResp := postJSON(
+	duplicateSignupResp := requestJSON(t, client, http.MethodPost, apiURL+"/signup", signupBody)
+	expectStatus(t, duplicateSignupResp, http.StatusConflict)
+	duplicateSignupResp.Body.Close()
+
+	invalidLoginResp := requestJSON(
 		t,
 		client,
-		server.URL+"/login",
+		http.MethodPost,
+		apiURL+"/login",
+		map[string]any{
+			"username": username,
+			"password": "wrong-password",
+		},
+	)
+	expectStatus(t, invalidLoginResp, http.StatusUnauthorized)
+	invalidLoginResp.Body.Close()
+
+	loginResp := requestJSON(
+		t,
+		client,
+		http.MethodPost,
+		apiURL+"/login",
 		map[string]any{
 			"username": username,
 			"password": password,
 		},
 	)
-
 	expectStatus(t, loginResp, http.StatusOK)
+
+	loginCookies := loginResp.Cookies()
 	loginResp.Body.Close()
 
-	meResp, err := client.Get(server.URL + "/me")
-	if err != nil {
-		t.Fatal(err)
+	if len(loginCookies) != 1 {
+		t.Fatalf("login set %d cookies, want 1", len(loginCookies))
+	}
+	if loginCookies[0].Path != "/" {
+		t.Fatalf("login cookie path = %q, want %q", loginCookies[0].Path, "/")
 	}
 
+	meResp := request(t, client, http.MethodGet, apiURL+"/me")
 	expectStatus(t, meResp, http.StatusOK)
 
 	var user publicUserResponse
-
-	if err := json.NewDecoder(meResp.Body).Decode(&user); err != nil {
-		meResp.Body.Close()
-		t.Fatal(err)
-	}
-	meResp.Body.Close()
+	decodeJSON(t, meResp, &user)
 
 	if user.ID == 0 {
 		t.Fatal("me response has no id")
 	}
-
 	if user.Username != username {
-		t.Fatalf(
-			"me username = %q, want %q",
-			user.Username,
-			username,
-		)
+		t.Fatalf("me username = %q, want %q", user.Username, username)
 	}
-
 	if user.Nickname == nil || *user.Nickname != "integration-test" {
-		t.Fatalf(
-			"me nickname = %v, want %q",
-			user.Nickname,
-			"integration-test",
-		)
+		t.Fatalf("me nickname = %v, want %q", user.Nickname, "integration-test")
 	}
-
 	if user.Role != auth.RoleUser {
-		t.Fatalf(
-			"me role = %q, want %q",
-			user.Role,
-			auth.RoleUser,
-		)
+		t.Fatalf("me role = %q, want %q", user.Role, auth.RoleUser)
 	}
-
 	if cookies := meResp.Cookies(); len(cookies) != 0 {
-		t.Fatalf(
-			"me response set %d cookies, want 0",
-			len(cookies),
-		)
+		t.Fatalf("me response set %d cookies, want 0", len(cookies))
 	}
 
-	userResp, err := client.Get(fmt.Sprintf("%s/users/%d", server.URL, user.ID))
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	userResp := request(t, client, http.MethodGet, fmt.Sprintf("%s/users/%d", apiURL, user.ID))
 	expectStatus(t, userResp, http.StatusOK)
 
 	var foundUser publicUserResponse
+	decodeJSON(t, userResp, &foundUser)
 
-	if err := json.NewDecoder(userResp.Body).Decode(&foundUser); err != nil {
-		userResp.Body.Close()
-		t.Fatal(err)
+	if foundUser.ID != user.ID || foundUser.Username != user.Username || foundUser.Role != user.Role {
+		t.Fatalf("user response = %+v, want %+v", foundUser, user)
 	}
-	userResp.Body.Close()
-
-	if foundUser.ID != user.ID {
-		t.Fatalf(
-			"user id = %d, want %d",
-			foundUser.ID,
-			user.ID,
-		)
+	if foundUser.Nickname == nil || *foundUser.Nickname != *user.Nickname {
+		t.Fatalf("user nickname = %v, want %v", foundUser.Nickname, user.Nickname)
 	}
 
-	if foundUser.Username != user.Username {
-		t.Fatalf(
-			"username = %q, want %q",
-			foundUser.Username,
-			user.Username,
-		)
-	}
-
-	forbiddenGrantResp := post(t, client, fmt.Sprintf("%s/users/%d/grant-admin", server.URL, user.ID))
-	expectStatus(t, forbiddenGrantResp, http.StatusForbidden)
-	forbiddenGrantResp.Body.Close()
-
-	adminJar, err := cookiejar.New(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	adminClient := &http.Client{
-		Jar: adminJar,
-	}
-
-	adminLoginResp := postJSON(
+	adminLoginResp := requestJSON(
 		t,
 		adminClient,
-		server.URL+"/login",
+		http.MethodPost,
+		apiURL+"/login",
 		map[string]any{
 			"username": "testuser",
 			"password": "1234",
 		},
 	)
-
 	expectStatus(t, adminLoginResp, http.StatusOK)
 	adminLoginResp.Body.Close()
 
 	defer func() {
-		req, err := http.NewRequest(http.MethodDelete, server.URL+"/logout", nil)
+		req, err := http.NewRequest(http.MethodDelete, apiURL+"/logout", nil)
 		if err != nil {
 			t.Logf("admin logout request failed: %v", err)
 			return
@@ -244,161 +219,313 @@ func TestSignupLoginCreateAndGetTodos(t *testing.T) {
 		resp.Body.Close()
 	}()
 
-	grantResp := post(t, adminClient, fmt.Sprintf("%s/users/%d/grant-admin", server.URL, user.ID))
+	adminMeResp := request(t, adminClient, http.MethodGet, apiURL+"/me")
+	expectStatus(t, adminMeResp, http.StatusOK)
+
+	var adminUser publicUserResponse
+	decodeJSON(t, adminMeResp, &adminUser)
+
+	if adminUser.Role != auth.RoleAdmin {
+		t.Fatalf("admin role = %q, want %q", adminUser.Role, auth.RoleAdmin)
+	}
+
+	publicAdminResp := request(t, client, http.MethodGet, fmt.Sprintf("%s/users/%d", apiURL, adminUser.ID))
+	expectStatus(t, publicAdminResp, http.StatusOK)
+	publicAdminResp.Body.Close()
+
+	forbiddenGrantResp := request(t, client, http.MethodPost, fmt.Sprintf("%s/users/%d/grant-admin", apiURL, user.ID))
+	expectStatus(t, forbiddenGrantResp, http.StatusForbidden)
+	forbiddenGrantResp.Body.Close()
+
+	selfRevokeResp := request(t, adminClient, http.MethodPost, fmt.Sprintf("%s/users/%d/revoke-admin", apiURL, adminUser.ID))
+	expectStatus(t, selfRevokeResp, http.StatusForbidden)
+	selfRevokeResp.Body.Close()
+
+	grantResp := request(t, adminClient, http.MethodPost, fmt.Sprintf("%s/users/%d/grant-admin", apiURL, user.ID))
 	expectStatus(t, grantResp, http.StatusOK)
 
 	var grantedUser publicUserResponse
-
-	if err := json.NewDecoder(grantResp.Body).Decode(&grantedUser); err != nil {
-		grantResp.Body.Close()
-		t.Fatal(err)
-	}
-	grantResp.Body.Close()
+	decodeJSON(t, grantResp, &grantedUser)
 
 	if grantedUser.Role != auth.RoleAdmin {
-		t.Fatalf(
-			"granted role = %q, want %q",
-			grantedUser.Role,
-			auth.RoleAdmin,
-		)
+		t.Fatalf("granted role = %q, want %q", grantedUser.Role, auth.RoleAdmin)
 	}
 
-	conflictGrantResp := post(t, adminClient, fmt.Sprintf("%s/users/%d/grant-admin", server.URL, user.ID))
+	conflictGrantResp := request(t, adminClient, http.MethodPost, fmt.Sprintf("%s/users/%d/grant-admin", apiURL, user.ID))
 	expectStatus(t, conflictGrantResp, http.StatusConflict)
 	conflictGrantResp.Body.Close()
 
-	revokeResp := post(t, adminClient, fmt.Sprintf("%s/users/%d/revoke-admin", server.URL, user.ID))
+	revokeResp := request(t, adminClient, http.MethodPost, fmt.Sprintf("%s/users/%d/revoke-admin", apiURL, user.ID))
 	expectStatus(t, revokeResp, http.StatusOK)
 
 	var revokedUser publicUserResponse
-
-	if err := json.NewDecoder(revokeResp.Body).Decode(&revokedUser); err != nil {
-		revokeResp.Body.Close()
-		t.Fatal(err)
-	}
-	revokeResp.Body.Close()
+	decodeJSON(t, revokeResp, &revokedUser)
 
 	if revokedUser.Role != auth.RoleUser {
-		t.Fatalf(
-			"revoked role = %q, want %q",
-			revokedUser.Role,
-			auth.RoleUser,
-		)
+		t.Fatalf("revoked role = %q, want %q", revokedUser.Role, auth.RoleUser)
 	}
 
-	conflictRevokeResp := post(t, adminClient, fmt.Sprintf("%s/users/%d/revoke-admin", server.URL, user.ID))
+	conflictRevokeResp := request(t, adminClient, http.MethodPost, fmt.Sprintf("%s/users/%d/revoke-admin", apiURL, user.ID))
 	expectStatus(t, conflictRevokeResp, http.StatusConflict)
 	conflictRevokeResp.Body.Close()
 
-	missingUserResp := post(t, adminClient, server.URL+"/users/9223372036854775807/grant-admin")
+	missingUserResp := request(t, adminClient, http.MethodPost, apiURL+"/users/9223372036854775807/grant-admin")
 	expectStatus(t, missingUserResp, http.StatusNotFound)
 	missingUserResp.Body.Close()
 
-	var firstTodoID int64
-	var ownerID int64
-
-	// 3. create 10 todos
-	for i := 1; i <= 10; i++ {
-		title := fmt.Sprintf("테스트 Todo %02d", i)
-
-		resp := postJSON(
-			t,
-			client,
-			server.URL+"/todos",
-			map[string]any{
-				"content": map[string]any{
-					"title": title,
-				},
-			},
-		)
-
-		expectStatus(t, resp, http.StatusCreated)
-
-		var created todo.Todo
-
-		if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
-			resp.Body.Close()
-			t.Fatal(err)
-		}
-		resp.Body.Close()
-
-		if created.ID == 0 {
-			t.Fatal("created todo has no id")
-		}
-
-		if created.OwnerID == 0 {
-			t.Fatal("created todo has no owner_id")
-		}
-
-		if i == 1 {
-			firstTodoID = created.ID
-			ownerID = created.OwnerID
-		}
-
-		if created.Content["title"] != title {
-			t.Fatalf(
-				"created content.title = %v, want %q",
-				created.Content["title"],
-				title,
-			)
-		}
-
-		if created.CompletedAt != nil {
-			t.Fatalf(
-				"created completed_at = %v, want nil",
-				created.CompletedAt,
-			)
-		}
+	fields := []todorule.FieldDefinition{
+		{
+			Key:        " title ",
+			Label:      " Title ",
+			Type:       todorule.FieldShortText,
+			Required:   true,
+			ShowInList: true,
+		},
+		{
+			Key:     " priority ",
+			Label:   " Priority ",
+			Type:    todorule.FieldSingleSelect,
+			Options: []string{" high ", " low "},
+		},
+	}
+	ruleBody := map[string]any{
+		"rule_name": "  " + ruleName + "  ",
+		"fields":    fields,
 	}
 
-	// 4. get todos
-	resp, err := client.Get(fmt.Sprintf("%s/users/%d/todos", server.URL, ownerID))
-	if err != nil {
-		t.Fatal(err)
+	forbiddenCreateRuleResp := requestJSON(t, client, http.MethodPost, apiURL+"/todo-rules", ruleBody)
+	expectStatus(t, forbiddenCreateRuleResp, http.StatusForbidden)
+	forbiddenCreateRuleResp.Body.Close()
+
+	invalidRuleResp := requestJSON(
+		t,
+		adminClient,
+		http.MethodPost,
+		apiURL+"/todo-rules",
+		map[string]any{
+			"rule_name": "   ",
+			"fields":    fields,
+		},
+	)
+	expectStatus(t, invalidRuleResp, http.StatusUnprocessableEntity)
+	invalidRuleResp.Body.Close()
+
+	createRuleResp := requestJSON(t, adminClient, http.MethodPost, apiURL+"/todo-rules", ruleBody)
+	expectStatus(t, createRuleResp, http.StatusCreated)
+
+	var createdRule todoRuleResponse
+	decodeJSON(t, createRuleResp, &createdRule)
+	ruleID = createdRule.ID
+
+	if createdRule.RuleName != ruleName {
+		t.Fatalf("created rule name = %q, want %q", createdRule.RuleName, ruleName)
 	}
-	defer resp.Body.Close()
 
-	expectStatus(t, resp, http.StatusOK)
+	listRulesResp := request(t, client, http.MethodGet, apiURL+"/todo-rules")
+	expectStatus(t, listRulesResp, http.StatusOK)
 
-	var todos []todo.Todo
+	var rules []todoRuleResponse
+	decodeJSON(t, listRulesResp, &rules)
 
-	if err := json.NewDecoder(resp.Body).Decode(&todos); err != nil {
-		t.Fatal(err)
-	}
-
-	if len(todos) != 10 {
-		t.Fatalf(
-			"got %d todos, want 10",
-			len(todos),
-		)
-	}
-
-	for i, got := range todos {
-		wantTitle := fmt.Sprintf("테스트 Todo %02d", i+1)
-
-		if got.Content["title"] != wantTitle {
-			t.Errorf(
-				"todos[%d].content.title = %v, want %q",
-				i,
-				got.Content["title"],
-				wantTitle,
-			)
+	foundRule := false
+	for _, rule := range rules {
+		if rule.ID == ruleID {
+			foundRule = true
+			break
 		}
-
-		if got.CompletedAt != nil {
-			t.Errorf(
-				"todos[%d].completed_at = %v, want nil",
-				i,
-				got.CompletedAt,
-			)
-		}
+	}
+	if !foundRule {
+		t.Fatalf("created todo rule %d is missing from list", ruleID)
 	}
 
-	// 5. update first todo content
-	updateResp := patchJSON(
+	getRuleResp := request(t, client, http.MethodGet, fmt.Sprintf("%s/todo-rules/%d", apiURL, ruleID))
+	expectStatus(t, getRuleResp, http.StatusOK)
+
+	var ruleDetail todoRuleDetailResponse
+	decodeJSON(t, getRuleResp, &ruleDetail)
+
+	if len(ruleDetail.Fields) != 2 {
+		t.Fatalf("todo rule field count = %d, want 2", len(ruleDetail.Fields))
+	}
+	if len(ruleDetail.Fields[1].Options) != 2 {
+		t.Fatalf("todo rule option count = %d, want 2", len(ruleDetail.Fields[1].Options))
+	}
+	if ruleDetail.Fields[0].Key != "title" || ruleDetail.Fields[1].Options[0] != "high" {
+		t.Fatalf("todo rule fields were not trimmed: %+v", ruleDetail.Fields)
+	}
+
+	forbiddenPatchRuleResp := requestJSON(
 		t,
 		client,
-		fmt.Sprintf("%s/todos/%d", server.URL, firstTodoID),
+		http.MethodPatch,
+		fmt.Sprintf("%s/todo-rules/%d", apiURL, ruleID),
+		map[string]any{"rule_name": "forbidden"},
+	)
+	expectStatus(t, forbiddenPatchRuleResp, http.StatusForbidden)
+	forbiddenPatchRuleResp.Body.Close()
+
+	forbiddenPutRuleResp := requestJSON(t, client, http.MethodPut, fmt.Sprintf("%s/todo-rules/%d", apiURL, ruleID), ruleBody)
+	expectStatus(t, forbiddenPutRuleResp, http.StatusForbidden)
+	forbiddenPutRuleResp.Body.Close()
+
+	forbiddenDeleteRuleResp := request(t, client, http.MethodDelete, fmt.Sprintf("%s/todo-rules/%d", apiURL, ruleID))
+	expectStatus(t, forbiddenDeleteRuleResp, http.StatusForbidden)
+	forbiddenDeleteRuleResp.Body.Close()
+
+	updatedRuleName := ruleName + " updated"
+	updateTitleResp := requestJSON(
+		t,
+		adminClient,
+		http.MethodPatch,
+		fmt.Sprintf("%s/todo-rules/%d", apiURL, ruleID),
+		map[string]any{"rule_name": "  " + updatedRuleName + "  "},
+	)
+	expectStatus(t, updateTitleResp, http.StatusOK)
+
+	var titledRule todoRuleResponse
+	decodeJSON(t, updateTitleResp, &titledRule)
+
+	if titledRule.RuleName != updatedRuleName {
+		t.Fatalf("updated rule name = %q, want %q", titledRule.RuleName, updatedRuleName)
+	}
+
+	missingRuleIDResp := requestJSON(
+		t,
+		client,
+		http.MethodPost,
+		apiURL+"/todos",
+		map[string]any{"content": map[string]any{"title": "Todo"}},
+	)
+	expectStatus(t, missingRuleIDResp, http.StatusUnprocessableEntity)
+	missingRuleIDResp.Body.Close()
+
+	unknownRuleResp := requestJSON(
+		t,
+		client,
+		http.MethodPost,
+		apiURL+"/todos",
+		map[string]any{
+			"rule_id": 9223372036854775807,
+			"content": map[string]any{"title": "Todo"},
+		},
+	)
+	expectStatus(t, unknownRuleResp, http.StatusUnprocessableEntity)
+	unknownRuleResp.Body.Close()
+
+	invalidContentResp := requestJSON(
+		t,
+		client,
+		http.MethodPost,
+		apiURL+"/todos",
+		map[string]any{
+			"rule_id": ruleID,
+			"content": map[string]any{"unknown": true},
+		},
+	)
+	expectStatus(t, invalidContentResp, http.StatusUnprocessableEntity)
+	invalidContentResp.Body.Close()
+
+	createTodoResp := requestJSON(
+		t,
+		client,
+		http.MethodPost,
+		apiURL+"/todos",
+		map[string]any{
+			"rule_id": ruleID,
+			"content": map[string]any{
+				"title":    "테스트 Todo",
+				"priority": "high",
+			},
+		},
+	)
+	expectStatus(t, createTodoResp, http.StatusCreated)
+
+	var createdTodo todo.Todo
+	decodeJSON(t, createTodoResp, &createdTodo)
+
+	if createdTodo.OwnerID != user.ID || createdTodo.RuleID != ruleID {
+		t.Fatalf("created todo owner/rule = %d/%d, want %d/%d", createdTodo.OwnerID, createdTodo.RuleID, user.ID, ruleID)
+	}
+
+	adminGetTodoResp := request(t, adminClient, http.MethodGet, fmt.Sprintf("%s/todos/%d", apiURL, createdTodo.ID))
+	expectStatus(t, adminGetTodoResp, http.StatusOK)
+	adminGetTodoResp.Body.Close()
+
+	adminListTodosResp := request(t, adminClient, http.MethodGet, fmt.Sprintf("%s/users/%d/todos", apiURL, user.ID))
+	expectStatus(t, adminListTodosResp, http.StatusOK)
+
+	var userTodos []todo.Todo
+	decodeJSON(t, adminListTodosResp, &userTodos)
+
+	if len(userTodos) != 1 || userTodos[0].ID != createdTodo.ID {
+		t.Fatalf("user todos = %+v, want todo %d", userTodos, createdTodo.ID)
+	}
+
+	forbiddenUpdateTodoResp := requestJSON(
+		t,
+		adminClient,
+		http.MethodPatch,
+		fmt.Sprintf("%s/todos/%d", apiURL, createdTodo.ID),
+		map[string]any{"content": createdTodo.Content},
+	)
+	expectStatus(t, forbiddenUpdateTodoResp, http.StatusNotFound)
+	forbiddenUpdateTodoResp.Body.Close()
+
+	forbiddenDeleteTodoResp := request(t, adminClient, http.MethodDelete, fmt.Sprintf("%s/todos/%d", apiURL, createdTodo.ID))
+	expectStatus(t, forbiddenDeleteTodoResp, http.StatusNotFound)
+	forbiddenDeleteTodoResp.Body.Close()
+
+	forbiddenToggleResp := request(t, adminClient, http.MethodPatch, fmt.Sprintf("%s/todos/%d/complete", apiURL, createdTodo.ID))
+	expectStatus(t, forbiddenToggleResp, http.StatusNotFound)
+	forbiddenToggleResp.Body.Close()
+
+	toggleResp := request(t, client, http.MethodPatch, fmt.Sprintf("%s/todos/%d/complete", apiURL, createdTodo.ID))
+	expectStatus(t, toggleResp, http.StatusOK)
+
+	var completedTodo todo.Todo
+	decodeJSON(t, toggleResp, &completedTodo)
+
+	if completedTodo.CompletedAt == nil {
+		t.Fatal("completed_at is nil after completing todo")
+	}
+
+	updatedFields := []todorule.FieldDefinition{
+		{
+			Key:        "title",
+			Label:      "Title",
+			Type:       todorule.FieldShortText,
+			Required:   true,
+			ShowInList: true,
+		},
+	}
+	updateRuleResp := requestJSON(
+		t,
+		adminClient,
+		http.MethodPut,
+		fmt.Sprintf("%s/todo-rules/%d", apiURL, ruleID),
+		map[string]any{
+			"rule_name": updatedRuleName,
+			"fields":    updatedFields,
+		},
+	)
+	expectStatus(t, updateRuleResp, http.StatusOK)
+	updateRuleResp.Body.Close()
+
+	prunedTodoResp := request(t, client, http.MethodGet, fmt.Sprintf("%s/todos/%d", apiURL, createdTodo.ID))
+	expectStatus(t, prunedTodoResp, http.StatusOK)
+
+	var prunedTodo todo.Todo
+	decodeJSON(t, prunedTodoResp, &prunedTodo)
+
+	if _, ok := prunedTodo.Content["priority"]; ok {
+		t.Fatalf("removed priority field remains in todo content: %v", prunedTodo.Content)
+	}
+
+	invalidUpdateResp := requestJSON(
+		t,
+		client,
+		http.MethodPatch,
+		fmt.Sprintf("%s/todos/%d", apiURL, createdTodo.ID),
 		map[string]any{
 			"content": map[string]any{
 				"title":    "수정된 Todo",
@@ -406,215 +533,103 @@ func TestSignupLoginCreateAndGetTodos(t *testing.T) {
 			},
 		},
 	)
+	expectStatus(t, invalidUpdateResp, http.StatusUnprocessableEntity)
+	invalidUpdateResp.Body.Close()
 
-	expectStatus(t, updateResp, http.StatusOK)
-
-	var updated todo.Todo
-
-	if err := json.NewDecoder(updateResp.Body).Decode(&updated); err != nil {
-		updateResp.Body.Close()
-		t.Fatal(err)
-	}
-	updateResp.Body.Close()
-
-	if updated.Content["title"] != "수정된 Todo" {
-		t.Fatalf(
-			"updated content.title = %v, want %q",
-			updated.Content["title"],
-			"수정된 Todo",
-		)
-	}
-
-	if updated.Content["priority"] != "high" {
-		t.Fatalf(
-			"updated content.priority = %v, want %q",
-			updated.Content["priority"],
-			"high",
-		)
-	}
-
-	if updated.CompletedAt != nil {
-		t.Fatalf(
-			"updated completed_at = %v, want nil",
-			updated.CompletedAt,
-		)
-	}
-
-	// 6. complete first todo
-	completeReq, err := http.NewRequest(
-		http.MethodPatch,
-		fmt.Sprintf("%s/todos/%d/complete", server.URL, firstTodoID),
-		nil,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	completeResp, err := client.Do(completeReq)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expectStatus(t, completeResp, http.StatusOK)
-
-	var completed todo.Todo
-
-	if err := json.NewDecoder(completeResp.Body).Decode(&completed); err != nil {
-		completeResp.Body.Close()
-		t.Fatal(err)
-	}
-	completeResp.Body.Close()
-
-	if completed.CompletedAt == nil {
-		t.Fatal("completed_at is nil after completing todo")
-	}
-
-	completedAt := *completed.CompletedAt
-
-	// 7. update content while completed
-	updateCompletedResp := patchJSON(
+	updateTodoResp := requestJSON(
 		t,
 		client,
-		fmt.Sprintf("%s/todos/%d", server.URL, firstTodoID),
-		map[string]any{
-			"content": map[string]any{
-				"title":    "완료 후 수정",
-				"priority": "high",
-			},
-		},
-	)
-
-	expectStatus(t, updateCompletedResp, http.StatusOK)
-
-	var updatedCompleted todo.Todo
-
-	if err := json.NewDecoder(updateCompletedResp.Body).Decode(&updatedCompleted); err != nil {
-		updateCompletedResp.Body.Close()
-		t.Fatal(err)
-	}
-	updateCompletedResp.Body.Close()
-
-	if updatedCompleted.Content["title"] != "완료 후 수정" {
-		t.Fatalf(
-			"updated content.title = %v, want %q",
-			updatedCompleted.Content["title"],
-			"완료 후 수정",
-		)
-	}
-
-	if updatedCompleted.CompletedAt == nil {
-		t.Fatal("content update cleared completed_at")
-	}
-
-	if !updatedCompleted.CompletedAt.Equal(completedAt) {
-		t.Fatalf(
-			"content update changed completed_at: got %v, want %v",
-			updatedCompleted.CompletedAt,
-			completedAt,
-		)
-	}
-
-	// 8. toggle first todo back to incomplete
-	uncompleteReq, err := http.NewRequest(
 		http.MethodPatch,
-		fmt.Sprintf("%s/todos/%d/complete", server.URL, firstTodoID),
-		nil,
+		fmt.Sprintf("%s/todos/%d", apiURL, createdTodo.ID),
+		map[string]any{"content": map[string]any{"title": "수정된 Todo"}},
 	)
-	if err != nil {
-		t.Fatal(err)
+	expectStatus(t, updateTodoResp, http.StatusOK)
+
+	var updatedTodo todo.Todo
+	decodeJSON(t, updateTodoResp, &updatedTodo)
+
+	if updatedTodo.Content["title"] != "수정된 Todo" {
+		t.Fatalf("updated title = %v, want %q", updatedTodo.Content["title"], "수정된 Todo")
+	}
+	if updatedTodo.CompletedAt == nil || !updatedTodo.CompletedAt.Equal(*completedTodo.CompletedAt) {
+		t.Fatalf("content update changed completed_at: got %v, want %v", updatedTodo.CompletedAt, completedTodo.CompletedAt)
 	}
 
-	uncompleteResp, err := client.Do(uncompleteReq)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	uncompleteResp := request(t, client, http.MethodPatch, fmt.Sprintf("%s/todos/%d/complete", apiURL, createdTodo.ID))
 	expectStatus(t, uncompleteResp, http.StatusOK)
 
-	var uncompleted todo.Todo
+	var uncompletedTodo todo.Todo
+	decodeJSON(t, uncompleteResp, &uncompletedTodo)
 
-	if err := json.NewDecoder(uncompleteResp.Body).Decode(&uncompleted); err != nil {
-		uncompleteResp.Body.Close()
-		t.Fatal(err)
-	}
-	uncompleteResp.Body.Close()
-
-	if uncompleted.CompletedAt != nil {
-		t.Fatalf(
-			"completed_at = %v after toggling incomplete, want nil",
-			uncompleted.CompletedAt,
-		)
+	if uncompletedTodo.CompletedAt != nil {
+		t.Fatalf("completed_at = %v after toggling incomplete, want nil", uncompletedTodo.CompletedAt)
 	}
 
-	// 9. delete first todo
-	deleteReq, err := http.NewRequest(
-		http.MethodDelete,
-		fmt.Sprintf("%s/todos/%d", server.URL, firstTodoID),
-		nil,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	conflictDeleteRuleResp := request(t, adminClient, http.MethodDelete, fmt.Sprintf("%s/todo-rules/%d", apiURL, ruleID))
+	expectStatus(t, conflictDeleteRuleResp, http.StatusConflict)
+	conflictDeleteRuleResp.Body.Close()
 
-	deleteResp, err := client.Do(deleteReq)
-	if err != nil {
-		t.Fatal(err)
-	}
+	deleteTodoResp := request(t, client, http.MethodDelete, fmt.Sprintf("%s/todos/%d", apiURL, createdTodo.ID))
+	expectStatus(t, deleteTodoResp, http.StatusNoContent)
+	deleteTodoResp.Body.Close()
 
-	expectStatus(t, deleteResp, http.StatusNoContent)
-	deleteResp.Body.Close()
+	deleteRuleResp := request(t, adminClient, http.MethodDelete, fmt.Sprintf("%s/todo-rules/%d", apiURL, ruleID))
+	expectStatus(t, deleteRuleResp, http.StatusNoContent)
+	deleteRuleResp.Body.Close()
+	ruleID = 0
 
-	// 10. verify deleted todo is gone
-	finalResp, err := client.Get(fmt.Sprintf("%s/users/%d/todos", server.URL, ownerID))
-	if err != nil {
-		t.Fatal(err)
-	}
+	missingRuleResp := request(t, client, http.MethodGet, fmt.Sprintf("%s/todo-rules/%d", apiURL, createdRule.ID))
+	expectStatus(t, missingRuleResp, http.StatusNotFound)
+	missingRuleResp.Body.Close()
 
-	expectStatus(t, finalResp, http.StatusOK)
+	logoutResp := request(t, client, http.MethodDelete, apiURL+"/logout")
+	expectStatus(t, logoutResp, http.StatusNoContent)
+	logoutResp.Body.Close()
 
-	var remainingTodos []todo.Todo
-
-	if err := json.NewDecoder(finalResp.Body).Decode(&remainingTodos); err != nil {
-		finalResp.Body.Close()
-		t.Fatal(err)
-	}
-	finalResp.Body.Close()
-
-	if len(remainingTodos) != 9 {
-		t.Fatalf(
-			"got %d todos after delete, want 9",
-			len(remainingTodos),
-		)
-	}
-
-	for _, got := range remainingTodos {
-		if got.ID == firstTodoID {
-			t.Fatalf(
-				"deleted todo %d is still returned",
-				firstTodoID,
-			)
-		}
-	}
+	loggedOutMeResp := request(t, client, http.MethodGet, apiURL+"/me")
+	expectStatus(t, loggedOutMeResp, http.StatusUnauthorized)
+	loggedOutMeResp.Body.Close()
 }
 
-func postJSON(t *testing.T, client *http.Client, url string, body any) *http.Response {
+func newClient(t *testing.T) *http.Client {
+	t.Helper()
+
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return &http.Client{Jar: jar}
+}
+
+func request(t *testing.T, client *http.Client, method, url string) *http.Response {
+	t.Helper()
+
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return resp
+}
+
+func requestJSON(t *testing.T, client *http.Client, method, url string, body any) *http.Response {
 	t.Helper()
 
 	var buf bytes.Buffer
-
 	if err := json.NewEncoder(&buf).Encode(body); err != nil {
 		t.Fatal(err)
 	}
 
-	req, err := http.NewRequest(
-		http.MethodPost,
-		url,
-		&buf,
-	)
+	req, err := http.NewRequest(method, url, &buf)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
@@ -625,20 +640,13 @@ func postJSON(t *testing.T, client *http.Client, url string, body any) *http.Res
 	return resp
 }
 
-func post(t *testing.T, client *http.Client, url string) *http.Response {
+func decodeJSON(t *testing.T, resp *http.Response, dst any) {
 	t.Helper()
+	defer resp.Body.Close()
 
-	req, err := http.NewRequest(http.MethodPost, url, nil)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(dst); err != nil {
 		t.Fatal(err)
 	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return resp
 }
 
 func expectStatus(t *testing.T, resp *http.Response, want int) {
@@ -649,39 +657,5 @@ func expectStatus(t *testing.T, resp *http.Response, want int) {
 	}
 
 	body, _ := io.ReadAll(resp.Body)
-
-	t.Fatalf(
-		"status = %d, want %d; body = %s",
-		resp.StatusCode,
-		want,
-		string(body),
-	)
-}
-
-func patchJSON(t *testing.T, client *http.Client, url string, body any) *http.Response {
-	t.Helper()
-
-	var buf bytes.Buffer
-
-	if err := json.NewEncoder(&buf).Encode(body); err != nil {
-		t.Fatal(err)
-	}
-
-	req, err := http.NewRequest(
-		http.MethodPatch,
-		url,
-		&buf,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return resp
+	t.Fatalf("status = %d, want %d; body = %s", resp.StatusCode, want, string(body))
 }

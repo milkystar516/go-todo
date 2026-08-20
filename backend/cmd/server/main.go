@@ -27,6 +27,7 @@ func main() {
 	defer db.Close()
 
 	mux := http.NewServeMux()
+	apiMux := http.NewServeMux()
 	mux.Handle("/api/", http.StripPrefix("/api", apiMux))
 
 	authHandler := auth.NewHandler(db, auth.Config{
@@ -34,15 +35,15 @@ func main() {
 		SessionTTL: cfg.SessionTTL,
 		Secure:     cfg.SessionSecure,
 	})
-	authHandler.RegisterRoutes(mux)
+	authHandler.RegisterRoutes(apiMux)
 
 	ruleService := todorule.NewService(db)
 
 	todoRuleHandler := todorule.NewHandler(ruleService)
-	todoRuleHandler.RegisterRoutes(mux, authHandler.RequireAuth, authHandler.RequireAdmin)
+	todoRuleHandler.RegisterRoutes(apiMux, authHandler.RequireAuth, authHandler.RequireAdmin)
 
 	todoHandler := todo.NewHandler(db, ruleService)
-	todoHandler.RegisterRoutes(mux, authHandler.RequireAuth)
+	todoHandler.RegisterRoutes(apiMux, authHandler.RequireAuth)
 
 	addr := cfg.Host + ":" + cfg.Port
 	slog.Info("server listening", "address", "http://"+addr)
