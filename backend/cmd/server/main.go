@@ -2,8 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/milkystar516/go-todo/backend/internal/auth"
 	"github.com/milkystar516/go-todo/backend/internal/config"
@@ -14,10 +20,20 @@ import (
 )
 
 func main() {
-	cfg := config.Load()
-	ctx := context.Background()
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Error("invalid configuration", "error", err)
+		return
+	}
 
-	slog.SetDefault(logging.New())
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+	defer stop()
+
+	slog.SetDefault(logging.New(cfg.LogLevel))
 
 	db, err := postgres.Open(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -26,9 +42,7 @@ func main() {
 	}
 	defer db.Close()
 
-	mux := http.NewServeMux()
 	apiMux := http.NewServeMux()
-	mux.Handle("/api/", http.StripPrefix("/api", apiMux))
 
 	authHandler := auth.NewHandler(db, auth.Config{
 		CookieName: cfg.SessionCookieName,
@@ -45,10 +59,49 @@ func main() {
 	todoHandler := todo.NewHandler(db, ruleService)
 	todoHandler.RegisterRoutes(apiMux, authHandler.RequireAuth)
 
-	addr := cfg.Host + ":" + cfg.Port
+	mux := http.NewServeMux()
+	mux.Handle("/api/", http.StripPrefix("/api", apiMux))
+
+	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+
+	server := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
 	slog.Info("server listening", "address", "http://"+addr)
 
-	if err := http.ListenAndServe(addr, mux); err != nil {
-		slog.Error("server stopped", "error", err)
+	serveErr := make(chan error, 1)
+
+	go func() {
+		serveErr <- server.ListenAndServe()
+	}()
+	select {
+	case err := <-serveErr:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("server stopped unexpectedly", "error", err)
+		}
+		return
+
+	case <-ctx.Done():
+		slog.Info("shutting down server")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(
+		context.Background(),
+		10*time.Second,
+	)
+	defer cancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		slog.Error("graceful shutdown failed", "error", err)
+
+		if closeErr := server.Close(); closeErr != nil {
+			slog.Error("forced server close failed", "error", closeErr)
+		}
 	}
 }

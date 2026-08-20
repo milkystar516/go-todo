@@ -3,54 +3,37 @@ package config
 import (
 	"fmt"
 	"log/slog"
-	"os"
-	"strconv"
 	"time"
 
+	"github.com/caarlos0/env/v11"
+	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	DatabaseURL string
-	Host        string
-	Port        string
+	DatabaseURL string `env:"DATABASE_URL,required,notEmpty"`
 
-	LogLevel slog.Level
+	Host string `env:"APP_HOST" envDefault:"127.0.0.1"`
+	Port int    `env:"APP_PORT" envDefault:"8080" validate:"gte=1,lte=65535"`
 
-	SessionCookieName string
-	SessionTTL        time.Duration
-	SessionSecure     bool
+	LogLevel slog.Level `env:"LOG_LEVEL" envDefault:"INFO"`
+
+	SessionCookieName string        `env:"SESSION_COOKIE_NAME" envDefault:"go_todo_session"`
+	SessionTTL        time.Duration `env:"SESSION_TTL" envDefault:"24h" validate:"gt=0"`
+	SessionSecure     bool          `env:"SESSION_SECURE" envDefault:"false"`
 }
 
 func Load() (Config, error) {
-	godotenv.Load("../.env")
+	_ = godotenv.Load("../.env")
 
-	ttlHours, err := strconv.Atoi(os.Getenv("SESSION_TTL_HOURS"))
-	if err != nil || ttlHours <= 0 {
-		return Config{}, fmt.Errorf("SESSION_TTL_HOURS must be a positive integer")
-	}
-
-	sessionSecure, err := strconv.ParseBool(os.Getenv("SESSION_SECURE"))
+	cfg, err := env.ParseAs[Config]()
 	if err != nil {
-		return Config{}, fmt.Errorf("SESSION_SECURE must be true or false: %w", err)
+		return Config{}, fmt.Errorf("load config: %w", err)
 	}
 
-	logLevel := slog.LevelInfo
-	if value := os.Getenv("LOG_LEVEL"); value != "" {
-		if err := logLevel.UnmarshalText([]byte(value)); err != nil {
-			return Config{}, fmt.Errorf("invalid LOG_LEVEL %q: %w", value, err)
-		}
+	if err := validator.New().Struct(cfg); err != nil {
+		return Config{}, fmt.Errorf("validate config: %w", err)
 	}
 
-	return Config{
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		Host:        os.Getenv("APP_HOST"),
-		Port:        os.Getenv("APP_PORT"),
-
-		LogLevel: logLevel,
-
-		SessionCookieName: os.Getenv("SESSION_COOKIE_NAME"),
-		SessionTTL:        time.Duration(ttlHours) * time.Hour,
-		SessionSecure:     sessionSecure,
-	}
+	return cfg, nil
 }

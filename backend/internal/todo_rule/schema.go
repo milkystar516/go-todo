@@ -27,7 +27,7 @@ func buildSchema(fields []FieldDefinition) JSONSchema {
 
 		case FieldSingleSelect:
 			property["type"] = "string"
-			property["enum"] = options
+			property["enum"] = field.Options
 		}
 
 		if field.DefaultValue != nil {
@@ -56,12 +56,12 @@ func buildSchema(fields []FieldDefinition) JSONSchema {
 }
 
 func schemaForFields(fields []FieldDefinition) (JSONSchema, error) {
-    if err := validateDefinition(fields); err != nil {
-        return nil, &validationError{
-            message: err.Error(),
-            err:     err,
-        }
-    }
+	if err := validateDefinition(fields); err != nil {
+		return nil, &validationError{
+			message: err.Error(),
+			err:     err,
+		}
+	}
 
-    return buildSchema(fields), nil
+	return buildSchema(fields), nil
 }
