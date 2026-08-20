@@ -1,3 +1,7 @@
 export default function App() {
-  return;
+  return (
+    <main>
+      <h1>Go Todo</h1>
+    </main>
+  );
 }
