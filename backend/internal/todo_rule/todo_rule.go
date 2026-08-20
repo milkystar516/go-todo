@@ -29,10 +29,10 @@ type ruleResponse struct {
 }
 
 type ruleDetailResponse struct {
-    ID       int64             `json:"id" db:"id"`
-    RuleName string            `json:"rule_name" db:"rule_name"`
-    Fields   []FieldDefinition `json:"fields" db:"fields"`
-    Schema   JSONSchema        `json:"schema" db:"-"`
+	ID       int64             `json:"id" db:"id"`
+	RuleName string            `json:"rule_name" db:"rule_name"`
+	Fields   []FieldDefinition `json:"fields" db:"fields"`
+	Schema   JSONSchema        `json:"schema" db:"-"`
 }
 
 const ruleResponseColumns = `
