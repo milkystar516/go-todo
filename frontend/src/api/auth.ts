@@ -1,5 +1,5 @@
-import { ApiError, apiJson, apiRequest } from "./client";
-import type { User } from "./types";
+import { apiJson, apiRequest, isApiErrorOfType } from "./client";
+import { PROBLEM_TYPE, type User } from "./types";
 
 export interface LoginInput {
   username: string;
@@ -40,7 +40,12 @@ export async function getCurrentUser(
       signal,
     });
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401) {
+    if (
+      isApiErrorOfType(
+        error,
+        PROBLEM_TYPE.AUTHENTICATION_REQUIRED,
+      )
+    ) {
       return null;
     }
 

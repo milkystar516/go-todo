@@ -17,8 +17,51 @@ func TestAuthRoutePrefixAndAuthentication(t *testing.T) {
 	rootMeResp.Body.Close()
 
 	unauthorizedMeResp := request(t, client, http.MethodGet, api.apiURL+"/me")
-	expectStatus(t, unauthorizedMeResp, http.StatusUnauthorized)
-	unauthorizedMeResp.Body.Close()
+	expectProblem(
+		t,
+		unauthorizedMeResp,
+		http.StatusUnauthorized,
+		"/problems/authentication-required",
+		"Authentication required",
+	)
+}
+
+func TestAPIProtocolErrorsUseProblemDetails(t *testing.T) {
+	api := newTestAPI(t)
+	client := newClient(t)
+
+	notFoundResp := request(t, client, http.MethodGet, api.apiURL+"/does-not-exist")
+	expectProblem(t, notFoundResp, http.StatusNotFound, "", "Not Found")
+
+	methodNotAllowedResp := request(t, client, http.MethodPut, api.apiURL+"/login")
+	if got := methodNotAllowedResp.Header.Get("Allow"); got != http.MethodPost {
+		methodNotAllowedResp.Body.Close()
+		t.Fatalf("Allow = %q, want %q", got, http.MethodPost)
+	}
+	expectProblem(
+		t,
+		methodNotAllowedResp,
+		http.StatusMethodNotAllowed,
+		"",
+		"Method Not Allowed",
+	)
+
+	crossOriginRequest, err := http.NewRequestWithContext(
+		t.Context(),
+		http.MethodPost,
+		api.apiURL+"/login",
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	crossOriginRequest.Header.Set("Origin", "https://example.test")
+
+	crossOriginResp, err := client.Do(crossOriginRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectProblem(t, crossOriginResp, http.StatusForbidden, "", "Forbidden")
 }
 
 func TestSignupValidationAndConflict(t *testing.T) {
@@ -28,8 +71,13 @@ func TestSignupValidationAndConflict(t *testing.T) {
 	api.registerUserCleanup(t, username)
 
 	invalidSignupResp := requestJSON(t, client, http.MethodPost, api.apiURL+"/signup", map[string]any{})
-	expectStatus(t, invalidSignupResp, http.StatusUnprocessableEntity)
-	invalidSignupResp.Body.Close()
+	expectProblem(
+		t,
+		invalidSignupResp,
+		http.StatusUnprocessableEntity,
+		"/problems/validation-failed",
+		"Request validation failed",
+	)
 
 	signupBody := map[string]any{
 		"username": username,
@@ -42,8 +90,13 @@ func TestSignupValidationAndConflict(t *testing.T) {
 	signupResp.Body.Close()
 
 	duplicateSignupResp := requestJSON(t, client, http.MethodPost, api.apiURL+"/signup", signupBody)
-	expectStatus(t, duplicateSignupResp, http.StatusConflict)
-	duplicateSignupResp.Body.Close()
+	expectProblem(
+		t,
+		duplicateSignupResp,
+		http.StatusConflict,
+		"/problems/username-taken",
+		"Username already exists",
+	)
 }
 
 func TestLoginSessionLifecycle(t *testing.T) {
@@ -65,8 +118,13 @@ func TestLoginSessionLifecycle(t *testing.T) {
 		"username": username,
 		"password": "wrong-password",
 	})
-	expectStatus(t, invalidLoginResp, http.StatusUnauthorized)
-	invalidLoginResp.Body.Close()
+	expectProblem(
+		t,
+		invalidLoginResp,
+		http.StatusUnauthorized,
+		"/problems/invalid-credentials",
+		"Invalid credentials",
+	)
 
 	loginResp := requestJSON(t, client, http.MethodPost, api.apiURL+"/login", map[string]any{
 		"username": username,
@@ -124,6 +182,11 @@ func TestLoginSessionLifecycle(t *testing.T) {
 	logoutResp.Body.Close()
 
 	loggedOutMeResp := request(t, client, http.MethodGet, api.apiURL+"/me")
-	expectStatus(t, loggedOutMeResp, http.StatusUnauthorized)
-	loggedOutMeResp.Body.Close()
+	expectProblem(
+		t,
+		loggedOutMeResp,
+		http.StatusUnauthorized,
+		"/problems/authentication-required",
+		"Authentication required",
+	)
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/milkystar516/go-todo/backend/internal/auth"
 	"github.com/milkystar516/go-todo/backend/internal/config"
+	"github.com/milkystar516/go-todo/backend/internal/httpx"
 	"github.com/milkystar516/go-todo/backend/internal/logging"
 	"github.com/milkystar516/go-todo/backend/internal/postgres"
 	"github.com/milkystar516/go-todo/backend/internal/todo"
@@ -60,10 +61,13 @@ func main() {
 	todoHandler.RegisterRoutes(apiMux, authHandler.RequireAuth)
 
 	mux := http.NewServeMux()
-	mux.Handle("/api/", http.StripPrefix("/api", apiMux))
+	mux.Handle(
+		"/api/",
+		http.StripPrefix("/api", httpx.ProblemFallbackHandler(apiMux)),
+	)
 
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-	crossOriginProtection := http.NewCrossOriginProtection()
+	crossOriginProtection := httpx.NewProblemCrossOriginProtection()
 
 	server := &http.Server{
 		Addr:              addr,

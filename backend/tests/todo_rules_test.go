@@ -42,8 +42,13 @@ func TestTodoRuleLifecycle(t *testing.T) {
 		"rule_name": "   ",
 		"fields":    fields,
 	})
-	expectStatus(t, invalidRuleResp, http.StatusUnprocessableEntity)
-	invalidRuleResp.Body.Close()
+	expectProblem(
+		t,
+		invalidRuleResp,
+		http.StatusUnprocessableEntity,
+		"/problems/validation-failed",
+		"Request validation failed",
+	)
 
 	createRuleResp := requestJSON(t, adminClient, http.MethodPost, api.apiURL+"/todo-rules", ruleBody)
 	expectStatus(t, createRuleResp, http.StatusCreated)

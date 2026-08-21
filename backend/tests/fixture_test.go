@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/milkystar516/go-todo/backend/internal/auth"
+	"github.com/milkystar516/go-todo/backend/internal/httpx"
 	"github.com/milkystar516/go-todo/backend/internal/postgres"
 	"github.com/milkystar516/go-todo/backend/internal/todo"
 	todorule "github.com/milkystar516/go-todo/backend/internal/todo_rule"
@@ -62,7 +63,10 @@ func newTestAPI(t *testing.T) *testAPI {
 
 	mux := http.NewServeMux()
 	apiMux := http.NewServeMux()
-	mux.Handle("/api/", http.StripPrefix("/api", apiMux))
+	mux.Handle(
+		"/api/",
+		http.StripPrefix("/api", httpx.ProblemFallbackHandler(apiMux)),
+	)
 
 	authHandler := auth.NewHandler(db, auth.Config{
 		CookieName: os.Getenv("SESSION_COOKIE_NAME"),
@@ -79,7 +83,8 @@ func newTestAPI(t *testing.T) *testAPI {
 	todoHandler := todo.NewHandler(db, ruleService)
 	todoHandler.RegisterRoutes(apiMux, authHandler.RequireAuth)
 
-	server := httptest.NewServer(mux)
+	crossOriginProtection := httpx.NewProblemCrossOriginProtection()
+	server := httptest.NewServer(crossOriginProtection.Handler(mux))
 	t.Cleanup(server.Close)
 
 	return &testAPI{

@@ -32,8 +32,13 @@ func TestAdminRoleManagement(t *testing.T) {
 		http.MethodPost,
 		fmt.Sprintf("%s/users/%d/revoke-admin", api.apiURL, adminUser.ID),
 	)
-	expectStatus(t, selfRevokeResp, http.StatusForbidden)
-	selfRevokeResp.Body.Close()
+	expectProblem(
+		t,
+		selfRevokeResp,
+		http.StatusForbidden,
+		"/problems/cannot-change-own-role",
+		"Cannot change own role",
+	)
 
 	grantResp := request(
 		t,
@@ -55,8 +60,13 @@ func TestAdminRoleManagement(t *testing.T) {
 		http.MethodPost,
 		fmt.Sprintf("%s/users/%d/grant-admin", api.apiURL, member.user.ID),
 	)
-	expectStatus(t, conflictGrantResp, http.StatusConflict)
-	conflictGrantResp.Body.Close()
+	expectProblem(
+		t,
+		conflictGrantResp,
+		http.StatusConflict,
+		"/problems/role-conflict",
+		"User role conflict",
+	)
 
 	revokeResp := request(
 		t,
@@ -78,8 +88,13 @@ func TestAdminRoleManagement(t *testing.T) {
 		http.MethodPost,
 		fmt.Sprintf("%s/users/%d/revoke-admin", api.apiURL, member.user.ID),
 	)
-	expectStatus(t, conflictRevokeResp, http.StatusConflict)
-	conflictRevokeResp.Body.Close()
+	expectProblem(
+		t,
+		conflictRevokeResp,
+		http.StatusConflict,
+		"/problems/role-conflict",
+		"User role conflict",
+	)
 
 	missingUserResp := request(
 		t,

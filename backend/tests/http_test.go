@@ -9,6 +9,13 @@ import (
 	"testing"
 )
 
+type problemResponse struct {
+	Type   string `json:"type"`
+	Title  string `json:"title"`
+	Status int    `json:"status"`
+	Detail string `json:"detail"`
+}
+
 func newClient(t *testing.T) *http.Client {
 	t.Helper()
 
@@ -77,4 +84,39 @@ func expectStatus(t *testing.T, resp *http.Response, want int) {
 	body, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	t.Fatalf("status = %d, want %d; body = %s", resp.StatusCode, want, string(body))
+}
+
+func expectProblem(
+	t *testing.T,
+	resp *http.Response,
+	wantStatus int,
+	wantType string,
+	wantTitle string,
+) problemResponse {
+	t.Helper()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != wantStatus {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status = %d, want %d; body = %s", resp.StatusCode, wantStatus, string(body))
+	}
+	if got := resp.Header.Get("Content-Type"); got != "application/problem+json" {
+		t.Fatalf("Content-Type = %q, want application/problem+json", got)
+	}
+
+	var got problemResponse
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != wantStatus {
+		t.Fatalf("problem status = %d, want %d", got.Status, wantStatus)
+	}
+	if got.Type != wantType {
+		t.Fatalf("problem type = %q, want %q", got.Type, wantType)
+	}
+	if got.Title != wantTitle {
+		t.Fatalf("problem title = %q, want %q", got.Title, wantTitle)
+	}
+
+	return got
 }

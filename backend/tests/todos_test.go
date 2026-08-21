@@ -47,22 +47,37 @@ func TestTodoLifecycle(t *testing.T) {
 	missingRuleIDResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 		"content": map[string]any{"title": "Todo"},
 	})
-	expectStatus(t, missingRuleIDResp, http.StatusUnprocessableEntity)
-	missingRuleIDResp.Body.Close()
+	expectProblem(
+		t,
+		missingRuleIDResp,
+		http.StatusUnprocessableEntity,
+		"/problems/validation-failed",
+		"Request validation failed",
+	)
 
 	unknownRuleResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 		"rule_id": 9223372036854775807,
 		"content": map[string]any{"title": "Todo"},
 	})
-	expectStatus(t, unknownRuleResp, http.StatusUnprocessableEntity)
-	unknownRuleResp.Body.Close()
+	expectProblem(
+		t,
+		unknownRuleResp,
+		http.StatusUnprocessableEntity,
+		"/problems/validation-failed",
+		"Request validation failed",
+	)
 
 	invalidContentResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 		"rule_id": createdRule.ID,
 		"content": map[string]any{"unknown": true},
 	})
-	expectStatus(t, invalidContentResp, http.StatusUnprocessableEntity)
-	invalidContentResp.Body.Close()
+	expectProblem(
+		t,
+		invalidContentResp,
+		http.StatusUnprocessableEntity,
+		"/problems/validation-failed",
+		"Request validation failed",
+	)
 
 	createTodoResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 		"rule_id": createdRule.ID,
@@ -189,8 +204,13 @@ func TestTodoLifecycle(t *testing.T) {
 			},
 		},
 	)
-	expectStatus(t, invalidUpdateResp, http.StatusUnprocessableEntity)
-	invalidUpdateResp.Body.Close()
+	expectProblem(
+		t,
+		invalidUpdateResp,
+		http.StatusUnprocessableEntity,
+		"/problems/validation-failed",
+		"Request validation failed",
+	)
 
 	updateTodoResp := requestJSON(
 		t,
@@ -234,8 +254,13 @@ func TestTodoLifecycle(t *testing.T) {
 		http.MethodDelete,
 		fmt.Sprintf("%s/todo-rules/%d", api.apiURL, createdRule.ID),
 	)
-	expectStatus(t, conflictDeleteRuleResp, http.StatusConflict)
-	conflictDeleteRuleResp.Body.Close()
+	expectProblem(
+		t,
+		conflictDeleteRuleResp,
+		http.StatusConflict,
+		"/problems/rule-in-use",
+		"Todo rule is in use",
+	)
 
 	deleteTodoResp := request(
 		t,
