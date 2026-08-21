@@ -1,4 +1,5 @@
 import { Link } from "react-router"
+import { useTranslation } from "react-i18next"
 
 import { cn } from "#lib/utils"
 import { Button } from "#components/ui/button"
@@ -18,6 +19,8 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const { t } = useTranslation()
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
@@ -25,34 +28,34 @@ export function LoginForm({
           <form>
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="username">Username</FieldLabel>
+                <FieldLabel htmlFor="username">{t("auth.username")}</FieldLabel>
                 <Input
                   id="username"
                   type="text"
-                  placeholder="username"
+                  placeholder={t("auth.username")}
                   required
                 />
               </Field>
               <Field>
                 <div className="flex items-center">
-                  <FieldLabel htmlFor="password">Password</FieldLabel>
+                  <FieldLabel htmlFor="password">{t("auth.password")}</FieldLabel>
                   <a
                     href="#"
                     className="ml-auto text-sm underline-offset-4 hover:underline"
                   >
-                    Forgot your password?
+                    {t("auth.login.forgotPassword")}
                   </a>
                 </div>
                 <Input id="password" type="password" required />
               </Field>
               <Field>
-                <Button type="submit">Login</Button>
+                <Button type="submit">{t("auth.login.submit")}</Button>
                 <FieldDescription className="text-center">
-                  Don&apos;t have an account?{" "}
-                <Link to="/signup" className="underline underline-offset-4">
-                  Sign up
-                </Link>
-              </FieldDescription>
+                  {t("auth.login.noAccount")}{" "}
+                  <Link to="/signup" className="underline underline-offset-4">
+                    {t("auth.login.signupLink")}
+                  </Link>
+                </FieldDescription>
               </Field>
             </FieldGroup>
           </form>

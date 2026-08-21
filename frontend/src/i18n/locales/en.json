@@ -1,0 +1,29 @@
+{
+  "auth": {
+    "username": "Username",
+    "nickname": "Nickname",
+    "nicknameOptional": "Optional",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+
+    "login": {
+      "submit": "Login",
+      "forgotPassword": "Forgot your password?",
+      "noAccount": "Don't have an account?",
+      "signupLink": "Sign up"
+    },
+
+    "signup": {
+      "title": "Create your account",
+      "description": "Enter your information below to create your account",
+      "submit": "Create Account",
+      "hasAccount": "Already have an account?",
+      "loginLink": "Sign in"
+    }
+  },
+
+  "language": {
+    "english": "English",
+    "korean": "한국어"
+  }
+}

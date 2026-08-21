@@ -1,4 +1,5 @@
 import { Link } from "react-router"
+import { useTranslation } from "react-i18next"
 
 import { cn } from "#lib/utils"
 import { Button } from "#components/ui/button"
@@ -21,13 +22,17 @@ export function SignupForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const { t } = useTranslation();
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
         <CardHeader className="text-center">
-          <CardTitle className="text-xl">Create your account</CardTitle>
+          <CardTitle className="text-xl">
+            {t("auth.signup.title")}
+          </CardTitle>
           <CardDescription>
-            Enter your information below to create your account
+            {t("auth.signup.description")}
           </CardDescription>
         </CardHeader>
 
@@ -35,7 +40,7 @@ export function SignupForm({
           <form>
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="username">Username</FieldLabel>
+                <FieldLabel htmlFor="username">{t("auth.username")}</FieldLabel>
                 <Input
                   id="username"
                   name="username"
@@ -47,7 +52,7 @@ export function SignupForm({
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="nickname">Nickname</FieldLabel>
+                <FieldLabel htmlFor="nickname">{t("auth.nickname")}</FieldLabel>
                 <Input
                   id="nickname"
                   name="nickname"
@@ -55,11 +60,11 @@ export function SignupForm({
                   autoComplete="nickname"
                   maxLength={50}
                 />
-                <FieldDescription>Optional</FieldDescription>
+                <FieldDescription>{t("auth.nicknameOptional")}</FieldDescription>
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <FieldLabel htmlFor="password">{t("auth.password")}</FieldLabel>
                 <Input
                   id="password"
                   name="password"
@@ -71,7 +76,7 @@ export function SignupForm({
 
               <Field>
                 <FieldLabel htmlFor="confirm-password">
-                  Confirm Password
+                  {t("auth.confirmPassword")}
                 </FieldLabel>
                 <Input
                   id="confirm-password"
@@ -83,12 +88,12 @@ export function SignupForm({
               </Field>
 
               <Field>
-                <Button type="submit">Create Account</Button>
+                <Button type="submit">{t("auth.signup.submit")}</Button>
 
                 <FieldDescription className="text-center">
-                  Already have an account?{" "}
+                  {t("auth.signup.hasAccount")}{" "}
                   <Link to="/login" className="underline underline-offset-4">
-                    Sign in
+                    {t("auth.signup.loginLink")}
                   </Link>
                 </FieldDescription>
               </Field>

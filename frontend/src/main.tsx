@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router";
 
 import App from "./App";
 import { queryClient } from "./app/queryClient";
+import "./i18n";
 import "./styles/globals.css";
 
 createRoot(document.getElementById("root")!).render(
