@@ -1,7 +1,6 @@
 import { Outlet } from "react-router";
 
 import { SidebarLeft } from "#components/sidebar-left";
-import { SidebarRight } from "#components/sidebar-right";
 import { Separator } from "#components/ui/separator";
 import {
   SidebarInset,
@@ -26,12 +25,10 @@ export function AppLayout() {
           </div>
         </header>
 
-        <div className="flex flex-1 flex-col p-4">
+        <div className="flex flex-1 flex-col">
           <Outlet />
         </div>
       </SidebarInset>
-
-      <SidebarRight />
     </SidebarProvider>
   );
 }

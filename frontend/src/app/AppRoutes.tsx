@@ -1,0 +1,23 @@
+import { Route, Routes } from "react-router";
+
+import { AppLayout } from "./layouts/AppLayout";
+import { AuthLayout } from "./layouts/AuthLayout";
+import { RootLayout } from "./layouts/RootLayout";
+import { LoginPage } from "../features/auth/LoginPage";
+import { TodosPage } from "../features/todos/TodosPage";
+
+export function AppRoutes() {
+  return (
+    <Routes>
+      <Route element={<RootLayout />}>
+        <Route element={<AuthLayout />}>
+          <Route path="login" element={<LoginPage />} />
+        </Route>
+
+        <Route element={<AppLayout />}>
+          <Route index element={<TodosPage />} />
+        </Route>
+      </Route>
+    </Routes>
+  );
+}
