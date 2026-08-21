@@ -2,7 +2,7 @@
   "header": {
     "search": "Search"
   },
-  
+
   "auth": {
     "username": "Username",
     "nickname": "Nickname",
@@ -27,6 +27,7 @@
   },
 
   "language": {
+    "label": "Language",
     "english": "English",
     "korean": "한국어"
   }

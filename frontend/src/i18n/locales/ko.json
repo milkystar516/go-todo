@@ -27,6 +27,7 @@
   },
 
   "language": {
+    "label": "언어",
     "english": "English",
     "korean": "한국어"
   }
