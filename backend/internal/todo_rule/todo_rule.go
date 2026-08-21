@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/milkystar516/go-todo/backend/internal/httpx"
+	"github.com/milkystar516/go-todo/backend/internal/validation"
 )
 
 type Handler struct {
@@ -66,7 +67,7 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := httpx.Validate(req); err != nil {
+	if err := validation.Validate(req); err != nil {
 		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid rule request")
 		return
 	}
@@ -134,7 +135,7 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := httpx.Validate(req); err != nil {
+	if err := validation.Validate(req); err != nil {
 		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid rule request")
 		return
 	}
@@ -174,7 +175,7 @@ func (h *Handler) updateRuleTitle(w http.ResponseWriter, r *http.Request) {
 
 	req.RuleName = strings.TrimSpace(req.RuleName)
 
-	if err := httpx.Validate(req); err != nil {
+	if err := validation.Validate(req); err != nil {
 		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid rule request")
 		return
 	}

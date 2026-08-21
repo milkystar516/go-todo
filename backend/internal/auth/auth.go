@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/milkystar516/go-todo/backend/internal/httpx"
+	"github.com/milkystar516/go-todo/backend/internal/validation"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -140,7 +141,7 @@ func (h *Handler) signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := httpx.Validate(req); err != nil {
+	if err := validation.Validate(req); err != nil {
 		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid signup request")
 		return
 	}
@@ -171,7 +172,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := httpx.Validate(req); err != nil {
+	if err := validation.Validate(req); err != nil {
 		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid login request")
 		return
 	}

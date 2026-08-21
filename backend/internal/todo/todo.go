@@ -13,6 +13,7 @@ import (
 	"github.com/milkystar516/go-todo/backend/internal/auth"
 	"github.com/milkystar516/go-todo/backend/internal/httpx"
 	todorule "github.com/milkystar516/go-todo/backend/internal/todo_rule"
+	"github.com/milkystar516/go-todo/backend/internal/validation"
 )
 
 type Handler struct {
@@ -70,7 +71,7 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := httpx.Validate(req); err != nil {
+	if err := validation.Validate(req); err != nil {
 		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid todo request")
 		return
 	}
@@ -214,7 +215,7 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := httpx.Validate(req); err != nil {
+	if err := validation.Validate(req); err != nil {
 		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid todo request")
 		return
 	}

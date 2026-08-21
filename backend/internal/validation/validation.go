@@ -1,4 +1,4 @@
-package httpx
+package validation
 
 import (
 	"reflect"
@@ -22,9 +22,15 @@ func newValidator() *validator.Validate {
 		return name
 	})
 
+	if err := v.RegisterValidation("username", func(fl validator.FieldLevel) bool {
+		return IsValidUsername(fl.Field().String())
+	}); err != nil {
+		panic(err)
+	}
+
 	return v
 }
 
-func Validate(v any) error {
-	return validate.Struct(v)
+func Validate(value any) error {
+	return validate.Struct(value)
 }
