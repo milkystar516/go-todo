@@ -9,6 +9,7 @@
     "nicknameOptional": "Optional",
     "password": "Password",
     "confirmPassword": "Confirm Password",
+    "requestFailed": "The request could not be completed.",
 
     "login": {
       "submit": "Login",
@@ -22,7 +23,10 @@
       "description": "Enter your information below to create your account",
       "submit": "Create Account",
       "hasAccount": "Already have an account?",
-      "loginLink": "Sign in"
+      "loginLink": "Sign in",
+      
+      "usernameExists": "This username is already in use.",
+      "passwordMismatch": "Passwords do not match."
     }
   },
 

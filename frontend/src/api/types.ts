@@ -5,7 +5,7 @@ export type Role = "user" | "admin";
 export interface User {
   id: number;
   username: string;
-  nickname?: string;
+  nickname: string | null;
   role: Role;
 }
 

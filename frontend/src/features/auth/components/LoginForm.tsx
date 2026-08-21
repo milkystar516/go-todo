@@ -1,4 +1,5 @@
-import { Link } from "react-router"
+import type { SubmitEvent } from "react";
+import { Link, useNavigate } from "react-router"
 import { useTranslation } from "react-i18next"
 
 import { cn } from "#lib/utils"
@@ -12,20 +13,51 @@ import {
   FieldDescription,
   FieldGroup,
   FieldLabel,
+  FieldError,
 } from "#components/ui/field"
 import { Input } from "#components/ui/input"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+
+import { login } from "../../../api/auth";
+import { ApiError } from "../../../api/client";
+import { currentUserQueryOptions } from "../queries";
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
   const { t } = useTranslation()
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const loginMutation = useMutation({
+    mutationFn: login,
+
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: currentUserQueryOptions.queryKey,
+      });
+
+      navigate("/", { replace: true });
+    },
+  });
+
+  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const formData = new FormData(event.currentTarget);
+
+    loginMutation.mutate({
+      username: String(formData.get("username") ?? ""),
+      password: String(formData.get("password") ?? ""),
+    });
+  }
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
         <CardContent>
-          <form>
+          <form onSubmit={handleSubmit}>
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="username">{t("auth.username")}</FieldLabel>

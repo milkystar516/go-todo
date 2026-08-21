@@ -9,12 +9,15 @@
     "nicknameOptional": "선택 사항",
     "password": "비밀번호",
     "confirmPassword": "비밀번호 확인",
+    "requestFailed": "요청을 처리하지 못했습니다.",
 
     "login": {
       "submit": "로그인",
       "forgotPassword": "비밀번호를 잊으셨나요?",
       "noAccount": "계정이 없으신가요?",
-      "signupLink": "회원가입"
+      "signupLink": "회원가입",
+      "usernameExists": "이미 사용 중인 사용자 이름입니다.",
+      "passwordMismatch": "비밀번호가 일치하지 않습니다."
     },
 
     "signup": {
