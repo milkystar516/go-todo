@@ -5,7 +5,7 @@ import { BrowserRouter } from "react-router";
 
 import App from "./App";
 import { queryClient } from "./app/queryClient";
-import "./styles/global.css";
+import "./styles/globals.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
