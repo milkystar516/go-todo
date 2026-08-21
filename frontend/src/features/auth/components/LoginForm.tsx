@@ -1,3 +1,5 @@
+import { Link } from "react-router"
+
 import { cn } from "#lib/utils"
 import { Button } from "#components/ui/button"
 import {
@@ -26,7 +28,7 @@ export function LoginForm({
                 <FieldLabel htmlFor="username">Username</FieldLabel>
                 <Input
                   id="username"
-                  type="string"
+                  type="text"
                   placeholder="username"
                   required
                 />
@@ -46,8 +48,11 @@ export function LoginForm({
               <Field>
                 <Button type="submit">Login</Button>
                 <FieldDescription className="text-center">
-                  Don&apos;t have an account? <a href="#">Sign up</a>
-                </FieldDescription>
+                  Don&apos;t have an account?{" "}
+                <Link to="/signup" className="underline underline-offset-4">
+                  Sign up
+                </Link>
+              </FieldDescription>
               </Field>
             </FieldGroup>
           </form>

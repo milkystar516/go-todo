@@ -1,3 +1,5 @@
+import { Link } from "react-router"
+
 import { cn } from "#lib/utils"
 import { Button } from "#components/ui/button"
 import {
@@ -25,46 +27,69 @@ export function SignupForm({
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Create your account</CardTitle>
           <CardDescription>
-            Enter your email below to create your account
+            Enter your information below to create your account
           </CardDescription>
         </CardHeader>
+
         <CardContent>
           <form>
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="name">Full Name</FieldLabel>
-                <Input id="name" type="text" placeholder="John Doe" required />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="email">Email</FieldLabel>
+                <FieldLabel htmlFor="username">Username</FieldLabel>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
+                  id="username"
+                  name="username"
+                  type="text"
+                  autoComplete="username"
+                  maxLength={50}
                   required
                 />
               </Field>
+
               <Field>
-                <Field className="grid grid-cols-2 gap-4">
-                  <Field>
-                    <FieldLabel htmlFor="password">Password</FieldLabel>
-                    <Input id="password" type="password" required />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="confirm-password">
-                      Confirm Password
-                    </FieldLabel>
-                    <Input id="confirm-password" type="password" required />
-                  </Field>
-                </Field>
-                <FieldDescription>
-                  Must be at least 8 characters long.
-                </FieldDescription>
+                <FieldLabel htmlFor="nickname">Nickname</FieldLabel>
+                <Input
+                  id="nickname"
+                  name="nickname"
+                  type="text"
+                  autoComplete="nickname"
+                  maxLength={50}
+                />
+                <FieldDescription>Optional</FieldDescription>
               </Field>
+
+              <Field>
+                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                />
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="confirm-password">
+                  Confirm Password
+                </FieldLabel>
+                <Input
+                  id="confirm-password"
+                  name="confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                />
+              </Field>
+
               <Field>
                 <Button type="submit">Create Account</Button>
+
                 <FieldDescription className="text-center">
-                  Already have an account? <a href="#">Sign in</a>
+                  Already have an account?{" "}
+                  <Link to="/login" className="underline underline-offset-4">
+                    Sign in
+                  </Link>
                 </FieldDescription>
               </Field>
             </FieldGroup>
@@ -72,5 +97,5 @@ export function SignupForm({
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
