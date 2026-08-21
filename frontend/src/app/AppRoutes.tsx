@@ -5,6 +5,7 @@ import { AuthLayout } from "./layouts/AuthLayout";
 import { RootLayout } from "./layouts/RootLayout";
 import { LoginPage } from "../features/auth/LoginPage";
 import { TodosPage } from "../features/todos/TodosPage";
+import { SignupPage } from "../features/auth/SignupPage";
 
 export function AppRoutes() {
   return (
@@ -12,6 +13,7 @@ export function AppRoutes() {
       <Route element={<RootLayout />}>
         <Route element={<AuthLayout />}>
           <Route path="login" element={<LoginPage />} />
+          <Route path="signup" element={<SignupPage />} />
         </Route>
 
         <Route element={<AppLayout />}>
