@@ -12,8 +12,8 @@ export function TodoSearch() {
 
       <Input
         type="search"
-        placeholder={t("todos.search")}
-        aria-label={t("todos.search")}
+        placeholder={t("header.search")}
+        aria-label={t("header.search")}
         className="pl-9"
       />
     </div>

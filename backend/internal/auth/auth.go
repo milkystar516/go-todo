@@ -35,7 +35,7 @@ type Handler struct {
 }
 
 type SignupRequest struct {
-	Username string  `json:"username" validate:"required,max=50"`
+	Username string  `json:"username" validate:"required,max=50,username"`
 	Nickname *string `json:"nickname" validate:"omitempty,max=50"`
 	Password string  `json:"password" validate:"required"`
 }
@@ -53,9 +53,16 @@ type loginUser struct {
 type publicUserResponse struct {
 	ID       int64   `json:"id" db:"id"`
 	Username string  `json:"username" db:"username"`
-	Nickname *string `json:"nickname,omitempty" db:"nickname"`
+	Nickname *string `json:"nickname" db:"nickname"`
 	Role     Role    `json:"role" db:"role"`
 }
+
+const publicUserColumns = `
+	id,
+	username,
+	nickname,
+	role
+`
 
 type contextKey string
 
@@ -286,7 +293,7 @@ func (h *Handler) changeUserRole(w http.ResponseWriter, r *http.Request, current
 		r.Context(),
 		`UPDATE users SET role = @role
 		WHERE id = @user_id AND role = @current_role
-		RETURNING id, username, nickname, role`,
+		RETURNING `+publicUserColumns,
 		pgx.StrictNamedArgs{
 			"role":         nextRole,
 			"user_id":      userID,
@@ -325,7 +332,7 @@ func (h *Handler) changeUserRole(w http.ResponseWriter, r *http.Request, current
 func (h *Handler) findPublicUser(ctx context.Context, userID int64) (publicUserResponse, error) {
 	rows, err := h.db.Query(
 		ctx,
-		"SELECT id, username, nickname, role FROM users WHERE id = @user_id",
+		"SELECT "+publicUserColumns+" FROM users WHERE id = @user_id",
 		pgx.StrictNamedArgs{
 			"user_id": userID,
 		},
