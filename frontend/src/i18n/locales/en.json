@@ -1,4 +1,8 @@
 {
+  "header": {
+    "search": "Search"
+  },
+  
   "auth": {
     "username": "Username",
     "nickname": "Nickname",

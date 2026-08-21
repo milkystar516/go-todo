@@ -7,7 +7,7 @@ export function RootLayout() {
     <div className="flex h-svh flex-col [--app-header-height:3.5rem]">
       <SiteHeader />
 
-      <div className="flex min-h-0 flex-1">
+      <div className="grid min-h-0 min-w-0 flex-1 overflow-auto">
         <Outlet />
       </div>
     </div>

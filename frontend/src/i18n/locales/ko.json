@@ -1,4 +1,8 @@
 {
+  "header": {
+    "search": "검색"
+  },
+
   "auth": {
     "username": "사용자 이름",
     "nickname": "닉네임",

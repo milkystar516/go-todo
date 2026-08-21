@@ -47,6 +47,7 @@ export function SignupForm({
                   type="text"
                   autoComplete="username"
                   maxLength={50}
+                  placeholder={t("auth.username")}
                   required
                 />
               </Field>
@@ -69,7 +70,7 @@ export function SignupForm({
                   id="password"
                   name="password"
                   type="password"
-                  autoComplete="new-password"
+                  autoComplete="current-password"
                   required
                 />
               </Field>
