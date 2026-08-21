@@ -92,13 +92,13 @@ func (h *Handler) RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(h.cfg.CookieName)
 		if err != nil {
-			httpx.WriteProblem(w, http.StatusUnauthorized, "unauthorized")
+			httpx.WriteTypedProblem(w, httpx.ProblemAuthenticationRequired, "unauthorized")
 			return
 		}
 
 		userID, err := findSessionUser(r.Context(), h.db, cookie.Value)
 		if errors.Is(err, pgx.ErrNoRows) {
-			httpx.WriteProblem(w, http.StatusUnauthorized, "unauthorized")
+			httpx.WriteTypedProblem(w, httpx.ProblemAuthenticationRequired, "unauthorized")
 			return
 		}
 		if err != nil {
@@ -142,18 +142,18 @@ func (h *Handler) signup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := validation.Validate(req); err != nil {
-		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid signup request")
+		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "invalid signup request")
 		return
 	}
 
 	err := createUser(r.Context(), h.db, req)
 	switch {
 	case errors.Is(err, errUsernameExists):
-		httpx.WriteProblem(w, http.StatusConflict, "username already exists")
+		httpx.WriteTypedProblem(w, httpx.ProblemUsernameTaken, "username already exists")
 		return
 
 	case errors.Is(err, bcrypt.ErrPasswordTooLong):
-		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "password is too long")
+		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "password is too long")
 		return
 
 	case err != nil:
@@ -173,13 +173,13 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := validation.Validate(req); err != nil {
-		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid login request")
+		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "invalid login request")
 		return
 	}
 
 	user, err := findUser(r.Context(), h.db, req.Username)
 	if errors.Is(err, pgx.ErrNoRows) {
-		httpx.WriteProblem(w, http.StatusUnauthorized, "invalid username or password")
+		httpx.WriteTypedProblem(w, httpx.ProblemInvalidCredentials, "invalid username or password")
 		return
 	}
 	if err != nil {
@@ -189,7 +189,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 
 	err = checkPassword(user, req.Password)
 	if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
-		httpx.WriteProblem(w, http.StatusUnauthorized, "invalid username or password")
+		httpx.WriteTypedProblem(w, httpx.ProblemInvalidCredentials, "invalid username or password")
 		return
 	}
 	if err != nil {
@@ -286,7 +286,7 @@ func (h *Handler) changeUserRole(w http.ResponseWriter, r *http.Request, current
 	}
 
 	if userID == UserID(r.Context()) {
-		httpx.WriteProblem(w, http.StatusForbidden, "cannot change own role")
+		httpx.WriteTypedProblem(w, httpx.ProblemCannotChangeOwnRole, "cannot change own role")
 		return
 	}
 
@@ -318,7 +318,7 @@ func (h *Handler) changeUserRole(w http.ResponseWriter, r *http.Request, current
 			return
 		}
 
-		httpx.WriteProblem(w, http.StatusConflict, "user role conflict")
+		httpx.WriteTypedProblem(w, httpx.ProblemRoleConflict, "user role conflict")
 		return
 	}
 	if err != nil {

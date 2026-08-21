@@ -68,14 +68,14 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := validation.Validate(req); err != nil {
-		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid rule request")
+		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "invalid rule request")
 		return
 	}
 
 	rule, err := h.rules.CreateTodoRule(r.Context(), req.RuleName, req.Fields)
 
 	if validationErr, ok := errors.AsType[*validationError](err); ok {
-		httpx.WriteProblem(w, http.StatusUnprocessableEntity, validationErr.Error())
+		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, validationErr.Error())
 		return
 	}
 
@@ -136,14 +136,14 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := validation.Validate(req); err != nil {
-		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid rule request")
+		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "invalid rule request")
 		return
 	}
 
 	rule, err := h.rules.UpdateTodoRule(r.Context(), ruleID, req.RuleName, req.Fields)
 
 	if validationErr, ok := errors.AsType[*validationError](err); ok {
-		httpx.WriteProblem(w, http.StatusUnprocessableEntity, validationErr.Error())
+		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, validationErr.Error())
 		return
 	}
 	if errors.Is(err, ErrRuleNotFound) {
@@ -176,7 +176,7 @@ func (h *Handler) updateRuleTitle(w http.ResponseWriter, r *http.Request) {
 	req.RuleName = strings.TrimSpace(req.RuleName)
 
 	if err := validation.Validate(req); err != nil {
-		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid rule request")
+		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "invalid rule request")
 		return
 	}
 
@@ -207,7 +207,7 @@ func (h *Handler) deleteRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if errors.Is(err, ErrRuleInUse) {
-		httpx.WriteProblem(w, http.StatusConflict, "todo rule is in use")
+		httpx.WriteTypedProblem(w, httpx.ProblemRuleInUse, "todo rule is in use")
 		return
 	}
 	if err != nil {

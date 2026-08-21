@@ -8,7 +8,8 @@ import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 
 import { signup } from "../../../api/auth";
-import { ApiError } from "../../../api/client";
+import { isApiErrorOfType } from "../../../api/client";
+import { PROBLEM_TYPE } from "../../../api/types";
 
 import { cn } from "#lib/utils";
 import { Button } from "#components/ui/button";
@@ -45,9 +46,10 @@ export function SignupForm({
     },
   });
 
-  const usernameExists =
-    signupMutation.error instanceof ApiError &&
-    signupMutation.error.status === 409;
+  const usernameExists = isApiErrorOfType(
+    signupMutation.error,
+    PROBLEM_TYPE.USERNAME_TAKEN,
+  );
 
   function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -81,6 +83,12 @@ export function SignupForm({
     }
   }
 
+  function handleUsernameChange() {
+    if (signupMutation.isError) {
+      signupMutation.reset();
+    }
+  }
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
@@ -111,6 +119,7 @@ export function SignupForm({
                   pattern="[a-z][a-z0-9._-]*"
                   placeholder={t("auth.username")}
                   aria-invalid={usernameExists}
+                  onChange={handleUsernameChange}
                   required
                 />
 

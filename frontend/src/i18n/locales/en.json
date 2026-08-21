@@ -15,7 +15,8 @@
       "submit": "Login",
       "forgotPassword": "Forgot your password?",
       "noAccount": "Don't have an account?",
-      "signupLink": "Sign up"
+      "signupLink": "Sign up",
+      "invalidCredentials": "The username or password is incorrect."
     },
 
     "signup": {

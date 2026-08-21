@@ -19,7 +19,8 @@ import { Input } from "#components/ui/input"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 import { login } from "../../../api/auth";
-import { ApiError } from "../../../api/client";
+import { isApiErrorOfType } from "../../../api/client";
+import { PROBLEM_TYPE } from "../../../api/types";
 import { currentUserQueryOptions } from "../queries";
 
 export function LoginForm({
@@ -42,6 +43,16 @@ export function LoginForm({
     },
   });
 
+  const loginError =
+    isApiErrorOfType(
+      loginMutation.error,
+      PROBLEM_TYPE.INVALID_CREDENTIALS,
+    )
+      ? t("auth.login.invalidCredentials")
+      : loginMutation.isError
+      ? t("auth.requestFailed")
+      : null;
+
   function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -51,6 +62,12 @@ export function LoginForm({
       username: String(formData.get("username") ?? ""),
       password: String(formData.get("password") ?? ""),
     });
+  }
+
+  function handleInputChange() {
+    if (loginMutation.isError) {
+      loginMutation.reset();
+    }
   }
 
   return (
@@ -63,8 +80,12 @@ export function LoginForm({
                 <FieldLabel htmlFor="username">{t("auth.username")}</FieldLabel>
                 <Input
                   id="username"
+                  name="username"
                   type="text"
+                  autoComplete="username"
+                  maxLength={50}
                   placeholder={t("auth.username")}
+                  onChange={handleInputChange}
                   required
                 />
               </Field>
@@ -78,10 +99,28 @@ export function LoginForm({
                     {t("auth.login.forgotPassword")}
                   </a>
                 </div>
-                <Input id="password" type="password" required />
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  onChange={handleInputChange}
+                  required
+                />
               </Field>
               <Field>
-                <Button type="submit">{t("auth.login.submit")}</Button>
+                {loginError && (
+                  <FieldError>
+                    {loginError}
+                  </FieldError>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={loginMutation.isPending}
+                >
+                  {t("auth.login.submit")}
+                </Button>
                 <FieldDescription className="text-center">
                   {t("auth.login.noAccount")}{" "}
                   <Link to="/signup" className="underline underline-offset-4">

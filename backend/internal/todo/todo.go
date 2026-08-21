@@ -72,7 +72,7 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := validation.Validate(req); err != nil {
-		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid todo request")
+		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "invalid todo request")
 		return
 	}
 
@@ -117,11 +117,11 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 	if errors.Is(err, todorule.ErrRuleNotFound) {
-		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "unknown rule_id")
+		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "unknown rule_id")
 		return
 	}
 	if errors.Is(err, errInvalidTodoContent) {
-		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid todo content")
+		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "invalid todo content")
 		return
 	}
 	if err != nil {
@@ -216,7 +216,7 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := validation.Validate(req); err != nil {
-		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid todo request")
+		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "invalid todo request")
 		return
 	}
 
@@ -275,7 +275,7 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if errors.Is(err, errInvalidTodoContent) {
-		httpx.WriteProblem(w, http.StatusUnprocessableEntity, "invalid todo content")
+		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "invalid todo content")
 		return
 	}
 	if err != nil {
