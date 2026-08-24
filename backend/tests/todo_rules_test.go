@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
-
-	todorule "github.com/milkystar516/go-todo/backend/internal/todo_rule"
 )
 
 func TestTodoRuleLifecycle(t *testing.T) {
@@ -14,24 +12,32 @@ func TestTodoRuleLifecycle(t *testing.T) {
 	adminClient, _ := api.newAdminClient(t)
 	ruleName := uniqueValue("integration rule")
 
-	fields := []todorule.FieldDefinition{
-		{
-			Key:        " title ",
-			Label:      " Title ",
-			Type:       todorule.FieldShortText,
-			Required:   true,
-			ShowInList: true,
+	contentSchema := map[string]any{
+		"$schema": "https://json-schema.org/draft/2020-12/schema",
+		"type":    "object",
+		"properties": map[string]any{
+			"title": map[string]any{
+				"type":  "string",
+				"title": "Title",
+			},
+			"priority": map[string]any{
+				"type":  "string",
+				"title": "Priority",
+				"enum":  []string{"high", "low"},
+			},
 		},
-		{
-			Key:     " priority ",
-			Label:   " Priority ",
-			Type:    todorule.FieldSingleSelect,
-			Options: []string{" high ", " low "},
-		},
+		"required":             []string{"title"},
+		"additionalProperties": false,
 	}
 	ruleBody := map[string]any{
-		"rule_name": "  " + ruleName + "  ",
-		"fields":    fields,
+		"rule_name":      "  " + ruleName + "  ",
+		"content_schema": contentSchema,
+		"ui_schema": map[string]any{
+			"priority": map[string]any{"ui:widget": "radio"},
+		},
+		"list_columns": []map[string]any{
+			{"pointer": " /title ", "label": " Title "},
+		},
 	}
 
 	forbiddenCreateResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todo-rules", ruleBody)
@@ -39,8 +45,10 @@ func TestTodoRuleLifecycle(t *testing.T) {
 	forbiddenCreateResp.Body.Close()
 
 	invalidRuleResp := requestJSON(t, adminClient, http.MethodPost, api.apiURL+"/todo-rules", map[string]any{
-		"rule_name": "   ",
-		"fields":    fields,
+		"rule_name":      "   ",
+		"content_schema": contentSchema,
+		"ui_schema":      map[string]any{},
+		"list_columns":   []any{},
 	})
 	expectProblem(
 		t,
@@ -87,22 +95,13 @@ func TestTodoRuleLifecycle(t *testing.T) {
 	var ruleDetail todoRuleDetailResponse
 	decodeJSON(t, getRuleResp, &ruleDetail)
 
-	if len(ruleDetail.Fields) != 2 {
-		t.Fatalf("todo rule field count = %d, want 2", len(ruleDetail.Fields))
-	}
-	if len(ruleDetail.Fields[1].Options) != 2 {
-		t.Fatalf("todo rule option count = %d, want 2", len(ruleDetail.Fields[1].Options))
-	}
-	if ruleDetail.Fields[0].Key != "title" || ruleDetail.Fields[1].Options[0] != "high" {
-		t.Fatalf("todo rule fields were not trimmed: %+v", ruleDetail.Fields)
-	}
-	if ruleDetail.Schema["$schema"] != "https://json-schema.org/draft/2020-12/schema" {
-		t.Fatalf("unexpected schema draft: %v", ruleDetail.Schema["$schema"])
+	if ruleDetail.ContentSchema["$schema"] != "https://json-schema.org/draft/2020-12/schema" {
+		t.Fatalf("unexpected schema draft: %v", ruleDetail.ContentSchema["$schema"])
 	}
 
-	properties, ok := ruleDetail.Schema["properties"].(map[string]any)
+	properties, ok := ruleDetail.ContentSchema["properties"].(map[string]any)
 	if !ok {
-		t.Fatalf("schema properties = %T, want object", ruleDetail.Schema["properties"])
+		t.Fatalf("schema properties = %T, want object", ruleDetail.ContentSchema["properties"])
 	}
 	prioritySchema, ok := properties["priority"].(map[string]any)
 	if !ok {
@@ -114,6 +113,9 @@ func TestTodoRuleLifecycle(t *testing.T) {
 	}
 	if len(options) != 2 || options[0] != "high" || options[1] != "low" {
 		t.Fatalf("priority enum = %v, want [high low]", options)
+	}
+	if len(ruleDetail.ListColumns) != 1 || ruleDetail.ListColumns[0].Pointer != "/title" || ruleDetail.ListColumns[0].Label != "Title" {
+		t.Fatalf("list columns were not normalized: %+v", ruleDetail.ListColumns)
 	}
 
 	forbiddenPatchResp := requestJSON(
@@ -178,4 +180,76 @@ func TestTodoRuleLifecycle(t *testing.T) {
 	)
 	expectStatus(t, missingRuleResp, http.StatusNotFound)
 	missingRuleResp.Body.Close()
+}
+
+func TestTodoRuleRejectsInvalidDefinitions(t *testing.T) {
+	api := newTestAPI(t)
+	adminClient, _ := api.newAdminClient(t)
+
+	validRoot := func(properties map[string]any) map[string]any {
+		return map[string]any{
+			"$schema":              "https://json-schema.org/draft/2020-12/schema",
+			"type":                 "object",
+			"properties":           properties,
+			"additionalProperties": false,
+		}
+	}
+
+	tests := []struct {
+		name        string
+		content     any
+		uiSchema    any
+		listColumns any
+	}{
+		{
+			name: "invalid schema keyword value",
+			content: validRoot(map[string]any{
+				"amount": map[string]any{"type": "number", "multipleOf": 0},
+			}),
+			uiSchema:    map[string]any{},
+			listColumns: []any{},
+		},
+		{
+			name: "external reference",
+			content: validRoot(map[string]any{
+				"value": map[string]any{"$ref": "https://example.com/value.json"},
+			}),
+			uiSchema:    map[string]any{},
+			listColumns: []any{},
+		},
+		{
+			name:        "non-object ui schema",
+			content:     validRoot(map[string]any{}),
+			uiSchema:    []any{},
+			listColumns: []any{},
+		},
+		{
+			name:     "duplicate list pointer",
+			content:  validRoot(map[string]any{}),
+			uiSchema: map[string]any{},
+			listColumns: []map[string]any{
+				{"pointer": "/title", "label": "Title"},
+				{"pointer": "/title", "label": "Duplicate"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			response := requestJSON(t, adminClient, http.MethodPost, api.apiURL+"/todo-rules", map[string]any{
+				"rule_name":      uniqueValue("invalid rule"),
+				"content_schema": tt.content,
+				"ui_schema":      tt.uiSchema,
+				"list_columns":   tt.listColumns,
+			})
+
+			expectProblem(
+				t,
+				response,
+				http.StatusUnprocessableEntity,
+				"/problems/validation-failed",
+				"Request validation failed",
+			)
+		})
+	}
 }

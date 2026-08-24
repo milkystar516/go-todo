@@ -1,10 +1,9 @@
 package todorule
 
-func Compile(fields []FieldDefinition) (*ContentValidator, error) {
-	schema, err := schemaForFields(fields)
-	if err != nil {
-		return nil, err
+func Compile(definition RuleDefinition) (*ContentValidator, error) {
+	if err := validateDefinition(definition); err != nil {
+		return nil, newDefinitionError(err)
 	}
 
-	return newContentValidator(schema)
+	return CompileContentSchema(definition.ContentSchema)
 }

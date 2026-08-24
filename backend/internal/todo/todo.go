@@ -22,12 +22,12 @@ type Handler struct {
 }
 
 type Todo struct {
-	ID          int64          `json:"id" db:"id"`
-	OwnerID     int64          `json:"owner_id" db:"owner_id"`
-	RuleID      int64          `json:"rule_id" db:"rule_id"`
-	Content     map[string]any `json:"content" db:"content"`
-	CreatedAt   time.Time      `json:"created_at" db:"created_at"`
-	CompletedAt *time.Time     `json:"completed_at" db:"completed_at"`
+	ID          int64           `json:"id" db:"id"`
+	OwnerID     int64           `json:"owner_id" db:"owner_id"`
+	RuleID      int64           `json:"rule_id" db:"rule_id"`
+	Content     json.RawMessage `json:"content" db:"content"`
+	CreatedAt   time.Time       `json:"created_at" db:"created_at"`
+	CompletedAt *time.Time      `json:"completed_at" db:"completed_at"`
 }
 
 const todoColumns = `
@@ -40,12 +40,12 @@ const todoColumns = `
 `
 
 type TodoCreateRequest struct {
-	RuleID  int64          `json:"rule_id" validate:"gt=0"`
-	Content map[string]any `json:"content" validate:"required"`
+	RuleID  int64           `json:"rule_id" validate:"gt=0"`
+	Content json.RawMessage `json:"content" validate:"required"`
 }
 
 type TodoUpdateRequest struct {
-	Content map[string]any `json:"content" validate:"required"`
+	Content json.RawMessage `json:"content" validate:"required"`
 }
 
 var errInvalidTodoContent = errors.New("invalid todo content")
@@ -67,7 +67,7 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 	var req TodoCreateRequest
 
 	if err := httpx.DecodeJSON(r, &req); err != nil {
-		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		httpx.WriteDecodeProblem(w, err)
 		return
 	}
 
@@ -93,7 +93,7 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 				return err
 			}
 
-			if err := validator.Validate(req.Content); err != nil {
+			if err := validator.ValidateJSON(req.Content); err != nil {
 				return errors.Join(errInvalidTodoContent, err)
 			}
 
@@ -211,7 +211,7 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 	var req TodoUpdateRequest
 
 	if err := httpx.DecodeJSON(r, &req); err != nil {
-		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		httpx.WriteDecodeProblem(w, err)
 		return
 	}
 
@@ -247,7 +247,7 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 				return err
 			}
 
-			if err := validator.Validate(req.Content); err != nil {
+			if err := validator.ValidateJSON(req.Content); err != nil {
 				return errors.Join(errInvalidTodoContent, err)
 			}
 

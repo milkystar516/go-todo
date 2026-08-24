@@ -16,8 +16,10 @@ type Handler struct {
 }
 
 type ruleRequest struct {
-	RuleName string            `json:"rule_name" validate:"required,max=50"`
-	Fields   []FieldDefinition `json:"fields"`
+	RuleName      string          `json:"rule_name" validate:"required,max=50"`
+	ContentSchema json.RawMessage `json:"content_schema" validate:"required"`
+	UISchema      json.RawMessage `json:"ui_schema" validate:"required"`
+	ListColumns   []ListColumn    `json:"list_columns" validate:"dive"`
 }
 
 type ruleTitleRequest struct {
@@ -30,10 +32,19 @@ type ruleResponse struct {
 }
 
 type ruleDetailResponse struct {
-	ID       int64             `json:"id" db:"id"`
-	RuleName string            `json:"rule_name" db:"rule_name"`
-	Fields   []FieldDefinition `json:"fields" db:"fields"`
-	Schema   JSONSchema        `json:"schema" db:"-"`
+	ID            int64           `json:"id" db:"id"`
+	RuleName      string          `json:"rule_name" db:"rule_name"`
+	ContentSchema json.RawMessage `json:"content_schema" db:"content_schema"`
+	UISchema      json.RawMessage `json:"ui_schema" db:"ui_schema"`
+	ListColumns   []ListColumn    `json:"list_columns" db:"list_columns"`
+}
+
+func (r ruleDetailResponse) definition() RuleDefinition {
+	return RuleDefinition{
+		ContentSchema: r.ContentSchema,
+		UISchema:      r.UISchema,
+		ListColumns:   r.ListColumns,
+	}
 }
 
 const ruleResponseColumns = `
@@ -44,7 +55,9 @@ const ruleResponseColumns = `
 const ruleDetailResponseColumns = `
 	id,
 	rule_name,
-	fields
+	content_schema,
+	ui_schema,
+	list_columns
 `
 
 func NewHandler(rules *Service) *Handler {
@@ -63,7 +76,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth, requireAdmin f
 func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 	req, err := readRuleRequest(r)
 	if err != nil {
-		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		httpx.WriteDecodeProblem(w, err)
 		return
 	}
 
@@ -72,7 +85,7 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rule, err := h.rules.CreateTodoRule(r.Context(), req.RuleName, req.Fields)
+	rule, err := h.rules.CreateTodoRule(r.Context(), req.RuleName, req.definition())
 
 	if validationErr, ok := errors.AsType[*validationError](err); ok {
 		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, validationErr.Error())
@@ -131,7 +144,7 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 
 	req, err := readRuleRequest(r)
 	if err != nil {
-		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		httpx.WriteDecodeProblem(w, err)
 		return
 	}
 
@@ -140,7 +153,7 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rule, err := h.rules.UpdateTodoRule(r.Context(), ruleID, req.RuleName, req.Fields)
+	rule, err := h.rules.UpdateTodoRule(r.Context(), ruleID, req.RuleName, req.definition())
 
 	if validationErr, ok := errors.AsType[*validationError](err); ok {
 		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, validationErr.Error())
@@ -148,6 +161,10 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 	}
 	if errors.Is(err, ErrRuleNotFound) {
 		httpx.WriteProblem(w, http.StatusNotFound, "todo rule not found")
+		return
+	}
+	if errors.Is(err, ErrRuleSchemaConflict) {
+		httpx.WriteTypedProblem(w, httpx.ProblemRuleSchemaConflict, "todo rule schema conflicts with existing todos")
 		return
 	}
 	if err != nil {
@@ -169,7 +186,7 @@ func (h *Handler) updateRuleTitle(w http.ResponseWriter, r *http.Request) {
 	var req ruleTitleRequest
 
 	if err := httpx.DecodeJSON(r, &req); err != nil {
-		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		httpx.WriteDecodeProblem(w, err)
 		return
 	}
 
@@ -227,17 +244,19 @@ func readRuleRequest(r *http.Request) (ruleRequest, error) {
 
 	req.RuleName = strings.TrimSpace(req.RuleName)
 
-	for i := range req.Fields {
-		field := &req.Fields[i]
-
-		field.Key = strings.TrimSpace(field.Key)
-		field.Label = strings.TrimSpace(field.Label)
-		field.Type = FieldType(strings.TrimSpace(string(field.Type)))
-
-		for j := range field.Options {
-			field.Options[j] = strings.TrimSpace(field.Options[j])
-		}
+	for i := range req.ListColumns {
+		column := &req.ListColumns[i]
+		column.Pointer = strings.TrimSpace(column.Pointer)
+		column.Label = strings.TrimSpace(column.Label)
 	}
 
 	return req, nil
+}
+
+func (r ruleRequest) definition() RuleDefinition {
+	return RuleDefinition{
+		ContentSchema: r.ContentSchema,
+		UISchema:      r.UISchema,
+		ListColumns:   r.ListColumns,
+	}
 }

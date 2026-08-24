@@ -17,7 +17,7 @@ CREATE TABLE todo_rule (
     rule_name           varchar(50) NOT NULL,
     content_schema      jsonb NOT NULL,
     ui_schema           jsonb NOT NULL DEFAULT '{}'::jsonb,
-    list_columns        jsonb NOT NULL DEFAULT '{}'::jsonb
+    list_columns        jsonb NOT NULL DEFAULT '[]'::jsonb
 );
 
 CREATE TABLE todos (

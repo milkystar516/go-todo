@@ -137,7 +137,7 @@ func (h *Handler) signup(w http.ResponseWriter, r *http.Request) {
 	var req SignupRequest
 
 	if err := httpx.DecodeJSON(r, &req); err != nil {
-		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		httpx.WriteDecodeProblem(w, err)
 		return
 	}
 
@@ -168,7 +168,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 
 	if err := httpx.DecodeJSON(r, &req); err != nil {
-		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		httpx.WriteDecodeProblem(w, err)
 		return
 	}
 

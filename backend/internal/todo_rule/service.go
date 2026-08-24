@@ -2,6 +2,7 @@ package todorule
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -13,6 +14,7 @@ import (
 
 var ErrRuleNotFound = errors.New("todo rule not found")
 var ErrRuleInUse = errors.New("todo rule is in use")
+var ErrRuleSchemaConflict = errors.New("todo rule schema conflicts with existing todos")
 
 type Service struct {
 	db         *pgxpool.Pool
@@ -28,16 +30,16 @@ func NewService(db *pgxpool.Pool) *Service {
 }
 
 func (s *Service) ValidatorTx(ctx context.Context, tx pgx.Tx, ruleID int64) (*ContentValidator, error) {
-	var fields []FieldDefinition
+	var contentSchema json.RawMessage
 
 	err := tx.QueryRow(
 		ctx,
-		`SELECT fields FROM todo_rule WHERE id = @rule_id
+		`SELECT content_schema FROM todo_rule WHERE id = @rule_id
 		FOR SHARE`,
 		pgx.StrictNamedArgs{
 			"rule_id": ruleID,
 		},
-	).Scan(&fields)
+	).Scan(&contentSchema)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrRuleNotFound
 	}
@@ -53,7 +55,7 @@ func (s *Service) ValidatorTx(ctx context.Context, tx pgx.Tx, ruleID int64) (*Co
 		return validator, nil
 	}
 
-	validator, err = Compile(fields)
+	validator, err = CompileContentSchema(contentSchema)
 	if err != nil {
 		return nil, fmt.Errorf("compile stored todo rule %d: %w", ruleID, err)
 	}
@@ -71,19 +73,21 @@ func (s *Service) ValidatorTx(ctx context.Context, tx pgx.Tx, ruleID int64) (*Co
 	return validator, nil
 }
 
-func (s *Service) CreateTodoRule(ctx context.Context, ruleName string, fields []FieldDefinition) (ruleResponse, error) {
-	if _, err := Compile(fields); err != nil {
+func (s *Service) CreateTodoRule(ctx context.Context, ruleName string, definition RuleDefinition) (ruleResponse, error) {
+	if _, err := Compile(definition); err != nil {
 		return ruleResponse{}, err
 	}
 
 	rows, err := s.db.Query(
 		ctx,
-		`INSERT INTO todo_rule(rule_name, fields)
-		VALUES (@rule_name, @fields)
+		`INSERT INTO todo_rule(rule_name, content_schema, ui_schema, list_columns)
+		VALUES (@rule_name, @content_schema, @ui_schema, @list_columns)
 		RETURNING `+ruleResponseColumns,
 		pgx.StrictNamedArgs{
-			"rule_name": ruleName,
-			"fields":    fields,
+			"rule_name":      ruleName,
+			"content_schema": definition.ContentSchema,
+			"ui_schema":      definition.UISchema,
+			"list_columns":   definition.ListColumns,
 		},
 	)
 	if err != nil {
@@ -138,24 +142,22 @@ func (s *Service) GetTodoRule(ctx context.Context, ruleID int64) (ruleDetailResp
 		return ruleDetailResponse{}, fmt.Errorf("get todo rule: %w", err)
 	}
 
-	schema, err := schemaForFields(rule.Fields)
-	if err != nil {
-		return ruleDetailResponse{}, fmt.Errorf("build todo rule %d schema: %w", ruleID, err)
+	if _, err := Compile(rule.definition()); err != nil {
+		return ruleDetailResponse{}, fmt.Errorf("compile stored todo rule %d: %w", ruleID, err)
 	}
-
-	rule.Schema = schema
 
 	return rule, nil
 }
 
-func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName string, fields []FieldDefinition) (ruleResponse, error) {
-	if _, err := Compile(fields); err != nil {
+func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName string, definition RuleDefinition) (ruleResponse, error) {
+	validator, err := Compile(definition)
+	if err != nil {
 		return ruleResponse{}, err
 	}
 
 	var rule ruleResponse
 
-	err := pgx.BeginFunc(
+	err = pgx.BeginFunc(
 		ctx,
 		s.db,
 		func(tx pgx.Tx) error {
@@ -176,45 +178,49 @@ func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName str
 				return fmt.Errorf("lock todo rule for update: %w", err)
 			}
 
-			_, err = tx.Exec(
+			rows, err := tx.Query(
 				ctx,
-				`WITH deleted AS (
-					SELECT ARRAY(
-						SELECT old_field ->> 'key'
-						FROM todo_rule AS rule
-						CROSS JOIN LATERAL
-							jsonb_array_elements(rule.fields) AS old_field
-						WHERE rule.id = @rule_id
-
-						EXCEPT
-
-						SELECT new_field ->> 'key'
-						FROM jsonb_array_elements(@fields::jsonb) AS new_field
-					) AS keys
-				)
-				UPDATE todos
-				SET content = content - deleted.keys
-				FROM deleted
-				WHERE todos.rule_id = @rule_id AND cardinality(deleted.keys) > 0`,
+				`SELECT content FROM todos WHERE rule_id = @rule_id`,
 				pgx.StrictNamedArgs{
 					"rule_id": ruleID,
-					"fields":  fields,
 				},
 			)
 			if err != nil {
-				return fmt.Errorf("prune removed todo fields: %w", err)
+				return fmt.Errorf("load todos for rule validation: %w", err)
 			}
 
-			rows, err := tx.Query(
+			for rows.Next() {
+				var content json.RawMessage
+				if err := rows.Scan(&content); err != nil {
+					rows.Close()
+					return fmt.Errorf("scan todo content for rule validation: %w", err)
+				}
+				if err := validator.ValidateJSON(content); err != nil {
+					rows.Close()
+					return ErrRuleSchemaConflict
+				}
+			}
+			if err := rows.Err(); err != nil {
+				rows.Close()
+				return fmt.Errorf("iterate todos for rule validation: %w", err)
+			}
+			rows.Close()
+
+			rows, err = tx.Query(
 				ctx,
 				`UPDATE todo_rule 
-				 SET rule_name = @rule_name, fields = @fields
+				 SET rule_name = @rule_name,
+				     content_schema = @content_schema,
+				     ui_schema = @ui_schema,
+				     list_columns = @list_columns
 				 WHERE id = @rule_id
 				 RETURNING `+ruleResponseColumns,
 				pgx.StrictNamedArgs{
-					"rule_name": ruleName,
-					"fields":    fields,
-					"rule_id":   ruleID,
+					"rule_name":      ruleName,
+					"content_schema": definition.ContentSchema,
+					"ui_schema":      definition.UISchema,
+					"list_columns":   definition.ListColumns,
+					"rule_id":        ruleID,
 				},
 			)
 			if err != nil {

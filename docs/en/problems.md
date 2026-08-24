@@ -13,5 +13,6 @@ Clients should use `type` to identify an application-specific problem and treat 
 | `/problems/cannot-change-own-role` | Cannot change own role | 403 | An administrator attempted to change their own role. |
 | `/problems/role-conflict` | User role conflict | 409 | The requested role change is already reflected in the user's current role. |
 | `/problems/rule-in-use` | Todo rule is in use | 409 | A todo rule cannot be deleted while a todo still references it. |
+| `/problems/rule-schema-conflict` | Todo rule schema conflict | 409 | A valid rule schema is incompatible with one or more existing todos. |
 
 Errors without additional application semantics omit `type`. Per RFC 9457, clients interpret an omitted `type` as `about:blank`; its title is the standard HTTP status phrase.

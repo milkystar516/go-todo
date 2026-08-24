@@ -1,4 +1,4 @@
-import type { RJSFSchema } from "@rjsf/utils";
+import type { RJSFSchema, UiSchema } from "@rjsf/utils";
 
 export type Role = "user" | "admin";
 
@@ -9,22 +9,9 @@ export interface User {
   role: Role;
 }
 
-export type FieldType =
-  | "short_text"
-  | "long_text"
-  | "integer"
-  | "boolean"
-  | "date"
-  | "single_select";
-
-export interface FieldDefinition {
-  key: string;
+export interface ListColumn {
+  pointer: string;
   label: string;
-  type: FieldType;
-  required: boolean;
-  show_in_list: boolean;
-  default_value?: unknown;
-  options?: string[];
 }
 
 export interface TodoRule {
@@ -33,8 +20,9 @@ export interface TodoRule {
 }
 
 export interface TodoRuleDetail extends TodoRule {
-  fields: FieldDefinition[];
-  schema: RJSFSchema;
+  content_schema: RJSFSchema;
+  ui_schema: UiSchema;
+  list_columns: ListColumn[];
 }
 
 export interface Todo {
@@ -55,6 +43,7 @@ export const PROBLEM_TYPE = {
   CANNOT_CHANGE_OWN_ROLE: "/problems/cannot-change-own-role",
   ROLE_CONFLICT: "/problems/role-conflict",
   RULE_IN_USE: "/problems/rule-in-use",
+  RULE_SCHEMA_CONFLICT: "/problems/rule-schema-conflict",
 } as const;
 
 export type KnownProblemType =

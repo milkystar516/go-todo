@@ -12,6 +12,7 @@ const (
 	ProblemCannotChangeOwnRole
 	ProblemRoleConflict
 	ProblemRuleInUse
+	ProblemRuleSchemaConflict
 )
 
 type problemDefinition struct {
@@ -68,6 +69,13 @@ func (kind ProblemKind) definition() (problemDefinition, bool) {
 		return problemDefinition{
 			typeURI: "/problems/rule-in-use",
 			title:   "Todo rule is in use",
+			status:  http.StatusConflict,
+		}, true
+
+	case ProblemRuleSchemaConflict:
+		return problemDefinition{
+			typeURI: "/problems/rule-schema-conflict",
+			title:   "Todo rule schema conflict",
 			status:  http.StatusConflict,
 		}, true
 

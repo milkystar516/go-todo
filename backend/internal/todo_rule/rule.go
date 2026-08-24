@@ -1,22 +1,14 @@
 package todorule
 
-type FieldType string
+import "encoding/json"
 
-const (
-	FieldShortText    FieldType = "short_text"
-	FieldLongText     FieldType = "long_text"
-	FieldInteger      FieldType = "integer"
-	FieldBoolean      FieldType = "boolean"
-	FieldDate         FieldType = "date"
-	FieldSingleSelect FieldType = "single_select"
-)
+type ListColumn struct {
+	Pointer string `json:"pointer" validate:"required"`
+	Label   string `json:"label" validate:"required"`
+}
 
-type FieldDefinition struct {
-	Key          string    `json:"key"`
-	Label        string    `json:"label"`
-	Type         FieldType `json:"type"`
-	Required     bool      `json:"required"`
-	ShowInList   bool      `json:"show_in_list"`
-	DefaultValue any       `json:"default_value,omitempty"`
-	Options      []string  `json:"options,omitempty"`
+type RuleDefinition struct {
+	ContentSchema json.RawMessage `json:"content_schema" validate:"required"`
+	UISchema      json.RawMessage `json:"ui_schema" validate:"required"`
+	ListColumns   []ListColumn    `json:"list_columns" validate:"dive"`
 }

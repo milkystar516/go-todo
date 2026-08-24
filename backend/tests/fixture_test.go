@@ -1,7 +1,9 @@
 package tests
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -37,10 +39,11 @@ type todoRuleResponse struct {
 }
 
 type todoRuleDetailResponse struct {
-	ID       int64                      `json:"id"`
-	RuleName string                     `json:"rule_name"`
-	Fields   []todorule.FieldDefinition `json:"fields"`
-	Schema   map[string]any             `json:"schema"`
+	ID            int64                 `json:"id"`
+	RuleName      string                `json:"rule_name"`
+	ContentSchema map[string]any        `json:"content_schema"`
+	UISchema      map[string]any        `json:"ui_schema"`
+	ListColumns   []todorule.ListColumn `json:"list_columns"`
 }
 
 type authenticatedUser struct {
@@ -65,7 +68,13 @@ func newTestAPI(t *testing.T) *testAPI {
 	apiMux := http.NewServeMux()
 	mux.Handle(
 		"/api/",
-		http.StripPrefix("/api", httpx.ProblemFallbackHandler(apiMux)),
+		http.StripPrefix(
+			"/api",
+			httpx.LimitRequestBody(
+				httpx.ProblemFallbackHandler(apiMux),
+				httpx.DefaultMaxRequestBodyBytes,
+			),
+		),
 	)
 
 	authHandler := auth.NewHandler(db, auth.Config{
@@ -206,4 +215,18 @@ func (api *testAPI) registerTodoRuleCleanup(t *testing.T, ruleID int64) {
 
 func uniqueValue(prefix string) string {
 	return fmt.Sprintf("%s_%d", prefix, time.Now().UnixNano())
+}
+
+func decodeRawObject(t *testing.T, raw json.RawMessage) map[string]any {
+	t.Helper()
+
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+
+	var object map[string]any
+	if err := decoder.Decode(&object); err != nil {
+		t.Fatal(err)
+	}
+
+	return object
 }

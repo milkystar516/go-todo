@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/milkystar516/go-todo/backend/internal/todo"
-	todorule "github.com/milkystar516/go-todo/backend/internal/todo_rule"
 )
 
 func TestTodoLifecycle(t *testing.T) {
@@ -15,25 +14,31 @@ func TestTodoLifecycle(t *testing.T) {
 	adminClient, _ := api.newAdminClient(t)
 	ruleName := uniqueValue("integration rule")
 
-	fields := []todorule.FieldDefinition{
-		{
-			Key:        "title",
-			Label:      "Title",
-			Type:       todorule.FieldShortText,
-			Required:   true,
-			ShowInList: true,
+	contentSchema := map[string]any{
+		"$schema": "https://json-schema.org/draft/2020-12/schema",
+		"type":    "object",
+		"properties": map[string]any{
+			"title": map[string]any{
+				"type":  "string",
+				"title": "Title",
+			},
+			"priority": map[string]any{
+				"type":  "string",
+				"title": "Priority",
+				"enum":  []string{"high", "low"},
+			},
 		},
-		{
-			Key:     "priority",
-			Label:   "Priority",
-			Type:    todorule.FieldSingleSelect,
-			Options: []string{"high", "low"},
-		},
+		"required":             []string{"title"},
+		"additionalProperties": false,
 	}
 
 	createRuleResp := requestJSON(t, adminClient, http.MethodPost, api.apiURL+"/todo-rules", map[string]any{
-		"rule_name": ruleName,
-		"fields":    fields,
+		"rule_name":      ruleName,
+		"content_schema": contentSchema,
+		"ui_schema":      map[string]any{},
+		"list_columns": []map[string]any{
+			{"pointer": "/title", "label": "Title"},
+		},
 	})
 	expectStatus(t, createRuleResp, http.StatusCreated)
 
@@ -161,36 +166,74 @@ func TestTodoLifecycle(t *testing.T) {
 	}
 
 	updatedRuleName := ruleName + " updated"
-	updatedFields := []todorule.FieldDefinition{
-		{
-			Key:        "title",
-			Label:      "Title",
-			Type:       todorule.FieldShortText,
-			Required:   true,
-			ShowInList: true,
+	updatedContentSchema := map[string]any{
+		"$schema": "https://json-schema.org/draft/2020-12/schema",
+		"type":    "object",
+		"properties": map[string]any{
+			"title": map[string]any{
+				"type":  "string",
+				"title": "Title",
+			},
+		},
+		"required":             []string{"title"},
+		"additionalProperties": false,
+	}
+	updatedRuleBody := map[string]any{
+		"rule_name":      updatedRuleName,
+		"content_schema": updatedContentSchema,
+		"ui_schema":      map[string]any{},
+		"list_columns": []map[string]any{
+			{"pointer": "/title", "label": "Title"},
 		},
 	}
+
+	conflictingUpdateRuleResp := requestJSON(
+		t,
+		adminClient,
+		http.MethodPut,
+		fmt.Sprintf("%s/todo-rules/%d", api.apiURL, createdRule.ID),
+		updatedRuleBody,
+	)
+	expectProblem(
+		t,
+		conflictingUpdateRuleResp,
+		http.StatusConflict,
+		"/problems/rule-schema-conflict",
+		"Todo rule schema conflict",
+	)
+
+	updateTodoResp := requestJSON(
+		t,
+		member.client,
+		http.MethodPatch,
+		fmt.Sprintf("%s/todos/%d", api.apiURL, createdTodo.ID),
+		map[string]any{"content": map[string]any{"title": "수정된 Todo"}},
+	)
+	expectStatus(t, updateTodoResp, http.StatusOK)
+
+	var updatedTodo todo.Todo
+	decodeJSON(t, updateTodoResp, &updatedTodo)
+	updatedContent := decodeRawObject(t, updatedTodo.Content)
+	if updatedContent["title"] != "수정된 Todo" {
+		t.Fatalf("updated title = %v, want %q", updatedContent["title"], "수정된 Todo")
+	}
+	if updatedTodo.CompletedAt == nil || !updatedTodo.CompletedAt.Equal(*completedTodo.CompletedAt) {
+		t.Fatalf(
+			"content update changed completed_at: got %v, want %v",
+			updatedTodo.CompletedAt,
+			completedTodo.CompletedAt,
+		)
+	}
+
 	updateRuleResp := requestJSON(
 		t,
 		adminClient,
 		http.MethodPut,
 		fmt.Sprintf("%s/todo-rules/%d", api.apiURL, createdRule.ID),
-		map[string]any{
-			"rule_name": updatedRuleName,
-			"fields":    updatedFields,
-		},
+		updatedRuleBody,
 	)
 	expectStatus(t, updateRuleResp, http.StatusOK)
 	updateRuleResp.Body.Close()
-
-	prunedTodoResp := request(t, member.client, http.MethodGet, fmt.Sprintf("%s/todos/%d", api.apiURL, createdTodo.ID))
-	expectStatus(t, prunedTodoResp, http.StatusOK)
-
-	var prunedTodo todo.Todo
-	decodeJSON(t, prunedTodoResp, &prunedTodo)
-	if _, ok := prunedTodo.Content["priority"]; ok {
-		t.Fatalf("removed priority field remains in todo content: %v", prunedTodo.Content)
-	}
 
 	invalidUpdateResp := requestJSON(
 		t,
@@ -211,28 +254,6 @@ func TestTodoLifecycle(t *testing.T) {
 		"/problems/validation-failed",
 		"Request validation failed",
 	)
-
-	updateTodoResp := requestJSON(
-		t,
-		member.client,
-		http.MethodPatch,
-		fmt.Sprintf("%s/todos/%d", api.apiURL, createdTodo.ID),
-		map[string]any{"content": map[string]any{"title": "수정된 Todo"}},
-	)
-	expectStatus(t, updateTodoResp, http.StatusOK)
-
-	var updatedTodo todo.Todo
-	decodeJSON(t, updateTodoResp, &updatedTodo)
-	if updatedTodo.Content["title"] != "수정된 Todo" {
-		t.Fatalf("updated title = %v, want %q", updatedTodo.Content["title"], "수정된 Todo")
-	}
-	if updatedTodo.CompletedAt == nil || !updatedTodo.CompletedAt.Equal(*completedTodo.CompletedAt) {
-		t.Fatalf(
-			"content update changed completed_at: got %v, want %v",
-			updatedTodo.CompletedAt,
-			completedTodo.CompletedAt,
-		)
-	}
 
 	uncompleteResp := request(
 		t,

@@ -63,7 +63,13 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle(
 		"/api/",
-		http.StripPrefix("/api", httpx.ProblemFallbackHandler(apiMux)),
+		http.StripPrefix(
+			"/api",
+			httpx.LimitRequestBody(
+				httpx.ProblemFallbackHandler(apiMux),
+				httpx.DefaultMaxRequestBodyBytes,
+			),
+		),
 	)
 
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
