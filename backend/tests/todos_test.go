@@ -187,20 +187,40 @@ func TestTodoLifecycle(t *testing.T) {
 		},
 	}
 
-	conflictingUpdateRuleResp := requestJSON(
+	updateRuleResp := requestJSON(
 		t,
 		adminClient,
 		http.MethodPut,
 		fmt.Sprintf("%s/todo-rules/%d", api.apiURL, createdRule.ID),
 		updatedRuleBody,
 	)
-	expectProblem(
+	expectStatus(t, updateRuleResp, http.StatusOK)
+	updateRuleResp.Body.Close()
+
+	prunedTodoResp := request(
 		t,
-		conflictingUpdateRuleResp,
-		http.StatusConflict,
-		"/problems/rule-schema-conflict",
-		"Todo rule schema conflict",
+		member.client,
+		http.MethodGet,
+		fmt.Sprintf("%s/todos/%d", api.apiURL, createdTodo.ID),
 	)
+	expectStatus(t, prunedTodoResp, http.StatusOK)
+
+	var prunedTodo todo.Todo
+	decodeJSON(t, prunedTodoResp, &prunedTodo)
+	prunedContent := decodeRawObject(t, prunedTodo.Content)
+	if _, ok := prunedContent["priority"]; ok {
+		t.Fatalf("removed priority field remains in todo content: %v", prunedContent)
+	}
+	if prunedContent["title"] != "테스트 Todo" {
+		t.Fatalf("prune changed retained title: %v", prunedContent["title"])
+	}
+	if prunedTodo.CompletedAt == nil || !prunedTodo.CompletedAt.Equal(*completedTodo.CompletedAt) {
+		t.Fatalf(
+			"rule prune changed completed_at: got %v, want %v",
+			prunedTodo.CompletedAt,
+			completedTodo.CompletedAt,
+		)
+	}
 
 	updateTodoResp := requestJSON(
 		t,
@@ -224,16 +244,6 @@ func TestTodoLifecycle(t *testing.T) {
 			completedTodo.CompletedAt,
 		)
 	}
-
-	updateRuleResp := requestJSON(
-		t,
-		adminClient,
-		http.MethodPut,
-		fmt.Sprintf("%s/todo-rules/%d", api.apiURL, createdRule.ID),
-		updatedRuleBody,
-	)
-	expectStatus(t, updateRuleResp, http.StatusOK)
-	updateRuleResp.Body.Close()
 
 	invalidUpdateResp := requestJSON(
 		t,
@@ -309,4 +319,158 @@ func TestTodoLifecycle(t *testing.T) {
 	)
 	expectStatus(t, missingRuleResp, http.StatusNotFound)
 	missingRuleResp.Body.Close()
+}
+
+func TestRepeatedRuleUpdatesPruneOnlyRemovedRootFields(t *testing.T) {
+	api := newTestAPI(t)
+	member := api.newAuthenticatedUser(t)
+	adminClient, _ := api.newAdminClient(t)
+
+	schema := func(properties map[string]any, required ...string) map[string]any {
+		return map[string]any{
+			"$schema":              "https://json-schema.org/draft/2020-12/schema",
+			"type":                 "object",
+			"properties":           properties,
+			"required":             required,
+			"additionalProperties": false,
+		}
+	}
+	ruleBody := func(contentSchema map[string]any) map[string]any {
+		return map[string]any{
+			"rule_name":      uniqueValue("frequently updated rule"),
+			"content_schema": contentSchema,
+			"ui_schema":      map[string]any{},
+			"list_columns": []map[string]any{
+				{"pointer": "/title", "label": "Title"},
+			},
+		}
+	}
+
+	initialSchema := schema(map[string]any{
+		"title":    map[string]any{"type": "string"},
+		"memo":     map[string]any{"type": "string"},
+		"priority": map[string]any{"type": "string"},
+	}, "title")
+	createRuleResp := requestJSON(
+		t,
+		adminClient,
+		http.MethodPost,
+		api.apiURL+"/todo-rules",
+		ruleBody(initialSchema),
+	)
+	expectStatus(t, createRuleResp, http.StatusCreated)
+
+	var createdRule todoRuleResponse
+	decodeJSON(t, createRuleResp, &createdRule)
+	api.registerTodoRuleCleanup(t, createdRule.ID)
+
+	createTodo := func(content map[string]any) todo.Todo {
+		resp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
+			"rule_id": createdRule.ID,
+			"content": content,
+		})
+		expectStatus(t, resp, http.StatusCreated)
+
+		var created todo.Todo
+		decodeJSON(t, resp, &created)
+		return created
+	}
+
+	first := createTodo(map[string]any{
+		"title":    "first",
+		"memo":     "must be pruned",
+		"priority": "high",
+	})
+	second := createTodo(map[string]any{
+		"title": "second",
+		"memo":  "also pruned",
+	})
+
+	completeResp := request(
+		t,
+		member.client,
+		http.MethodPatch,
+		fmt.Sprintf("%s/todos/%d/complete", api.apiURL, second.ID),
+	)
+	expectStatus(t, completeResp, http.StatusOK)
+	var completedSecond todo.Todo
+	decodeJSON(t, completeResp, &completedSecond)
+
+	// Adding a required field is allowed without rewriting old Todos. Removed
+	// root properties, however, are pruned from every affected Todo.
+	secondSchema := schema(map[string]any{
+		"title":    map[string]any{"type": "string", "minLength": 1},
+		"deadline": map[string]any{"type": "string", "format": "date"},
+	}, "title", "deadline")
+	updateResp := requestJSON(
+		t,
+		adminClient,
+		http.MethodPut,
+		fmt.Sprintf("%s/todo-rules/%d", api.apiURL, createdRule.ID),
+		ruleBody(secondSchema),
+	)
+	expectStatus(t, updateResp, http.StatusOK)
+	updateResp.Body.Close()
+
+	getTodo := func(todoID int64) todo.Todo {
+		resp := request(
+			t,
+			member.client,
+			http.MethodGet,
+			fmt.Sprintf("%s/todos/%d", api.apiURL, todoID),
+		)
+		expectStatus(t, resp, http.StatusOK)
+
+		var got todo.Todo
+		decodeJSON(t, resp, &got)
+		return got
+	}
+
+	for _, item := range []todo.Todo{getTodo(first.ID), getTodo(second.ID)} {
+		content := decodeRawObject(t, item.Content)
+		if _, ok := content["memo"]; ok {
+			t.Fatalf("memo remains after rule update for todo %d: %v", item.ID, content)
+		}
+		if _, ok := content["priority"]; ok {
+			t.Fatalf("priority remains after rule update for todo %d: %v", item.ID, content)
+		}
+		if _, ok := content["deadline"]; ok {
+			t.Fatalf("new required field was backfilled for todo %d: %v", item.ID, content)
+		}
+	}
+
+	prunedSecond := getTodo(second.ID)
+	if prunedSecond.CompletedAt == nil || !prunedSecond.CompletedAt.Equal(*completedSecond.CompletedAt) {
+		t.Fatalf(
+			"repeated rule update changed completed_at: got %v, want %v",
+			prunedSecond.CompletedAt,
+			completedSecond.CompletedAt,
+		)
+	}
+
+	// Re-adding a previously removed property, even with a default, must not
+	// resurrect or backfill content that was deliberately pruned.
+	thirdSchema := schema(map[string]any{
+		"title": map[string]any{"type": "string", "minLength": 2},
+		"memo":  map[string]any{"type": "string", "default": "new default"},
+	}, "title")
+	updateResp = requestJSON(
+		t,
+		adminClient,
+		http.MethodPut,
+		fmt.Sprintf("%s/todo-rules/%d", api.apiURL, createdRule.ID),
+		ruleBody(thirdSchema),
+	)
+	expectStatus(t, updateResp, http.StatusOK)
+	updateResp.Body.Close()
+
+	for _, item := range []todo.Todo{getTodo(first.ID), getTodo(second.ID)} {
+		content := decodeRawObject(t, item.Content)
+		if _, ok := content["memo"]; ok {
+			t.Fatalf("removed memo was resurrected for todo %d: %v", item.ID, content)
+		}
+		if content["title"] == nil {
+			t.Fatalf("retained title was removed for todo %d: %v", item.ID, content)
+		}
+	}
 }

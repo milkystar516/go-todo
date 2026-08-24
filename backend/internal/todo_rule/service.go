@@ -14,7 +14,6 @@ import (
 
 var ErrRuleNotFound = errors.New("todo rule not found")
 var ErrRuleInUse = errors.New("todo rule is in use")
-var ErrRuleSchemaConflict = errors.New("todo rule schema conflicts with existing todos")
 
 type Service struct {
 	db         *pgxpool.Pool
@@ -150,14 +149,13 @@ func (s *Service) GetTodoRule(ctx context.Context, ruleID int64) (ruleDetailResp
 }
 
 func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName string, definition RuleDefinition) (ruleResponse, error) {
-	validator, err := Compile(definition)
-	if err != nil {
+	if _, err := Compile(definition); err != nil {
 		return ruleResponse{}, err
 	}
 
 	var rule ruleResponse
 
-	err = pgx.BeginFunc(
+	err := pgx.BeginFunc(
 		ctx,
 		s.db,
 		func(tx pgx.Tx) error {
@@ -178,35 +176,38 @@ func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName str
 				return fmt.Errorf("lock todo rule for update: %w", err)
 			}
 
-			rows, err := tx.Query(
+			// A missing root property is an explicit field deletion. Do not infer
+			// deletions from nested/composed schema changes: rename and type-change
+			// migrations require semantics that a JSON Schema diff cannot provide.
+			_, err = tx.Exec(
 				ctx,
-				`SELECT content FROM todos WHERE rule_id = @rule_id`,
+				`WITH deleted AS (
+					SELECT ARRAY(
+						SELECT jsonb_object_keys(rule.content_schema -> 'properties')
+
+						EXCEPT
+
+						SELECT jsonb_object_keys(@content_schema::jsonb -> 'properties')
+					) AS keys
+					FROM todo_rule AS rule
+					WHERE rule.id = @rule_id
+				)
+				UPDATE todos
+				SET content = content - deleted.keys
+				FROM deleted
+				WHERE todos.rule_id = @rule_id
+				  AND cardinality(deleted.keys) > 0
+				  AND todos.content ?| deleted.keys`,
 				pgx.StrictNamedArgs{
-					"rule_id": ruleID,
+					"rule_id":        ruleID,
+					"content_schema": definition.ContentSchema,
 				},
 			)
 			if err != nil {
-				return fmt.Errorf("load todos for rule validation: %w", err)
+				return fmt.Errorf("prune removed todo fields: %w", err)
 			}
 
-			for rows.Next() {
-				var content json.RawMessage
-				if err := rows.Scan(&content); err != nil {
-					rows.Close()
-					return fmt.Errorf("scan todo content for rule validation: %w", err)
-				}
-				if err := validator.ValidateJSON(content); err != nil {
-					rows.Close()
-					return ErrRuleSchemaConflict
-				}
-			}
-			if err := rows.Err(); err != nil {
-				rows.Close()
-				return fmt.Errorf("iterate todos for rule validation: %w", err)
-			}
-			rows.Close()
-
-			rows, err = tx.Query(
+			rows, err := tx.Query(
 				ctx,
 				`UPDATE todo_rule 
 				 SET rule_name = @rule_name,

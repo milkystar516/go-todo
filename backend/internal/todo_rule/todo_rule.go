@@ -163,10 +163,6 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteProblem(w, http.StatusNotFound, "todo rule not found")
 		return
 	}
-	if errors.Is(err, ErrRuleSchemaConflict) {
-		httpx.WriteTypedProblem(w, httpx.ProblemRuleSchemaConflict, "todo rule schema conflicts with existing todos")
-		return
-	}
 	if err != nil {
 		httpx.ServerError(w, r, err)
 		return

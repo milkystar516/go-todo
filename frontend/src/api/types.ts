@@ -43,7 +43,6 @@ export const PROBLEM_TYPE = {
   CANNOT_CHANGE_OWN_ROLE: "/problems/cannot-change-own-role",
   ROLE_CONFLICT: "/problems/role-conflict",
   RULE_IN_USE: "/problems/rule-in-use",
-  RULE_SCHEMA_CONFLICT: "/problems/rule-schema-conflict",
 } as const;
 
 export type KnownProblemType =
