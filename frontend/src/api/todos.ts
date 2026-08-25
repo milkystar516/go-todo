@@ -6,18 +6,19 @@ const jsonHeaders = {
 };
 
 export interface TodoCreateInput {
-  rule_id: number,
-  content: JSON
+  rule_id: number;
+  content: Record<string, unknown>;
 }
 
 export interface TodoUpdateInput {
-  content: JSON
+  content: Record<string, unknown>;
 }
 
 export function listTodos(
+  ownerId: number,
   signal?: AbortSignal,
 ): Promise<Todo[]> {
-  return apiJson<Todo[]>("/todos", { signal });
+  return apiJson<Todo[]>(`/users/${ownerId}/todos`, { signal });
 }
 
 export function getTodo(
@@ -42,18 +43,17 @@ export function updateTodo(
   input: TodoUpdateInput,
 ): Promise<Todo> {
   return apiJson<Todo>(`/todos/${todoId}`, {
-    method: "PUT",
+    method: "PATCH",
     headers: jsonHeaders,
     body: JSON.stringify(input),
   });
 }
 
-export function toggleTodoCompleted(
+export function toggleTodoComplete(
   todoId: number,
 ): Promise<Todo> {
-  return apiJson<Todo>(`/todos/${todoId}`, {
+  return apiJson<Todo>(`/todos/${todoId}/complete`, {
     method: "PATCH",
-    headers: jsonHeaders,
   });
 }
 
