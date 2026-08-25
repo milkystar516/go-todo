@@ -20,9 +20,26 @@ CREATE TABLE todo_rule (
     list_columns        jsonb NOT NULL DEFAULT '[]'::jsonb
 );
 
+CREATE TABLE todo_lists (
+    id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name                varchar(50) NOT NULL,
+    default_rule_id     bigint NOT NULL REFERENCES todo_rule(id)
+);
+
+CREATE TABLE todo_list_members (
+    list_id             uuid NOT NULL REFERENCES todo_lists(id) ON DELETE CASCADE,
+    user_id             bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role                varchar(20) NOT NULL DEFAULT 'member' CHECK (role IN ('member', 'owner')),
+    PRIMARY KEY (list_id, user_id)
+);
+
+CREATE INDEX todo_list_members_user_id_idx
+    ON todo_list_members (user_id);
+
 CREATE TABLE todos (
     id                  bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     owner_id            bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    list_id             uuid NOT NULL REFERENCES todo_lists(id) ON DELETE CASCADE,
     rule_id             bigint NOT NULL REFERENCES todo_rule(id),
     content             jsonb NOT NULL,
     created_at          timestamptz NOT NULL DEFAULT now(),
@@ -34,3 +51,6 @@ CREATE INDEX todos_owner_id_idx
 
 CREATE INDEX todos_rule_id_idx
 	ON todos (rule_id);
+
+CREATE INDEX todos_list_id_idx
+    ON todos (list_id);

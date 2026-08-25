@@ -17,6 +17,7 @@ import (
 	"github.com/milkystar516/go-todo/backend/internal/logging"
 	"github.com/milkystar516/go-todo/backend/internal/postgres"
 	"github.com/milkystar516/go-todo/backend/internal/todo"
+	todolist "github.com/milkystar516/go-todo/backend/internal/todo_list"
 	todorule "github.com/milkystar516/go-todo/backend/internal/todo_rule"
 )
 
@@ -53,11 +54,15 @@ func main() {
 	authHandler.RegisterRoutes(apiMux)
 
 	ruleService := todorule.NewService(db)
+	listService := todolist.NewService(db)
 
 	todoRuleHandler := todorule.NewHandler(ruleService)
 	todoRuleHandler.RegisterRoutes(apiMux, authHandler.RequireAuth, authHandler.RequireAdmin)
 
-	todoHandler := todo.NewHandler(db, ruleService)
+	todoListHandler := todolist.NewHandler(listService)
+	todoListHandler.RegisterRoutes(apiMux, authHandler.RequireAuth)
+
+	todoHandler := todo.NewHandler(db, ruleService, listService)
 	todoHandler.RegisterRoutes(apiMux, authHandler.RequireAuth)
 
 	mux := http.NewServeMux()

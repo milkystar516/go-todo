@@ -48,19 +48,21 @@ func TestTodoLifecycle(t *testing.T) {
 	if createdRule.ID == 0 {
 		t.Fatal("created rule response has no id")
 	}
+	createdList := api.createTodoList(t, member, createdRule.ID)
 
-	missingRuleIDResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
+	missingListIDResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 		"content": map[string]any{"title": "Todo"},
 	})
 	expectProblem(
 		t,
-		missingRuleIDResp,
+		missingListIDResp,
 		http.StatusUnprocessableEntity,
 		"/problems/validation-failed",
 		"Request validation failed",
 	)
 
 	unknownRuleResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
+		"list_id": createdList.ID,
 		"rule_id": 9223372036854775807,
 		"content": map[string]any{"title": "Todo"},
 	})
@@ -73,7 +75,7 @@ func TestTodoLifecycle(t *testing.T) {
 	)
 
 	invalidContentResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
-		"rule_id": createdRule.ID,
+		"list_id": createdList.ID,
 		"content": map[string]any{"unknown": true},
 	})
 	expectProblem(
@@ -85,7 +87,7 @@ func TestTodoLifecycle(t *testing.T) {
 	)
 
 	createTodoResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
-		"rule_id": createdRule.ID,
+		"list_id": createdList.ID,
 		"content": map[string]any{
 			"title":    "테스트 Todo",
 			"priority": "high",
@@ -95,18 +97,20 @@ func TestTodoLifecycle(t *testing.T) {
 
 	var createdTodo todo.Todo
 	decodeJSON(t, createTodoResp, &createdTodo)
-	if createdTodo.OwnerID != member.user.ID || createdTodo.RuleID != createdRule.ID {
+	if createdTodo.OwnerID != member.user.ID || createdTodo.ListID != createdList.ID || createdTodo.RuleID != createdRule.ID {
 		t.Fatalf(
-			"created todo owner/rule = %d/%d, want %d/%d",
+			"created todo owner/list/rule = %d/%s/%d, want %d/%s/%d",
 			createdTodo.OwnerID,
+			createdTodo.ListID,
 			createdTodo.RuleID,
 			member.user.ID,
+			createdList.ID,
 			createdRule.ID,
 		)
 	}
 
 	adminGetTodoResp := request(t, adminClient, http.MethodGet, fmt.Sprintf("%s/todos/%d", api.apiURL, createdTodo.ID))
-	expectStatus(t, adminGetTodoResp, http.StatusOK)
+	expectStatus(t, adminGetTodoResp, http.StatusNotFound)
 	adminGetTodoResp.Body.Close()
 
 	adminListTodosResp := request(
@@ -119,8 +123,8 @@ func TestTodoLifecycle(t *testing.T) {
 
 	var userTodos []todo.Todo
 	decodeJSON(t, adminListTodosResp, &userTodos)
-	if len(userTodos) != 1 || userTodos[0].ID != createdTodo.ID {
-		t.Fatalf("user todos = %+v, want todo %d", userTodos, createdTodo.ID)
+	if len(userTodos) != 0 {
+		t.Fatalf("user todos visible to non-member = %+v", userTodos)
 	}
 
 	adminUpdateTodoResp := requestJSON(
@@ -302,6 +306,15 @@ func TestTodoLifecycle(t *testing.T) {
 	expectStatus(t, deleteTodoResp, http.StatusNoContent)
 	deleteTodoResp.Body.Close()
 
+	deleteListResp := request(
+		t,
+		member.client,
+		http.MethodDelete,
+		fmt.Sprintf("%s/lists/%s", api.apiURL, createdList.ID),
+	)
+	expectStatus(t, deleteListResp, http.StatusNoContent)
+	deleteListResp.Body.Close()
+
 	deleteRuleResp := request(
 		t,
 		adminClient,
@@ -363,9 +376,11 @@ func TestRepeatedRuleUpdatesPruneOnlyRemovedRootFields(t *testing.T) {
 	var createdRule todoRuleResponse
 	decodeJSON(t, createRuleResp, &createdRule)
 	api.registerTodoRuleCleanup(t, createdRule.ID)
+	createdList := api.createTodoList(t, member, createdRule.ID)
 
 	createTodo := func(content map[string]any) todo.Todo {
 		resp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
+			"list_id": createdList.ID,
 			"rule_id": createdRule.ID,
 			"content": content,
 		})

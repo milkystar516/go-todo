@@ -17,6 +17,7 @@ import (
 	"github.com/milkystar516/go-todo/backend/internal/httpx"
 	"github.com/milkystar516/go-todo/backend/internal/postgres"
 	"github.com/milkystar516/go-todo/backend/internal/todo"
+	todolist "github.com/milkystar516/go-todo/backend/internal/todo_list"
 	todorule "github.com/milkystar516/go-todo/backend/internal/todo_rule"
 )
 
@@ -36,6 +37,12 @@ type publicUserResponse struct {
 type todoRuleResponse struct {
 	ID       int64  `json:"id"`
 	RuleName string `json:"rule_name"`
+}
+
+type todoListResponse struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	DefaultRuleID int64  `json:"default_rule_id"`
 }
 
 type todoRuleDetailResponse struct {
@@ -85,11 +92,15 @@ func newTestAPI(t *testing.T) *testAPI {
 	authHandler.RegisterRoutes(apiMux)
 
 	ruleService := todorule.NewService(db)
+	listService := todolist.NewService(db)
 
 	todoRuleHandler := todorule.NewHandler(ruleService)
 	todoRuleHandler.RegisterRoutes(apiMux, authHandler.RequireAuth, authHandler.RequireAdmin)
 
-	todoHandler := todo.NewHandler(db, ruleService)
+	todoListHandler := todolist.NewHandler(listService)
+	todoListHandler.RegisterRoutes(apiMux, authHandler.RequireAuth)
+
+	todoHandler := todo.NewHandler(db, ruleService, listService)
 	todoHandler.RegisterRoutes(apiMux, authHandler.RequireAuth)
 
 	crossOriginProtection := httpx.NewProblemCrossOriginProtection()
@@ -203,12 +214,44 @@ func (api *testAPI) registerTodoRuleCleanup(t *testing.T, ruleID int64) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
+		if _, err := api.db.Exec(ctx, "DELETE FROM todo_lists WHERE default_rule_id = $1", ruleID); err != nil {
+			t.Errorf("clean up todo lists for rule %d: %v", ruleID, err)
+			return
+		}
 		if _, err := api.db.Exec(ctx, "DELETE FROM todos WHERE rule_id = $1", ruleID); err != nil {
 			t.Errorf("clean up todos for rule %d: %v", ruleID, err)
 			return
 		}
 		if _, err := api.db.Exec(ctx, "DELETE FROM todo_rule WHERE id = $1", ruleID); err != nil {
 			t.Errorf("clean up todo rule %d: %v", ruleID, err)
+		}
+	})
+}
+
+func (api *testAPI) createTodoList(t *testing.T, member authenticatedUser, ruleID int64) todoListResponse {
+	t.Helper()
+
+	response := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/lists", map[string]any{
+		"name":            uniqueValue("integration list"),
+		"default_rule_id": ruleID,
+	})
+	expectStatus(t, response, http.StatusCreated)
+
+	var list todoListResponse
+	decodeJSON(t, response, &list)
+	api.registerTodoListCleanup(t, list.ID)
+	return list
+}
+
+func (api *testAPI) registerTodoListCleanup(t *testing.T, listID string) {
+	t.Helper()
+
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if _, err := api.db.Exec(ctx, "DELETE FROM todo_lists WHERE id = $1", listID); err != nil {
+			t.Errorf("clean up todo list %s: %v", listID, err)
 		}
 	})
 }
