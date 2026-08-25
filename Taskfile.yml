@@ -4,14 +4,14 @@ silent: true
 
 tasks:
   dev:
-    desc: 개발 환경을 실행합니다.
+    desc: 개발 환경을 Watch 모드로 실행합니다.
     cmds:
-      - docker compose --env-file .env -f compose.yaml -f compose.development.yaml up --build --watch
+      - docker compose up --build --watch
 
   dev:down:
     desc: 개발 환경을 종료합니다.
     cmds:
-      - docker compose --env-file .env -f compose.yaml -f compose.development.yaml down
+      - docker compose down
 
   prod:
     desc: 공개 배포 환경을 실행합니다.

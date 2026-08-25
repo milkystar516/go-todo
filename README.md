@@ -1,95 +1,77 @@
 # Go Todo
 
-## 개발 환경
+React, Go, PostgreSQL을 하나의 Docker Compose project로 실행하는 monorepo입니다.
 
-Docker Compose 2.22 이상과 [Task](https://taskfile.dev/docs/installation)가 필요합니다. Windows에서는 다음 명령으로 Task를 설치할 수 있습니다.
+## 로컬 개발
 
-```powershell
-winget install Task.Task
-```
-
-먼저 개발용 환경 변수 파일을 준비하고 비밀번호를 변경합니다.
-
-```sh
-cp .env.example .env
-```
-
-PowerShell에서는 다음 명령을 사용할 수 있습니다.
+Docker Compose 2.22 이상이 필요합니다. 최초 한 번만 저장소 루트에서 개발 환경 변수 파일을 준비합니다.
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-개발 환경을 시작합니다.
+`.env`의 `POSTGRES_PASSWORD`를 변경한 다음 전체 stack을 실행합니다.
 
 ```sh
+docker compose up -d
+```
+
+Docker Compose가 `compose.yaml`과 `compose.override.yaml`을 자동으로 병합하므로 별도의 `-f`나 `--env-file` 옵션은 필요하지 않습니다.
+Dockerfile이나 의존성이 변경되어 image를 다시 만들어야 할 때만 `docker compose up -d --build`를 사용합니다.
+
+- 웹: `http://127.0.0.1:5173`
+- API: `http://127.0.0.1:8080/api`
+- PostgreSQL: `127.0.0.1:5432`
+
+상태와 로그는 다음 명령으로 확인합니다.
+
+```sh
+docker compose ps
+docker compose logs -f
+```
+
+종료할 때 PostgreSQL volume은 유지됩니다.
+
+```sh
+docker compose down
+```
+
+### Watch 모드
+
+[Task](https://taskfile.dev/docs/installation)를 설치하면 frontend HMR과 backend 자동 재시작을 한 명령으로 실행할 수 있습니다.
+
+```powershell
+winget install Task.Task
 task dev
 ```
 
-최초 실행에는 image build가 필요하지만, 이후 일반 소스 변경 때문에 image를 다시 빌드할 필요는 없습니다.
-
-- frontend 소스는 실행 중인 container에 동기화되고 Vite HMR로 반영됩니다.
-- backend 소스는 실행 중인 container에 동기화된 다음 `go run` 프로세스가 재시작됩니다.
-- `package.json`, `package-lock.json`, `go.mod`, `go.sum` 변경은 의존성 설치가 필요하므로 해당 image를 자동으로 다시 빌드합니다.
-
-- 웹: `http://127.0.0.1:5173`
-- API 직접 접근: `http://127.0.0.1:8080/api`
-- PostgreSQL: `127.0.0.1:5432`
-
-종료할 때 PostgreSQL 데이터 volume은 유지됩니다.
+Watch 모드를 종료한 뒤 container와 network를 정리하려면 다음 명령을 실행합니다.
 
 ```sh
 task dev:down
 ```
 
-## 공개 배포 환경
+## 공개 배포
 
-배포 서버에서는 개발용 `.env`를 재사용하지 않고 production 예제에서 별도 환경 변수 파일을 만듭니다. `POSTGRES_PASSWORD`는 반드시 새로운 값으로 변경합니다.
+배포 서버에서는 별도의 production 환경 변수 파일을 준비하고 비밀번호를 변경합니다. `task prod` 단축 명령을 사용하므로 Task가 설치되어 있어야 합니다.
 
 ```sh
 cp .env.production.example .env.production
+task prod
 ```
 
-PowerShell에서는 다음 명령을 사용할 수 있습니다.
+Windows PowerShell에서는 첫 번째 명령 대신 다음 명령을 사용합니다.
 
 ```powershell
 Copy-Item .env.production.example .env.production
 ```
 
-공개 배포 환경을 시작합니다.
-
-```sh
-task prod
-```
-
-- frontend만 `${PUBLIC_BIND_ADDRESS}:${PUBLIC_PORT}`로 호스트에 공개됩니다. 기본값은 `0.0.0.0:8080`입니다.
-- backend와 PostgreSQL은 Compose 내부 network에서만 접근할 수 있습니다.
-- backend는 컴파일된 Go binary를 non-root Alpine image에서 실행합니다.
-- frontend는 빌드된 정적 파일을 non-root NGINX로 제공하고 `/api` 요청을 backend로 전달합니다.
-- production 환경에는 소스 동기화와 Watch 설정이 적용되지 않습니다.
-
-공개 인터넷에서 로그인 기능을 사용할 때는 앞단에서 HTTPS를 종료해야 하며 `SESSION_SECURE=true`를 유지해야 합니다.
-
-상태와 로그는 다음과 같이 확인합니다.
+기본 공개 주소는 `http://localhost:8080`입니다. Production에서는 frontend만 공개되며 backend와 PostgreSQL은 Compose network 내부에 남습니다.
 
 ```sh
 task prod:status
 task prod:logs
-```
-
-종료할 때는 다음 명령을 사용합니다.
-
-```sh
 task prod:down
 ```
 
-## Image만 빌드하기
-
-각 image만 빌드할 수도 있습니다.
-
-```sh
-docker build -t go-todo-backend ./backend
-docker build -t go-todo-frontend ./frontend
-```
-
-Dockerfile의 마지막 stage가 production이므로 별도 target을 지정하지 않아도 됩니다.
+공개 인터넷에서 로그인 기능을 사용할 때는 앞단에서 HTTPS를 종료하고 `SESSION_SECURE=true`를 유지해야 합니다.
