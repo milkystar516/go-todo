@@ -27,5 +27,84 @@ services:
       retries: 10
       start_period: 5s
 
+  backend:
+    image: go-todo-backend:${IMAGE_TARGET:-development}
+    build:
+      context: ./backend
+      target: ${IMAGE_TARGET:-development}
+    init: true
+    restart: unless-stopped
+
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8080
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      LOG_LEVEL: ${LOG_LEVEL}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
+      SESSION_TTL: ${SESSION_TTL}
+      SESSION_SECURE: ${SESSION_SECURE}
+
+    ports:
+      - "127.0.0.1:${APP_PORT}:8080"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "8080"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./backend
+          target: /app
+          initial_sync: true
+          ignore:
+            - go.mod
+            - go.sum
+        - action: rebuild
+          path: ./backend/go.mod
+        - action: rebuild
+          path: ./backend/go.sum
+
+  frontend:
+    image: go-todo-frontend:${IMAGE_TARGET:-development}
+    build:
+      context: ./frontend
+      target: ${IMAGE_TARGET:-development}
+    init: true
+    restart: unless-stopped
+
+    environment:
+      API_PROXY_TARGET: http://backend:8080
+
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:8080"
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend
+          target: /app
+          initial_sync: true
+          ignore:
+            - node_modules
+            - dist
+            - package.json
+            - package-lock.json
+        - action: rebuild
+          path: ./frontend/package.json
+        - action: rebuild
+          path: ./frontend/package-lock.json
+
 volumes:
   postgres_data:
