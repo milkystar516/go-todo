@@ -6,6 +6,9 @@ import { RootLayout } from "./layouts/RootLayout";
 import { LoginPage } from "../features/auth/LoginPage";
 import { TodosPage } from "../features/todos/TodosPage";
 import { SignupPage } from "../features/auth/SignupPage";
+import { RequireAuth } from "../features/guards/RequireAuth";
+import { RequireAdmin } from "../features/guards/RequireAdmin";
+import { AdminPage } from "../features/auth/AdminPage";
 
 export function AppRoutes() {
   return (
@@ -16,8 +19,14 @@ export function AppRoutes() {
           <Route path="signup" element={<SignupPage />} />
         </Route>
 
-        <Route element={<AppLayout />}>
-          <Route index element={<TodosPage />} />
+        <Route element={<RequireAuth />}>
+          <Route element={<AppLayout />}>
+            <Route index element={<TodosPage />} />
+
+            <Route element={<RequireAdmin />}>
+              <Route path="admin" element={<AdminPage />} />
+            </Route>
+          </Route>
         </Route>
       </Route>
     </Routes>
