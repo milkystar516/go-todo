@@ -15,14 +15,14 @@ export interface TodoUpdateInput {
   content: Record<string, unknown>;
 }
 
-export function listTodos(
+export function getTodosByOwner(
   ownerId: number,
   signal?: AbortSignal,
 ): Promise<Todo[]> {
   return apiJson<Todo[]>(`/users/${ownerId}/todos`, { signal });
 }
 
-export function listTodosByList(
+export function getTodosByList(
   listId: string,
   signal?: AbortSignal,
 ): Promise<Todo[]> {

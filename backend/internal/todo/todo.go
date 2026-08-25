@@ -61,8 +61,8 @@ func NewHandler(db *pgxpool.Pool, rules *todorule.Service, lists *todolist.Servi
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth func(http.Handler) http.Handler) {
 	mux.Handle("POST /todos", requireAuth(http.HandlerFunc(h.createTodo)))
-	mux.Handle("GET /users/{owner_id}/todos", requireAuth(http.HandlerFunc(h.todosList)))
-	mux.Handle("GET /lists/{list_id}/todos", requireAuth(http.HandlerFunc(h.listTodosByList)))
+	mux.Handle("GET /users/{owner_id}/todos", requireAuth(http.HandlerFunc(h.getTodosByOwner)))
+	mux.Handle("GET /lists/{list_id}/todos", requireAuth(http.HandlerFunc(h.getTodosByList)))
 	mux.Handle("GET /todos/{todo_id}", requireAuth(http.HandlerFunc(h.getTodo)))
 	mux.Handle("PATCH /todos/{todo_id}", requireAuth(http.HandlerFunc(h.updateTodo)))
 	mux.Handle("PATCH /todos/{todo_id}/complete", requireAuth(http.HandlerFunc(h.toggleTodoComplete)))
@@ -204,14 +204,14 @@ func (h *Handler) getTodo(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(todo)
 }
 
-func (h *Handler) todosList(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) getTodosByOwner(w http.ResponseWriter, r *http.Request) {
 	ownerID, err := strconv.ParseInt(r.PathValue("owner_id"), 10, 64)
 	if err != nil {
 		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
 		return
 	}
 
-	todos, err := h.getTodos(r.Context(), ownerID, auth.UserID(r.Context()))
+	todos, err := h.findTodosByOwner(r.Context(), ownerID, auth.UserID(r.Context()))
 	if err != nil {
 		httpx.ServerError(w, r, err)
 		return
@@ -221,7 +221,7 @@ func (h *Handler) todosList(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(todos)
 }
 
-func (h *Handler) getTodos(ctx context.Context, ownerID, userID int64) ([]Todo, error) {
+func (h *Handler) findTodosByOwner(ctx context.Context, ownerID, userID int64) ([]Todo, error) {
 	rows, err := h.db.Query(
 		ctx,
 		`SELECT `+todoColumns+`FROM todos
@@ -243,7 +243,7 @@ func (h *Handler) getTodos(ctx context.Context, ownerID, userID int64) ([]Todo, 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[Todo])
 }
 
-func (h *Handler) listTodosByList(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) getTodosByList(w http.ResponseWriter, r *http.Request) {
 	listID, err := todolist.ParseID(r.PathValue("list_id"))
 	if err != nil {
 		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")

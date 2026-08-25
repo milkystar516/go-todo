@@ -1,5 +1,9 @@
 import { apiJson, apiRequest } from "./client";
-import type { TodoList, TodoListMember } from "./types";
+import type {
+  TodoList,
+  TodoListMember,
+  TodoListMemberRole,
+} from "./types";
 
 const jsonHeaders = {
   "Content-Type": "application/json",
@@ -79,11 +83,14 @@ export async function removeTodoListMember(
   });
 }
 
-export async function promoteTodoListOwner(
+export async function updateTodoListMemberRole(
   listId: string,
   userId: number,
+  role: TodoListMemberRole,
 ): Promise<void> {
-  await apiRequest(`/lists/${listId}/owners/${userId}`, {
-    method: "PUT",
+  await apiRequest(`/lists/${listId}/members/${userId}`, {
+    method: "PATCH",
+    headers: jsonHeaders,
+    body: JSON.stringify({ role }),
   });
 }

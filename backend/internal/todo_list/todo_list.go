@@ -56,6 +56,10 @@ type listRequest struct {
 	DefaultRuleID int64  `json:"default_rule_id" validate:"gt=0"`
 }
 
+type memberRoleRequest struct {
+	Role MemberRole `json:"role" validate:"required,oneof=member owner"`
+}
+
 const listColumns = `
 	id,
 	name,
@@ -84,8 +88,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth func(http.Handl
 	mux.Handle("DELETE /lists/{list_id}", requireAuth(http.HandlerFunc(h.deleteList)))
 	mux.Handle("GET /lists/{list_id}/members", requireAuth(http.HandlerFunc(h.listMembers)))
 	mux.Handle("PUT /lists/{list_id}/members/{user_id}", requireAuth(http.HandlerFunc(h.addMember)))
+	mux.Handle("PATCH /lists/{list_id}/members/{user_id}", requireAuth(http.HandlerFunc(h.updateMemberRole)))
 	mux.Handle("DELETE /lists/{list_id}/members/{user_id}", requireAuth(http.HandlerFunc(h.deleteMember)))
-	mux.Handle("PUT /lists/{list_id}/owners/{user_id}", requireAuth(http.HandlerFunc(h.promoteOwner)))
 }
 
 func ParseID(raw string) (string, error) {
@@ -377,7 +381,7 @@ func (h *Handler) addMember(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *Handler) promoteOwner(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) updateMemberRole(w http.ResponseWriter, r *http.Request) {
 	listID, ok := readListID(w, r)
 	if !ok {
 		return
@@ -386,15 +390,55 @@ func (h *Handler) promoteOwner(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	var req memberRoleRequest
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		httpx.WriteDecodeProblem(w, err)
+		return
+	}
+	if err := validation.Validate(req); err != nil {
+		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "invalid list member request")
+		return
+	}
+
 	err := pgx.BeginFunc(r.Context(), h.lists.db, func(tx pgx.Tx) error {
 		if err := lockOwnerList(r.Context(), tx, listID, auth.UserID(r.Context())); err != nil {
 			return err
 		}
+
+		var currentRole MemberRole
+		err := tx.QueryRow(
+			r.Context(),
+			`SELECT role FROM todo_list_members
+			WHERE list_id = @list_id AND user_id = @user_id`,
+			pgx.StrictNamedArgs{"list_id": listID, "user_id": memberID},
+		).Scan(&currentRole)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errMemberNotFound
+		}
+		if err != nil {
+			return err
+		}
+
+		if currentRole == MemberRoleOwner && req.Role == MemberRoleMember {
+			var ownerCount int
+			if err := tx.QueryRow(
+				r.Context(),
+				`SELECT count(*) FROM todo_list_members
+				WHERE list_id = @list_id AND role = @role`,
+				pgx.StrictNamedArgs{"list_id": listID, "role": MemberRoleOwner},
+			).Scan(&ownerCount); err != nil {
+				return err
+			}
+			if ownerCount == 1 {
+				return errLastOwner
+			}
+		}
+
 		res, err := tx.Exec(
 			r.Context(),
 			`UPDATE todo_list_members SET role = @role
 			WHERE list_id = @list_id AND user_id = @user_id`,
-			pgx.StrictNamedArgs{"role": MemberRoleOwner, "list_id": listID, "user_id": memberID},
+			pgx.StrictNamedArgs{"role": req.Role, "list_id": listID, "user_id": memberID},
 		)
 		if err != nil {
 			return err
@@ -409,6 +453,10 @@ func (h *Handler) promoteOwner(w http.ResponseWriter, r *http.Request) {
 	}
 	if errors.Is(err, errMemberNotFound) {
 		httpx.WriteProblem(w, http.StatusNotFound, "list member not found")
+		return
+	}
+	if errors.Is(err, errLastOwner) {
+		httpx.WriteProblem(w, http.StatusConflict, "list must have an owner")
 		return
 	}
 	if err != nil {

@@ -93,6 +93,17 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 	if len(members) != 1 || members[0].ID != creator.user.ID || members[0].Role != todolist.MemberRoleOwner {
 		t.Fatalf("initial members = %+v, want creator owner", members)
 	}
+	creatorRoleURL := fmt.Sprintf("%s/%d", membersURL, creator.user.ID)
+
+	demoteSoleOwnerResp := requestJSON(
+		t,
+		creator.client,
+		http.MethodPatch,
+		creatorRoleURL,
+		map[string]any{"role": todolist.MemberRoleMember},
+	)
+	expectStatus(t, demoteSoleOwnerResp, http.StatusConflict)
+	demoteSoleOwnerResp.Body.Close()
 
 	removeSoleOwnerResp := request(
 		t,
@@ -139,10 +150,31 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 	expectStatus(t, memberAddResp, http.StatusForbidden)
 	memberAddResp.Body.Close()
 
-	promoteURL := fmt.Sprintf("%s/owners/%d", listURL, member.user.ID)
-	memberPromoteResp := request(t, member.client, http.MethodPut, promoteURL)
-	expectStatus(t, memberPromoteResp, http.StatusForbidden)
-	memberPromoteResp.Body.Close()
+	memberRoleURL := fmt.Sprintf("%s/%d", membersURL, member.user.ID)
+	memberRoleUpdateResp := requestJSON(
+		t,
+		member.client,
+		http.MethodPatch,
+		memberRoleURL,
+		map[string]any{"role": todolist.MemberRoleOwner},
+	)
+	expectStatus(t, memberRoleUpdateResp, http.StatusForbidden)
+	memberRoleUpdateResp.Body.Close()
+
+	invalidRoleResp := requestJSON(
+		t,
+		creator.client,
+		http.MethodPatch,
+		memberRoleURL,
+		map[string]any{"role": "admin"},
+	)
+	expectProblem(
+		t,
+		invalidRoleResp,
+		http.StatusUnprocessableEntity,
+		"/problems/validation-failed",
+		"Request validation failed",
+	)
 
 	ownerAddLeaverResp := request(
 		t,
@@ -185,9 +217,25 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 		t.Fatalf("list todos = %+v, want todo %d", listTodos, createdTodo.ID)
 	}
 
-	promoteResp := request(t, creator.client, http.MethodPut, promoteURL)
+	promoteResp := requestJSON(
+		t,
+		creator.client,
+		http.MethodPatch,
+		memberRoleURL,
+		map[string]any{"role": todolist.MemberRoleOwner},
+	)
 	expectStatus(t, promoteResp, http.StatusNoContent)
 	promoteResp.Body.Close()
+
+	demoteOriginalOwnerResp := requestJSON(
+		t,
+		member.client,
+		http.MethodPatch,
+		creatorRoleURL,
+		map[string]any{"role": todolist.MemberRoleMember},
+	)
+	expectStatus(t, demoteOriginalOwnerResp, http.StatusNoContent)
+	demoteOriginalOwnerResp.Body.Close()
 
 	removeOriginalOwnerResp := request(
 		t,
