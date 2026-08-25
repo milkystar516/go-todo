@@ -57,6 +57,13 @@ func TestWriteTypedProblem(t *testing.T) {
 			title:   "Todo rule is in use",
 			status:  http.StatusConflict,
 		},
+		{
+			name:    "default rule protected",
+			kind:    ProblemDefaultRuleProtected,
+			typeURI: "/problems/default-rule-protected",
+			title:   "Default todo rule is protected",
+			status:  http.StatusConflict,
+		},
 	}
 
 	seenTypes := make(map[string]struct{}, len(tests))

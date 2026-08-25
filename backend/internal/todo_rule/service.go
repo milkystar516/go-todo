@@ -14,6 +14,7 @@ import (
 
 var ErrRuleNotFound = errors.New("todo rule not found")
 var ErrRuleInUse = errors.New("todo rule is in use")
+var ErrDefaultRuleProtected = errors.New("default todo rule cannot be deleted")
 
 type Service struct {
 	db         *pgxpool.Pool
@@ -276,7 +277,7 @@ func (s *Service) UpdateTodoRuleTitle(ctx context.Context, ruleID int64, ruleNam
 
 func (s *Service) DeleteTodoRule(ctx context.Context, ruleID int64) error {
 	if ruleID == DefaultRuleID {
-		return ErrRuleInUse
+		return ErrDefaultRuleProtected
 	}
 
 	res, err := s.db.Exec(

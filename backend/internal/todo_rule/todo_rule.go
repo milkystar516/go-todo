@@ -219,6 +219,10 @@ func (h *Handler) deleteRule(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteProblem(w, http.StatusNotFound, "todo rule not found")
 		return
 	}
+	if errors.Is(err, ErrDefaultRuleProtected) {
+		httpx.WriteTypedProblem(w, httpx.ProblemDefaultRuleProtected, "default todo rule cannot be deleted")
+		return
+	}
 	if errors.Is(err, ErrRuleInUse) {
 		httpx.WriteTypedProblem(w, httpx.ProblemRuleInUse, "todo rule is in use")
 		return

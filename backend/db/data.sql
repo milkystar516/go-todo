@@ -40,7 +40,7 @@ VALUES (
                             "default": false
                         }
                     },
-                    "required": ["text"],
+                    "required": ["text", "completed"],
                     "additionalProperties": false
                 }
             }

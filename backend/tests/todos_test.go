@@ -48,6 +48,10 @@ func TestDefaultChecklistRule(t *testing.T) {
 	if !ok || completedSchema["type"] != "boolean" {
 		t.Fatalf("completed schema = %#v, want boolean", itemProperties["completed"])
 	}
+	required, ok := itemSchema["required"].([]any)
+	if !ok || len(required) != 2 || required[0] != "text" || required[1] != "completed" {
+		t.Fatalf("checklist item required = %#v, want [text completed]", itemSchema["required"])
+	}
 
 	itemsUI, ok := checklistRule.UISchema["items"].(map[string]any)
 	if !ok {
@@ -72,8 +76,8 @@ func TestDefaultChecklistRule(t *testing.T) {
 		t,
 		deleteDefaultResp,
 		http.StatusConflict,
-		"/problems/rule-in-use",
-		"Todo rule is in use",
+		"/problems/default-rule-protected",
+		"Default todo rule is protected",
 	)
 
 	createListResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/lists", map[string]any{
@@ -102,6 +106,20 @@ func TestDefaultChecklistRule(t *testing.T) {
 	decodeJSON(t, createTodoResp, &createdTodo)
 	if createdTodo.RuleID != todorule.DefaultRuleID {
 		t.Fatalf("todo rule = %d, want %d", createdTodo.RuleID, todorule.DefaultRuleID)
+	}
+
+	omittedRuleResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
+		"list_id": list.ID,
+		"content": map[string]any{
+			"title": "Omitted rule id",
+			"items": []any{},
+		},
+	})
+	expectStatus(t, omittedRuleResp, http.StatusCreated)
+	var omittedRuleTodo todo.Todo
+	decodeJSON(t, omittedRuleResp, &omittedRuleTodo)
+	if omittedRuleTodo.RuleID != todorule.DefaultRuleID {
+		t.Fatalf("omitted rule_id selected rule %d, want %d", omittedRuleTodo.RuleID, todorule.DefaultRuleID)
 	}
 }
 

@@ -58,6 +58,7 @@ export const PROBLEM_TYPE = {
   VALIDATION_FAILED: "/problems/validation-failed",
   CANNOT_CHANGE_OWN_ROLE: "/problems/cannot-change-own-role",
   RULE_IN_USE: "/problems/rule-in-use",
+  DEFAULT_RULE_PROTECTED: "/problems/default-rule-protected",
 } as const;
 
 export type KnownProblemType =

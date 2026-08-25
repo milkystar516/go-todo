@@ -148,20 +148,19 @@ func (h *Handler) createList(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserID(r.Context())
 	var list TodoList
 	err = pgx.BeginFunc(r.Context(), h.lists.db, func(tx pgx.Tx) error {
-		query := `INSERT INTO todo_lists (name)
-			VALUES (@name)
-			RETURNING ` + listColumns
-		args := pgx.StrictNamedArgs{"name": req.Name}
+		defaultRuleID := todorule.DefaultRuleID
 		if req.DefaultRuleID != nil {
-			query = `INSERT INTO todo_lists (name, default_rule_id)
-				VALUES (@name, @default_rule_id)
-				RETURNING ` + listColumns
-			args["default_rule_id"] = *req.DefaultRuleID
+			defaultRuleID = *req.DefaultRuleID
 		}
 		rows, err := tx.Query(
 			r.Context(),
-			query,
-			args,
+			`INSERT INTO todo_lists (name, default_rule_id)
+			VALUES (@name, @default_rule_id)
+			RETURNING `+listColumns,
+			pgx.StrictNamedArgs{
+				"name":            req.Name,
+				"default_rule_id": defaultRuleID,
+			},
 		)
 		if err != nil {
 			return err

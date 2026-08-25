@@ -11,6 +11,7 @@ const (
 	ProblemValidationFailed
 	ProblemCannotChangeOwnRole
 	ProblemRuleInUse
+	ProblemDefaultRuleProtected
 )
 
 type problemDefinition struct {
@@ -60,6 +61,13 @@ func (kind ProblemKind) definition() (problemDefinition, bool) {
 		return problemDefinition{
 			typeURI: "/problems/rule-in-use",
 			title:   "Todo rule is in use",
+			status:  http.StatusConflict,
+		}, true
+
+	case ProblemDefaultRuleProtected:
+		return problemDefinition{
+			typeURI: "/problems/default-rule-protected",
+			title:   "Default todo rule is protected",
 			status:  http.StatusConflict,
 		}, true
 

@@ -122,22 +122,18 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 				return errors.Join(errInvalidTodoContent, err)
 			}
 
-			query := `INSERT INTO todos (owner_id, list_id, content)
-				VALUES (@owner_id, @list_id, @content)
-				RETURNING ` + todoColumns
-			args := pgx.StrictNamedArgs{
-				"owner_id": userID,
-				"list_id":  listID,
-				"content":  req.Content,
-			}
-			if req.RuleID != nil {
-				query = `INSERT INTO todos (owner_id, list_id, rule_id, content)
-					VALUES (@owner_id, @list_id, @rule_id, @content)
-					RETURNING ` + todoColumns
-				args["rule_id"] = ruleID
-			}
-
-			rows, err := tx.Query(r.Context(), query, args)
+			rows, err := tx.Query(
+				r.Context(),
+				`INSERT INTO todos (owner_id, list_id, rule_id, content)
+				VALUES (@owner_id, @list_id, @rule_id, @content)
+				RETURNING `+todoColumns,
+				pgx.StrictNamedArgs{
+					"owner_id": userID,
+					"list_id":  listID,
+					"rule_id":  ruleID,
+					"content":  req.Content,
+				},
+			)
 			if err != nil {
 				return err
 			}
