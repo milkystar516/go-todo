@@ -45,7 +45,7 @@ const todoColumns = `
 
 type TodoCreateRequest struct {
 	ListID  string          `json:"list_id" validate:"required"`
-	RuleID  int64           `json:"rule_id" validate:"omitempty,gt=0"`
+	RuleID  *int64          `json:"rule_id" validate:"omitempty,gt=0"`
 	Content json.RawMessage `json:"content" validate:"required"`
 }
 
@@ -95,18 +95,18 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		h.db,
 		func(tx pgx.Tx) error {
-			ruleID := req.RuleID
-			defaultRuleID, err := h.lists.DefaultRuleTx(
+			if err := h.lists.RequireMemberTx(
 				r.Context(),
 				tx,
 				listID,
 				userID,
-			)
-			if err != nil {
+			); err != nil {
 				return err
 			}
-			if ruleID == 0 {
-				ruleID = defaultRuleID
+
+			ruleID := todorule.DefaultRuleID
+			if req.RuleID != nil {
+				ruleID = *req.RuleID
 			}
 
 			validator, err := h.rules.ValidatorTx(
@@ -122,18 +122,22 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 				return errors.Join(errInvalidTodoContent, err)
 			}
 
-			rows, err := tx.Query(
-				r.Context(),
-				`INSERT INTO todos (owner_id, list_id, rule_id, content)
-				VALUES (@owner_id, @list_id, @rule_id, @content)
-				RETURNING `+todoColumns,
-				pgx.StrictNamedArgs{
-					"owner_id": userID,
-					"list_id":  listID,
-					"rule_id":  ruleID,
-					"content":  req.Content,
-				},
-			)
+			query := `INSERT INTO todos (owner_id, list_id, content)
+				VALUES (@owner_id, @list_id, @content)
+				RETURNING ` + todoColumns
+			args := pgx.StrictNamedArgs{
+				"owner_id": userID,
+				"list_id":  listID,
+				"content":  req.Content,
+			}
+			if req.RuleID != nil {
+				query = `INSERT INTO todos (owner_id, list_id, rule_id, content)
+					VALUES (@owner_id, @list_id, @rule_id, @content)
+					RETURNING ` + todoColumns
+				args["rule_id"] = ruleID
+			}
+
+			rows, err := tx.Query(r.Context(), query, args)
 			if err != nil {
 				return err
 			}
@@ -206,12 +210,29 @@ func (h *Handler) getTodo(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) getTodosByOwner(w http.ResponseWriter, r *http.Request) {
 	ownerID, err := strconv.ParseInt(r.PathValue("owner_id"), 10, 64)
-	if err != nil {
+	if err != nil || ownerID <= 0 {
 		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
 		return
 	}
 
-	todos, err := h.findTodosByOwner(r.Context(), ownerID, auth.UserID(r.Context()))
+	var todos []Todo
+	err = pgx.BeginFunc(r.Context(), h.db, func(tx pgx.Tx) error {
+		var exists int
+		if err := tx.QueryRow(
+			r.Context(),
+			"SELECT 1 FROM users WHERE id = @owner_id FOR SHARE",
+			pgx.StrictNamedArgs{"owner_id": ownerID},
+		).Scan(&exists); err != nil {
+			return err
+		}
+
+		todos, err = h.findTodosByOwner(r.Context(), tx, ownerID, auth.UserID(r.Context()))
+		return err
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		httpx.WriteProblem(w, http.StatusNotFound, "user not found")
+		return
+	}
 	if err != nil {
 		httpx.ServerError(w, r, err)
 		return
@@ -221,8 +242,8 @@ func (h *Handler) getTodosByOwner(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(todos)
 }
 
-func (h *Handler) findTodosByOwner(ctx context.Context, ownerID, userID int64) ([]Todo, error) {
-	rows, err := h.db.Query(
+func (h *Handler) findTodosByOwner(ctx context.Context, tx pgx.Tx, ownerID, userID int64) ([]Todo, error) {
+	rows, err := tx.Query(
 		ctx,
 		`SELECT `+todoColumns+`FROM todos
 		WHERE owner_id = @owner_id
@@ -314,12 +335,15 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 				`SELECT rule_id FROM todos
 				WHERE id = @todo_id
 				  AND EXISTS (
-					SELECT 1 FROM todo_list_members
-					WHERE list_id = todos.list_id AND user_id = @user_id
+					SELECT 1 FROM todo_list_members AS member
+					WHERE member.list_id = todos.list_id
+					  AND member.user_id = @user_id
+					  AND (todos.owner_id = @user_id OR member.role = @owner_role)
 				  )`,
 				pgx.StrictNamedArgs{
-					"todo_id": todoID,
-					"user_id": userID,
+					"todo_id":    todoID,
+					"user_id":    userID,
+					"owner_role": todolist.MemberRoleOwner,
 				},
 			).Scan(&ruleID)
 			if err != nil {
@@ -340,14 +364,17 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 				`UPDATE todos SET content = @content
 				WHERE id = @todo_id
 				  AND EXISTS (
-					SELECT 1 FROM todo_list_members
-					WHERE list_id = todos.list_id AND user_id = @user_id
+					SELECT 1 FROM todo_list_members AS member
+					WHERE member.list_id = todos.list_id
+					  AND member.user_id = @user_id
+					  AND (todos.owner_id = @user_id OR member.role = @owner_role)
 				  )
 				RETURNING `+todoColumns,
 				pgx.StrictNamedArgs{
-					"content": req.Content,
-					"todo_id": todoID,
-					"user_id": userID,
+					"content":    req.Content,
+					"todo_id":    todoID,
+					"user_id":    userID,
+					"owner_role": todolist.MemberRoleOwner,
 				},
 			)
 			if err != nil {
@@ -395,13 +422,16 @@ func (h *Handler) toggleTodoComplete(w http.ResponseWriter, r *http.Request) {
 		END
 		WHERE id = @todo_id
 		  AND EXISTS (
-			SELECT 1 FROM todo_list_members
-			WHERE list_id = todos.list_id AND user_id = @user_id
+			SELECT 1 FROM todo_list_members AS member
+			WHERE member.list_id = todos.list_id
+			  AND member.user_id = @user_id
+			  AND (todos.owner_id = @user_id OR member.role = @owner_role)
 		  )
 		RETURNING `+todoColumns,
 		pgx.StrictNamedArgs{
-			"todo_id": todoID,
-			"user_id": userID,
+			"todo_id":    todoID,
+			"user_id":    userID,
+			"owner_role": todolist.MemberRoleOwner,
 		},
 	)
 	if err != nil {
@@ -437,12 +467,15 @@ func (h *Handler) deleteTodo(w http.ResponseWriter, r *http.Request) {
 		`DELETE FROM todos
 		WHERE id = @todo_id
 		  AND EXISTS (
-			SELECT 1 FROM todo_list_members
-			WHERE list_id = todos.list_id AND user_id = @user_id
+			SELECT 1 FROM todo_list_members AS member
+			WHERE member.list_id = todos.list_id
+			  AND member.user_id = @user_id
+			  AND (todos.owner_id = @user_id OR member.role = @owner_role)
 		  )`,
 		pgx.StrictNamedArgs{
-			"todo_id": todoID,
-			"user_id": userID,
+			"todo_id":    todoID,
+			"user_id":    userID,
+			"owner_role": todolist.MemberRoleOwner,
 		},
 	)
 	if err != nil {

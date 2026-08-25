@@ -23,12 +23,12 @@ CREATE TABLE todo_rule (
 CREATE TABLE todo_lists (
     id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     name                varchar(50) NOT NULL,
-    default_rule_id     bigint NOT NULL REFERENCES todo_rule(id)
+    default_rule_id     bigint NOT NULL DEFAULT 1 CONSTRAINT todo_lists_default_rule_id_fkey REFERENCES todo_rule(id)
 );
 
 CREATE TABLE todo_list_members (
     list_id             uuid NOT NULL REFERENCES todo_lists(id) ON DELETE CASCADE,
-    user_id             bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id             bigint NOT NULL CONSTRAINT todo_list_members_user_id_fkey REFERENCES users(id) ON DELETE CASCADE,
     role                varchar(20) NOT NULL DEFAULT 'member' CHECK (role IN ('member', 'owner')),
     PRIMARY KEY (list_id, user_id)
 );
@@ -40,7 +40,7 @@ CREATE TABLE todos (
     id                  bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     owner_id            bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     list_id             uuid NOT NULL REFERENCES todo_lists(id) ON DELETE CASCADE,
-    rule_id             bigint NOT NULL REFERENCES todo_rule(id),
+    rule_id             bigint NOT NULL DEFAULT 1 REFERENCES todo_rule(id),
     content             jsonb NOT NULL,
     created_at          timestamptz NOT NULL DEFAULT now(),
     completed_at        timestamptz DEFAULT NULL

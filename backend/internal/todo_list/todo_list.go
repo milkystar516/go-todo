@@ -4,24 +4,27 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/milkystar516/go-todo/backend/internal/auth"
 	"github.com/milkystar516/go-todo/backend/internal/httpx"
+	todorule "github.com/milkystar516/go-todo/backend/internal/todo_rule"
 	"github.com/milkystar516/go-todo/backend/internal/validation"
 )
 
 var ErrListNotFound = errors.New("todo list not found")
 var errOwnerRequired = errors.New("todo list owner required")
-var errUserNotFound = errors.New("user not found")
 var errMemberNotFound = errors.New("list member not found")
 var errLastOwner = errors.New("todo list must have an owner")
+
+const defaultRuleForeignKey = "todo_lists_default_rule_id_fkey"
+const memberUserForeignKey = "todo_list_members_user_id_fkey"
 
 type MemberRole string
 
@@ -53,7 +56,7 @@ type Member struct {
 
 type listRequest struct {
 	Name          string `json:"name" validate:"required,max=50"`
-	DefaultRuleID int64  `json:"default_rule_id" validate:"gt=0"`
+	DefaultRuleID *int64 `json:"default_rule_id" validate:"omitempty,gt=0"`
 }
 
 type memberRoleRequest struct {
@@ -100,34 +103,31 @@ func ParseID(raw string) (string, error) {
 	return id.String(), nil
 }
 
-func (s *Service) DefaultRuleTx(ctx context.Context, tx pgx.Tx, listID string, userID int64) (int64, error) {
-	var ruleID int64
+func (s *Service) RequireMemberTx(ctx context.Context, tx pgx.Tx, listID string, userID int64) error {
+	var exists int
 	err := tx.QueryRow(
 		ctx,
-		`SELECT list.default_rule_id
+		`SELECT 1
 		FROM todo_lists AS list
 		JOIN todo_list_members AS member ON member.list_id = list.id
 		WHERE list.id = @list_id AND member.user_id = @user_id
 		FOR SHARE OF list`,
 		pgx.StrictNamedArgs{"list_id": listID, "user_id": userID},
-	).Scan(&ruleID)
+	).Scan(&exists)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return 0, ErrListNotFound
+		return ErrListNotFound
 	}
-	if err != nil {
-		return 0, fmt.Errorf("load todo list: %w", err)
-	}
-	return ruleID, nil
+	return err
 }
 
 func (s *Service) RequireMember(ctx context.Context, listID string, userID int64) error {
-	var role MemberRole
+	var exists int
 	err := s.db.QueryRow(
 		ctx,
-		`SELECT role FROM todo_list_members
+		`SELECT 1 FROM todo_list_members
 		WHERE list_id = @list_id AND user_id = @user_id`,
 		pgx.StrictNamedArgs{"list_id": listID, "user_id": userID},
-	).Scan(&role)
+	).Scan(&exists)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrListNotFound
 	}
@@ -148,15 +148,20 @@ func (h *Handler) createList(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserID(r.Context())
 	var list TodoList
 	err = pgx.BeginFunc(r.Context(), h.lists.db, func(tx pgx.Tx) error {
-		if err := requireRule(r.Context(), tx, req.DefaultRuleID); err != nil {
-			return err
+		query := `INSERT INTO todo_lists (name)
+			VALUES (@name)
+			RETURNING ` + listColumns
+		args := pgx.StrictNamedArgs{"name": req.Name}
+		if req.DefaultRuleID != nil {
+			query = `INSERT INTO todo_lists (name, default_rule_id)
+				VALUES (@name, @default_rule_id)
+				RETURNING ` + listColumns
+			args["default_rule_id"] = *req.DefaultRuleID
 		}
 		rows, err := tx.Query(
 			r.Context(),
-			`INSERT INTO todo_lists (name, default_rule_id)
-			VALUES (@name, @default_rule_id)
-			RETURNING `+listColumns,
-			pgx.StrictNamedArgs{"name": req.Name, "default_rule_id": req.DefaultRuleID},
+			query,
+			args,
 		)
 		if err != nil {
 			return err
@@ -173,7 +178,7 @@ func (h *Handler) createList(w http.ResponseWriter, r *http.Request) {
 		)
 		return err
 	})
-	if errors.Is(err, todolistRuleNotFound) {
+	if isForeignKeyViolation(err, defaultRuleForeignKey) {
 		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "unknown default_rule_id")
 		return
 	}
@@ -249,8 +254,9 @@ func (h *Handler) updateList(w http.ResponseWriter, r *http.Request) {
 		if err := lockOwnerList(r.Context(), tx, listID, auth.UserID(r.Context())); err != nil {
 			return err
 		}
-		if err := requireRule(r.Context(), tx, req.DefaultRuleID); err != nil {
-			return err
+		defaultRuleID := todorule.DefaultRuleID
+		if req.DefaultRuleID != nil {
+			defaultRuleID = *req.DefaultRuleID
 		}
 		rows, err := tx.Query(
 			r.Context(),
@@ -258,7 +264,7 @@ func (h *Handler) updateList(w http.ResponseWriter, r *http.Request) {
 			SET name = @name, default_rule_id = @default_rule_id
 			WHERE id = @list_id
 			RETURNING `+listColumns,
-			pgx.StrictNamedArgs{"name": req.Name, "default_rule_id": req.DefaultRuleID, "list_id": listID},
+			pgx.StrictNamedArgs{"name": req.Name, "default_rule_id": defaultRuleID, "list_id": listID},
 		)
 		if err != nil {
 			return err
@@ -269,7 +275,7 @@ func (h *Handler) updateList(w http.ResponseWriter, r *http.Request) {
 	if writeMutationError(w, err) {
 		return
 	}
-	if errors.Is(err, todolistRuleNotFound) {
+	if isForeignKeyViolation(err, defaultRuleForeignKey) {
 		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "unknown default_rule_id")
 		return
 	}
@@ -350,15 +356,7 @@ func (h *Handler) addMember(w http.ResponseWriter, r *http.Request) {
 		if err := lockOwnerList(r.Context(), tx, listID, auth.UserID(r.Context())); err != nil {
 			return err
 		}
-		var exists int
-		err := tx.QueryRow(r.Context(), "SELECT 1 FROM users WHERE id = @user_id", pgx.StrictNamedArgs{"user_id": memberID}).Scan(&exists)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return errUserNotFound
-		}
-		if err != nil {
-			return err
-		}
-		_, err = tx.Exec(
+		_, err := tx.Exec(
 			r.Context(),
 			`INSERT INTO todo_list_members (list_id, user_id)
 			VALUES (@list_id, @user_id)
@@ -370,7 +368,7 @@ func (h *Handler) addMember(w http.ResponseWriter, r *http.Request) {
 	if writeMutationError(w, err) {
 		return
 	}
-	if errors.Is(err, errUserNotFound) {
+	if isForeignKeyViolation(err, memberUserForeignKey) {
 		httpx.WriteProblem(w, http.StatusNotFound, "user not found")
 		return
 	}
@@ -557,17 +555,6 @@ func (h *Handler) findList(ctx context.Context, listID string, userID int64) (To
 	return list, err
 }
 
-var todolistRuleNotFound = errors.New("todo rule not found")
-
-func requireRule(ctx context.Context, tx pgx.Tx, ruleID int64) error {
-	var exists int
-	err := tx.QueryRow(ctx, "SELECT 1 FROM todo_rule WHERE id = @rule_id", pgx.StrictNamedArgs{"rule_id": ruleID}).Scan(&exists)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return todolistRuleNotFound
-	}
-	return err
-}
-
 func lockMemberList(ctx context.Context, tx pgx.Tx, listID string, userID int64) (MemberRole, error) {
 	var role MemberRole
 	err := tx.QueryRow(
@@ -606,6 +593,13 @@ func writeMutationError(w http.ResponseWriter, err error) bool {
 		return true
 	}
 	return false
+}
+
+func isForeignKeyViolation(err error, constraint string) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) &&
+		pgErr.Code == "23503" &&
+		pgErr.ConstraintName == constraint
 }
 
 func readListRequest(r *http.Request) (listRequest, error) {

@@ -6,7 +6,104 @@ import (
 	"testing"
 
 	"github.com/milkystar516/go-todo/backend/internal/todo"
+	todorule "github.com/milkystar516/go-todo/backend/internal/todo_rule"
 )
+
+func TestDefaultChecklistRule(t *testing.T) {
+	api := newTestAPI(t)
+	member := api.newAuthenticatedUser(t)
+	adminClient, _ := api.newAdminClient(t)
+
+	getRuleResp := request(
+		t,
+		member.client,
+		http.MethodGet,
+		fmt.Sprintf("%s/todo-rules/%d", api.apiURL, todorule.DefaultRuleID),
+	)
+	expectStatus(t, getRuleResp, http.StatusOK)
+
+	var checklistRule todoRuleDetailResponse
+	decodeJSON(t, getRuleResp, &checklistRule)
+	if checklistRule.RuleName != "Checklist" {
+		t.Fatalf("default rule name = %q, want Checklist", checklistRule.RuleName)
+	}
+
+	properties, ok := checklistRule.ContentSchema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("checklist properties = %T, want object", checklistRule.ContentSchema["properties"])
+	}
+	itemsSchema, ok := properties["items"].(map[string]any)
+	if !ok || itemsSchema["type"] != "array" {
+		t.Fatalf("checklist items schema = %#v, want array", properties["items"])
+	}
+	itemSchema, ok := itemsSchema["items"].(map[string]any)
+	if !ok || itemSchema["type"] != "object" {
+		t.Fatalf("checklist item schema = %#v, want object", itemsSchema["items"])
+	}
+	itemProperties, ok := itemSchema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("checklist item properties = %T, want object", itemSchema["properties"])
+	}
+	completedSchema, ok := itemProperties["completed"].(map[string]any)
+	if !ok || completedSchema["type"] != "boolean" {
+		t.Fatalf("completed schema = %#v, want boolean", itemProperties["completed"])
+	}
+
+	itemsUI, ok := checklistRule.UISchema["items"].(map[string]any)
+	if !ok {
+		t.Fatalf("checklist items ui schema = %T, want object", checklistRule.UISchema["items"])
+	}
+	itemUI, ok := itemsUI["items"].(map[string]any)
+	if !ok {
+		t.Fatalf("checklist item ui schema = %T, want object", itemsUI["items"])
+	}
+	completedUI, ok := itemUI["completed"].(map[string]any)
+	if !ok || completedUI["ui:widget"] != "checkbox" {
+		t.Fatalf("completed ui schema = %#v, want checkbox widget", itemUI["completed"])
+	}
+
+	deleteDefaultResp := request(
+		t,
+		adminClient,
+		http.MethodDelete,
+		fmt.Sprintf("%s/todo-rules/%d", api.apiURL, todorule.DefaultRuleID),
+	)
+	expectProblem(
+		t,
+		deleteDefaultResp,
+		http.StatusConflict,
+		"/problems/rule-in-use",
+		"Todo rule is in use",
+	)
+
+	createListResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/lists", map[string]any{
+		"name": uniqueValue("default checklist list"),
+	})
+	expectStatus(t, createListResp, http.StatusCreated)
+	var list todoListResponse
+	decodeJSON(t, createListResp, &list)
+	api.registerTodoListCleanup(t, list.ID)
+	if list.DefaultRuleID != todorule.DefaultRuleID {
+		t.Fatalf("list default rule = %d, want %d", list.DefaultRuleID, todorule.DefaultRuleID)
+	}
+
+	createTodoResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
+		"list_id": list.ID,
+		"rule_id": nil,
+		"content": map[string]any{
+			"title": "Default checklist",
+			"items": []map[string]any{
+				{"text": "First item", "completed": false},
+			},
+		},
+	})
+	expectStatus(t, createTodoResp, http.StatusCreated)
+	var createdTodo todo.Todo
+	decodeJSON(t, createTodoResp, &createdTodo)
+	if createdTodo.RuleID != todorule.DefaultRuleID {
+		t.Fatalf("todo rule = %d, want %d", createdTodo.RuleID, todorule.DefaultRuleID)
+	}
+}
 
 func TestTodoLifecycle(t *testing.T) {
 	api := newTestAPI(t)
@@ -50,6 +147,21 @@ func TestTodoLifecycle(t *testing.T) {
 	}
 	createdList := api.createTodoList(t, member, createdRule.ID)
 
+	nullRuleResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
+		"list_id": createdList.ID,
+		"rule_id": nil,
+		"content": map[string]any{
+			"title": "Global default overrides list UI default",
+			"items": []any{},
+		},
+	})
+	expectStatus(t, nullRuleResp, http.StatusCreated)
+	var defaultRuleTodo todo.Todo
+	decodeJSON(t, nullRuleResp, &defaultRuleTodo)
+	if defaultRuleTodo.RuleID != todorule.DefaultRuleID {
+		t.Fatalf("null rule_id selected rule %d, want %d", defaultRuleTodo.RuleID, todorule.DefaultRuleID)
+	}
+
 	missingListIDResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 		"content": map[string]any{"title": "Todo"},
 	})
@@ -76,6 +188,7 @@ func TestTodoLifecycle(t *testing.T) {
 
 	invalidContentResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 		"list_id": createdList.ID,
+		"rule_id": createdRule.ID,
 		"content": map[string]any{"unknown": true},
 	})
 	expectProblem(
@@ -88,6 +201,7 @@ func TestTodoLifecycle(t *testing.T) {
 
 	createTodoResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 		"list_id": createdList.ID,
+		"rule_id": createdRule.ID,
 		"content": map[string]any{
 			"title":    "테스트 Todo",
 			"priority": "high",
@@ -126,6 +240,15 @@ func TestTodoLifecycle(t *testing.T) {
 	if len(userTodos) != 0 {
 		t.Fatalf("user todos visible to non-member = %+v", userTodos)
 	}
+
+	missingUserTodosResp := request(
+		t,
+		adminClient,
+		http.MethodGet,
+		fmt.Sprintf("%s/users/%d/todos", api.apiURL, int64(9223372036854775807)),
+	)
+	expectStatus(t, missingUserTodosResp, http.StatusNotFound)
+	missingUserTodosResp.Body.Close()
 
 	adminUpdateTodoResp := requestJSON(
 		t,

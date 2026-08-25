@@ -11,7 +11,7 @@ const jsonHeaders = {
 
 export interface TodoListWriteInput {
   name: string;
-  default_rule_id: number;
+  default_rule_id?: number | null;
 }
 
 export function listTodoLists(

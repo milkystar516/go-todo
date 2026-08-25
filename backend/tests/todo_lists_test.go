@@ -63,6 +63,21 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 	}
 	listURL := fmt.Sprintf("%s/lists/%s", api.apiURL, list.ID)
 
+	unknownRuleUpdateResp := requestJSON(
+		t,
+		creator.client,
+		http.MethodPut,
+		listURL,
+		map[string]any{"name": "Unknown rule", "default_rule_id": int64(9223372036854775807)},
+	)
+	expectProblem(
+		t,
+		unknownRuleUpdateResp,
+		http.StatusUnprocessableEntity,
+		"/problems/validation-failed",
+		"Request validation failed",
+	)
+
 	creatorListsResp := request(t, creator.client, http.MethodGet, api.apiURL+"/lists")
 	expectStatus(t, creatorListsResp, http.StatusOK)
 	var creatorLists []todoListResponse
@@ -94,6 +109,15 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 		t.Fatalf("initial members = %+v, want creator owner", members)
 	}
 	creatorRoleURL := fmt.Sprintf("%s/%d", membersURL, creator.user.ID)
+
+	unknownMemberResp := request(
+		t,
+		creator.client,
+		http.MethodPut,
+		fmt.Sprintf("%s/%d", membersURL, int64(9223372036854775807)),
+	)
+	expectStatus(t, unknownMemberResp, http.StatusNotFound)
+	unknownMemberResp.Body.Close()
 
 	demoteSoleOwnerResp := requestJSON(
 		t,
@@ -196,6 +220,7 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 
 	createTodoResp := requestJSON(t, creator.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 		"list_id": list.ID,
+		"rule_id": rule.ID,
 		"content": map[string]any{"title": "Shared todo"},
 	})
 	expectStatus(t, createTodoResp, http.StatusCreated)
@@ -217,6 +242,65 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 		t.Fatalf("list todos = %+v, want todo %d", listTodos, createdTodo.ID)
 	}
 
+	memberUpdateTodoResp := requestJSON(
+		t,
+		member.client,
+		http.MethodPatch,
+		fmt.Sprintf("%s/todos/%d", api.apiURL, createdTodo.ID),
+		map[string]any{"content": map[string]any{"title": "Forbidden"}},
+	)
+	expectStatus(t, memberUpdateTodoResp, http.StatusNotFound)
+	memberUpdateTodoResp.Body.Close()
+
+	memberToggleTodoResp := request(
+		t,
+		member.client,
+		http.MethodPatch,
+		fmt.Sprintf("%s/todos/%d/complete", api.apiURL, createdTodo.ID),
+	)
+	expectStatus(t, memberToggleTodoResp, http.StatusNotFound)
+	memberToggleTodoResp.Body.Close()
+
+	memberDeleteTodoResp := request(
+		t,
+		member.client,
+		http.MethodDelete,
+		fmt.Sprintf("%s/todos/%d", api.apiURL, createdTodo.ID),
+	)
+	expectStatus(t, memberDeleteTodoResp, http.StatusNotFound)
+	memberDeleteTodoResp.Body.Close()
+
+	createMemberTodoResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
+		"list_id": list.ID,
+		"rule_id": rule.ID,
+		"content": map[string]any{"title": "Member todo"},
+	})
+	expectStatus(t, createMemberTodoResp, http.StatusCreated)
+	var memberOwnedTodo todo.Todo
+	decodeJSON(t, createMemberTodoResp, &memberOwnedTodo)
+	if memberOwnedTodo.OwnerID != member.user.ID {
+		t.Fatalf("member-created todo owner = %d, want %d", memberOwnedTodo.OwnerID, member.user.ID)
+	}
+
+	updateOwnTodoResp := requestJSON(
+		t,
+		member.client,
+		http.MethodPatch,
+		fmt.Sprintf("%s/todos/%d", api.apiURL, memberOwnedTodo.ID),
+		map[string]any{"content": map[string]any{"title": "Updated by owner"}},
+	)
+	expectStatus(t, updateOwnTodoResp, http.StatusOK)
+	updateOwnTodoResp.Body.Close()
+
+	ownerDeleteMemberTodoResp := request(
+		t,
+		creator.client,
+		http.MethodDelete,
+		fmt.Sprintf("%s/todos/%d", api.apiURL, memberOwnedTodo.ID),
+	)
+	expectStatus(t, ownerDeleteMemberTodoResp, http.StatusNoContent)
+	ownerDeleteMemberTodoResp.Body.Close()
+
 	promoteResp := requestJSON(
 		t,
 		creator.client,
@@ -226,6 +310,16 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 	)
 	expectStatus(t, promoteResp, http.StatusNoContent)
 	promoteResp.Body.Close()
+
+	listOwnerUpdateTodoResp := requestJSON(
+		t,
+		member.client,
+		http.MethodPatch,
+		fmt.Sprintf("%s/todos/%d", api.apiURL, createdTodo.ID),
+		map[string]any{"content": map[string]any{"title": "Updated by list owner"}},
+	)
+	expectStatus(t, listOwnerUpdateTodoResp, http.StatusOK)
+	listOwnerUpdateTodoResp.Body.Close()
 
 	demoteOriginalOwnerResp := requestJSON(
 		t,

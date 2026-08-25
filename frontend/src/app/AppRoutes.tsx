@@ -8,6 +8,7 @@ import { TodosPage } from "../features/todos/TodosPage";
 import { SignupPage } from "../features/auth/SignupPage";
 import { RequireAuth } from "../features/guards/RequireAuth";
 import { RequireAdmin } from "../features/guards/RequireAdmin";
+import { RequireListMember } from "../features/guards/ListAccessGuards";
 import { AdminPage } from "../features/auth/AdminPage";
 
 export function AppRoutes() {
@@ -22,6 +23,10 @@ export function AppRoutes() {
         <Route element={<RequireAuth />}>
           <Route element={<AppLayout />}>
             <Route index element={<TodosPage />} />
+
+            <Route path="lists/:listId" element={<RequireListMember />}>
+              <Route index element={<TodosPage />} />
+            </Route>
 
             <Route element={<RequireAdmin />}>
               <Route path="admin" element={<AdminPage />} />

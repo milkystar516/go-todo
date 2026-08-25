@@ -2,6 +2,8 @@ package todorule
 
 import "encoding/json"
 
+const DefaultRuleID int64 = 1
+
 type ListColumn struct {
 	Pointer string `json:"pointer" validate:"required"`
 	Label   string `json:"label" validate:"required"`

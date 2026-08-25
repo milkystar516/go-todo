@@ -7,7 +7,7 @@ const jsonHeaders = {
 
 export interface TodoCreateInput {
   list_id: string;
-  rule_id?: number;
+  rule_id?: number | null;
   content: Record<string, unknown>;
 }
 

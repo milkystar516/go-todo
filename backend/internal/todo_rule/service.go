@@ -275,6 +275,10 @@ func (s *Service) UpdateTodoRuleTitle(ctx context.Context, ruleID int64, ruleNam
 }
 
 func (s *Service) DeleteTodoRule(ctx context.Context, ruleID int64) error {
+	if ruleID == DefaultRuleID {
+		return ErrRuleInUse
+	}
+
 	res, err := s.db.Exec(
 		ctx,
 		"DELETE FROM todo_rule WHERE id = @rule_id",
