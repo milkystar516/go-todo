@@ -1,0 +1,56 @@
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+
+  backend:
+    image: go-todo-backend:development
+    build:
+      target: development
+    init: true
+
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./backend
+          target: /app
+          initial_sync: true
+          ignore:
+            - go.mod
+            - go.sum
+        - action: rebuild
+          path: ./backend/go.mod
+        - action: rebuild
+          path: ./backend/go.sum
+
+  frontend:
+    image: go-todo-frontend:development
+    build:
+      target: development
+    init: true
+
+    environment:
+      API_PROXY_TARGET: http://backend:8080
+
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:8080"
+
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend
+          target: /app
+          initial_sync: true
+          ignore:
+            - package.json
+            - package-lock.json
+        - action: rebuild
+          path: ./frontend/package.json
+        - action: rebuild
+          path: ./frontend/package-lock.json

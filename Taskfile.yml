@@ -1,0 +1,34 @@
+version: "3"
+
+silent: true
+
+tasks:
+  dev:
+    desc: 개발 환경을 실행합니다.
+    cmds:
+      - docker compose --env-file .env -f compose.yaml -f compose.development.yaml up --build --watch
+
+  dev:down:
+    desc: 개발 환경을 종료합니다.
+    cmds:
+      - docker compose --env-file .env -f compose.yaml -f compose.development.yaml down
+
+  prod:
+    desc: 공개 배포 환경을 실행합니다.
+    cmds:
+      - docker compose --env-file .env.production -f compose.yaml -f compose.production.yaml up --build -d
+
+  prod:down:
+    desc: 공개 배포 환경을 종료합니다.
+    cmds:
+      - docker compose --env-file .env.production -f compose.yaml -f compose.production.yaml down
+
+  prod:logs:
+    desc: 공개 배포 환경의 로그를 확인합니다.
+    cmds:
+      - docker compose --env-file .env.production -f compose.yaml -f compose.production.yaml logs -f
+
+  prod:status:
+    desc: 공개 배포 환경의 상태를 확인합니다.
+    cmds:
+      - docker compose --env-file .env.production -f compose.yaml -f compose.production.yaml ps

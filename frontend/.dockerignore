@@ -3,5 +3,3 @@ Dockerfile
 .dockerignore
 node_modules
 dist
-*.log
-*.tsbuildinfo
