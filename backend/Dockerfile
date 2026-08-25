@@ -6,13 +6,15 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 FROM dependencies AS development
+RUN go install github.com/air-verse/air@v1.67.3
 COPY . .
 EXPOSE 8080
-CMD ["go", "run", "./cmd/server"]
+CMD ["air", "-c", ".air.toml"]
 
-FROM development AS build
+FROM dependencies AS build
 ARG TARGETOS
 ARG TARGETARCH
+COPY . .
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server
 
 FROM alpine:3.23 AS production

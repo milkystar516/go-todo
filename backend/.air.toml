@@ -1,0 +1,15 @@
+root = "."
+tmp_dir = "/tmp/air"
+
+[build]
+cmd = "go build -o /tmp/air/server ./cmd/server"
+entrypoint = ["/tmp/air/server"]
+include_ext = ["go"]
+exclude_dir = [".cache"]
+exclude_regex = ["_test\\.go"]
+poll = true
+poll_interval = 500
+stop_on_error = true
+
+[misc]
+clean_on_exit = true

@@ -15,19 +15,8 @@ services:
     ports:
       - "127.0.0.1:${APP_PORT:-8080}:8080"
 
-    develop:
-      watch:
-        - action: sync+restart
-          path: ./backend
-          target: /app
-          initial_sync: true
-          ignore:
-            - go.mod
-            - go.sum
-        - action: rebuild
-          path: ./backend/go.mod
-        - action: rebuild
-          path: ./backend/go.sum
+    volumes:
+      - ./backend:/app
 
   frontend:
     image: go-todo-frontend:development
@@ -41,16 +30,7 @@ services:
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-5173}:8080"
 
-    develop:
-      watch:
-        - action: sync
-          path: ./frontend
-          target: /app
-          initial_sync: true
-          ignore:
-            - package.json
-            - package-lock.json
-        - action: rebuild
-          path: ./frontend/package.json
-        - action: rebuild
-          path: ./frontend/package-lock.json
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
