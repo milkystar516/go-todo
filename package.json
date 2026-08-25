@@ -1,0 +1,14 @@
+{
+  "name": "go-todo",
+  "private": true,
+  "scripts": {
+    "dev": "docker compose watch",
+    "dev:down": "docker compose down",
+    "dev:logs": "docker compose logs -f",
+    "dev:status": "docker compose ps",
+    "prod": "docker compose --env-file .env.production -f compose.yaml -f compose.production.yaml up --build -d",
+    "prod:down": "docker compose --env-file .env.production -f compose.yaml -f compose.production.yaml down",
+    "prod:logs": "docker compose --env-file .env.production -f compose.yaml -f compose.production.yaml logs -f",
+    "prod:status": "docker compose --env-file .env.production -f compose.yaml -f compose.production.yaml ps"
+  }
+}

@@ -17,9 +17,6 @@ export default defineConfig(({ command }) => {
 
     server: command === "serve"
       ? {
-          watch: {
-            usePolling: true,
-          },
           proxy: {
             "/api": {
               target: apiProxyTarget,

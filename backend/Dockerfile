@@ -6,10 +6,9 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 FROM dependencies AS development
-RUN go install github.com/air-verse/air@v1.67.3
 COPY . .
 EXPOSE 8080
-CMD ["air", "-c", ".air.toml"]
+CMD ["go", "run", "./cmd/server"]
 
 FROM dependencies AS build
 ARG TARGETOS
