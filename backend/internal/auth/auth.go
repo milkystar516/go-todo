@@ -46,6 +46,10 @@ type LoginRequest struct {
 	Password string `json:"password" validate:"required"`
 }
 
+type updateUserRequest struct {
+	Role Role `json:"role" validate:"required,oneof=user admin"`
+}
+
 type loginUser struct {
 	ID           int64
 	PasswordHash string
@@ -84,8 +88,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /logout", h.logout)
 	mux.Handle("GET /me", h.RequireAuth(http.HandlerFunc(h.me)))
 	mux.Handle("GET /users/{user_id}", h.RequireAuth(http.HandlerFunc(h.getUser)))
-	mux.Handle("POST /users/{user_id}/grant-admin", h.RequireAuth(h.RequireAdmin(http.HandlerFunc(h.grantAdmin))))
-	mux.Handle("POST /users/{user_id}/revoke-admin", h.RequireAuth(h.RequireAdmin(http.HandlerFunc(h.revokeAdmin))))
+	mux.Handle("PATCH /users/{user_id}", h.RequireAuth(h.RequireAdmin(http.HandlerFunc(h.updateUser))))
 }
 
 func (h *Handler) RequireAuth(next http.Handler) http.Handler {
@@ -270,18 +273,22 @@ func (h *Handler) getUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-func (h *Handler) grantAdmin(w http.ResponseWriter, r *http.Request) {
-	h.changeUserRole(w, r, RoleUser, RoleAdmin)
-}
-
-func (h *Handler) revokeAdmin(w http.ResponseWriter, r *http.Request) {
-	h.changeUserRole(w, r, RoleAdmin, RoleUser)
-}
-
-func (h *Handler) changeUserRole(w http.ResponseWriter, r *http.Request, currentRole, nextRole Role) {
+func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.ParseInt(r.PathValue("user_id"), 10, 64)
 	if err != nil {
 		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		return
+	}
+
+	var req updateUserRequest
+
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		httpx.WriteDecodeProblem(w, err)
+		return
+	}
+
+	if err := validation.Validate(req); err != nil {
+		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "invalid user request")
 		return
 	}
 
@@ -293,12 +300,11 @@ func (h *Handler) changeUserRole(w http.ResponseWriter, r *http.Request, current
 	rows, err := h.db.Query(
 		r.Context(),
 		`UPDATE users SET role = @role
-		WHERE id = @user_id AND role = @current_role
+		WHERE id = @user_id
 		RETURNING `+publicUserColumns,
 		pgx.StrictNamedArgs{
-			"role":         nextRole,
-			"user_id":      userID,
-			"current_role": currentRole,
+			"role":    req.Role,
+			"user_id": userID,
 		},
 	)
 	if err != nil {
@@ -308,17 +314,7 @@ func (h *Handler) changeUserRole(w http.ResponseWriter, r *http.Request, current
 
 	user, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[publicUserResponse])
 	if errors.Is(err, pgx.ErrNoRows) {
-		_, findErr := h.findPublicUser(r.Context(), userID)
-		if errors.Is(findErr, pgx.ErrNoRows) {
-			httpx.WriteProblem(w, http.StatusNotFound, "user not found")
-			return
-		}
-		if findErr != nil {
-			httpx.ServerError(w, r, findErr)
-			return
-		}
-
-		httpx.WriteTypedProblem(w, httpx.ProblemRoleConflict, "user role conflict")
+		httpx.WriteProblem(w, http.StatusNotFound, "user not found")
 		return
 	}
 	if err != nil {

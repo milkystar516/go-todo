@@ -10,7 +10,6 @@ const (
 	ProblemUsernameTaken
 	ProblemValidationFailed
 	ProblemCannotChangeOwnRole
-	ProblemRoleConflict
 	ProblemRuleInUse
 )
 
@@ -55,13 +54,6 @@ func (kind ProblemKind) definition() (problemDefinition, bool) {
 			typeURI: "/problems/cannot-change-own-role",
 			title:   "Cannot change own role",
 			status:  http.StatusForbidden,
-		}, true
-
-	case ProblemRoleConflict:
-		return problemDefinition{
-			typeURI: "/problems/role-conflict",
-			title:   "User role conflict",
-			status:  http.StatusConflict,
 		}, true
 
 	case ProblemRuleInUse:

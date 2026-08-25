@@ -1,5 +1,5 @@
 import { apiJson, apiRequest, isApiErrorOfType } from "./client";
-import { PROBLEM_TYPE, type User } from "./types";
+import { PROBLEM_TYPE, type Role, type User } from "./types";
 
 export interface LoginInput {
   username: string;
@@ -21,6 +21,12 @@ export async function login(input: LoginInput): Promise<void> {
     method: "POST",
     headers: jsonHeaders,
     body: JSON.stringify(input),
+  });
+}
+
+export async function logout(): Promise<void> {
+  await apiRequest("/logout", {
+    method: "DELETE",
   });
 }
 
@@ -51,4 +57,22 @@ export async function getCurrentUser(
 
     throw error;
   }
+}
+
+export function getUser(
+  userId: number,
+  signal?: AbortSignal,
+): Promise<User> {
+  return apiJson<User>(`/users/${userId}`, { signal });
+}
+
+export function updateUserRole(
+  userId: number,
+  role: Role,
+): Promise<User> {
+  return apiJson<User>(`/users/${userId}`, {
+    method: "PATCH",
+    headers: jsonHeaders,
+    body: JSON.stringify({ role }),
+  });
 }

@@ -41,7 +41,6 @@ export const PROBLEM_TYPE = {
   USERNAME_TAKEN: "/problems/username-taken",
   VALIDATION_FAILED: "/problems/validation-failed",
   CANNOT_CHANGE_OWN_ROLE: "/problems/cannot-change-own-role",
-  ROLE_CONFLICT: "/problems/role-conflict",
   RULE_IN_USE: "/problems/rule-in-use",
 } as const;
 

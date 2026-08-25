@@ -51,13 +51,6 @@ func TestWriteTypedProblem(t *testing.T) {
 			status:  http.StatusForbidden,
 		},
 		{
-			name:    "role conflict",
-			kind:    ProblemRoleConflict,
-			typeURI: "/problems/role-conflict",
-			title:   "User role conflict",
-			status:  http.StatusConflict,
-		},
-		{
 			name:    "rule in use",
 			kind:    ProblemRuleInUse,
 			typeURI: "/problems/rule-in-use",

@@ -17,90 +17,101 @@ func TestAdminRoleManagement(t *testing.T) {
 	expectStatus(t, publicAdminResp, http.StatusOK)
 	publicAdminResp.Body.Close()
 
-	forbiddenGrantResp := request(
+	forbiddenUpdateResp := request(
 		t,
 		member.client,
-		http.MethodPost,
-		fmt.Sprintf("%s/users/%d/grant-admin", api.apiURL, member.user.ID),
+		http.MethodPatch,
+		fmt.Sprintf("%s/users/%d", api.apiURL, member.user.ID),
 	)
-	expectStatus(t, forbiddenGrantResp, http.StatusForbidden)
-	forbiddenGrantResp.Body.Close()
+	expectStatus(t, forbiddenUpdateResp, http.StatusForbidden)
+	forbiddenUpdateResp.Body.Close()
 
-	selfRevokeResp := request(
+	selfUpdateResp := requestJSON(
 		t,
 		adminClient,
-		http.MethodPost,
-		fmt.Sprintf("%s/users/%d/revoke-admin", api.apiURL, adminUser.ID),
+		http.MethodPatch,
+		fmt.Sprintf("%s/users/%d", api.apiURL, adminUser.ID),
+		map[string]any{"role": auth.RoleUser},
 	)
 	expectProblem(
 		t,
-		selfRevokeResp,
+		selfUpdateResp,
 		http.StatusForbidden,
 		"/problems/cannot-change-own-role",
 		"Cannot change own role",
 	)
 
-	grantResp := request(
+	invalidRoleResp := requestJSON(
 		t,
 		adminClient,
-		http.MethodPost,
-		fmt.Sprintf("%s/users/%d/grant-admin", api.apiURL, member.user.ID),
-	)
-	expectStatus(t, grantResp, http.StatusOK)
-
-	var grantedUser publicUserResponse
-	decodeJSON(t, grantResp, &grantedUser)
-	if grantedUser.Role != auth.RoleAdmin {
-		t.Fatalf("granted role = %q, want %q", grantedUser.Role, auth.RoleAdmin)
-	}
-
-	conflictGrantResp := request(
-		t,
-		adminClient,
-		http.MethodPost,
-		fmt.Sprintf("%s/users/%d/grant-admin", api.apiURL, member.user.ID),
+		http.MethodPatch,
+		fmt.Sprintf("%s/users/%d", api.apiURL, member.user.ID),
+		map[string]any{"role": "owner"},
 	)
 	expectProblem(
 		t,
-		conflictGrantResp,
-		http.StatusConflict,
-		"/problems/role-conflict",
-		"User role conflict",
+		invalidRoleResp,
+		http.StatusUnprocessableEntity,
+		"/problems/validation-failed",
+		"Request validation failed",
 	)
 
-	revokeResp := request(
+	adminRoleResp := requestJSON(
 		t,
 		adminClient,
-		http.MethodPost,
-		fmt.Sprintf("%s/users/%d/revoke-admin", api.apiURL, member.user.ID),
+		http.MethodPatch,
+		fmt.Sprintf("%s/users/%d", api.apiURL, member.user.ID),
+		map[string]any{"role": auth.RoleAdmin},
 	)
-	expectStatus(t, revokeResp, http.StatusOK)
+	expectStatus(t, adminRoleResp, http.StatusOK)
 
-	var revokedUser publicUserResponse
-	decodeJSON(t, revokeResp, &revokedUser)
-	if revokedUser.Role != auth.RoleUser {
-		t.Fatalf("revoked role = %q, want %q", revokedUser.Role, auth.RoleUser)
+	var promotedUser publicUserResponse
+	decodeJSON(t, adminRoleResp, &promotedUser)
+	if promotedUser.Role != auth.RoleAdmin {
+		t.Fatalf("updated role = %q, want %q", promotedUser.Role, auth.RoleAdmin)
 	}
 
-	conflictRevokeResp := request(
+	repeatedAdminRoleResp := requestJSON(
 		t,
 		adminClient,
-		http.MethodPost,
-		fmt.Sprintf("%s/users/%d/revoke-admin", api.apiURL, member.user.ID),
+		http.MethodPatch,
+		fmt.Sprintf("%s/users/%d", api.apiURL, member.user.ID),
+		map[string]any{"role": auth.RoleAdmin},
 	)
-	expectProblem(
-		t,
-		conflictRevokeResp,
-		http.StatusConflict,
-		"/problems/role-conflict",
-		"User role conflict",
-	)
+	expectStatus(t, repeatedAdminRoleResp, http.StatusOK)
+	repeatedAdminRoleResp.Body.Close()
 
-	missingUserResp := request(
+	userRoleResp := requestJSON(
 		t,
 		adminClient,
-		http.MethodPost,
-		api.apiURL+"/users/9223372036854775807/grant-admin",
+		http.MethodPatch,
+		fmt.Sprintf("%s/users/%d", api.apiURL, member.user.ID),
+		map[string]any{"role": auth.RoleUser},
+	)
+	expectStatus(t, userRoleResp, http.StatusOK)
+
+	var demotedUser publicUserResponse
+	decodeJSON(t, userRoleResp, &demotedUser)
+	if demotedUser.Role != auth.RoleUser {
+		t.Fatalf("updated role = %q, want %q", demotedUser.Role, auth.RoleUser)
+	}
+
+	repeatedUserRoleResp := requestJSON(
+		t,
+		adminClient,
+		http.MethodPatch,
+		fmt.Sprintf("%s/users/%d", api.apiURL, member.user.ID),
+		map[string]any{"role": auth.RoleUser},
+	)
+	expectStatus(t, repeatedUserRoleResp, http.StatusOK)
+	repeatedUserRoleResp.Body.Close()
+
+	missingUserResp := requestJSON(
+		t,
+		adminClient,
+		http.MethodPatch,
+		api.apiURL+"/users/9223372036854775807",
+		map[string]any{"role": auth.RoleAdmin},
 	)
 	expectStatus(t, missingUserResp, http.StatusNotFound)
 	missingUserResp.Body.Close()
