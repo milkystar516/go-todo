@@ -28,6 +28,8 @@ type Todo struct {
 	OwnerID     int64           `json:"owner_id" db:"owner_id"`
 	ListID      string          `json:"list_id" db:"list_id"`
 	RuleID      int64           `json:"rule_id" db:"rule_id"`
+	Title       string          `json:"title" db:"title"`
+	DueAt       *time.Time      `json:"due_at" db:"due_at"`
 	Content     json.RawMessage `json:"content" db:"content"`
 	CreatedAt   time.Time       `json:"created_at" db:"created_at"`
 	CompletedAt *time.Time      `json:"completed_at" db:"completed_at"`
@@ -38,6 +40,8 @@ const todoColumns = `
 	owner_id,
 	list_id,
 	rule_id,
+	title,
+	due_at,
 	content,
 	created_at,
 	completed_at
@@ -46,10 +50,14 @@ const todoColumns = `
 type TodoCreateRequest struct {
 	ListID  string          `json:"list_id" validate:"required"`
 	RuleID  *int64          `json:"rule_id" validate:"omitempty,gt=0"`
+	Title   string          `json:"title" validate:"required,min=1,max=200"`
+	DueAt   *time.Time      `json:"due_at"`
 	Content json.RawMessage `json:"content" validate:"required"`
 }
 
 type TodoUpdateRequest struct {
+	Title   string          `json:"title" validate:"required,min=1,max=200"`
+	DueAt   *time.Time      `json:"due_at"`
 	Content json.RawMessage `json:"content" validate:"required"`
 }
 
@@ -124,13 +132,15 @@ func (h *Handler) createTodo(w http.ResponseWriter, r *http.Request) {
 
 			rows, err := tx.Query(
 				r.Context(),
-				`INSERT INTO todos (owner_id, list_id, rule_id, content)
-				VALUES (@owner_id, @list_id, @rule_id, @content)
+				`INSERT INTO todos (owner_id, list_id, rule_id, title, due_at, content)
+				VALUES (@owner_id, @list_id, @rule_id, @title, @due_at, @content)
 				RETURNING `+todoColumns,
 				pgx.StrictNamedArgs{
 					"owner_id": userID,
 					"list_id":  listID,
 					"rule_id":  ruleID,
+					"title":    req.Title,
+					"due_at":   req.DueAt,
 					"content":  req.Content,
 				},
 			)
@@ -357,7 +367,8 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 
 			rows, err := tx.Query(
 				r.Context(),
-				`UPDATE todos SET content = @content
+				`UPDATE todos
+				SET title = @title, due_at = @due_at, content = @content
 				WHERE id = @todo_id
 				  AND EXISTS (
 					SELECT 1 FROM todo_list_members AS member
@@ -367,6 +378,8 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 				  )
 				RETURNING `+todoColumns,
 				pgx.StrictNamedArgs{
+					"title":      req.Title,
+					"due_at":     req.DueAt,
 					"content":    req.Content,
 					"todo_id":    todoID,
 					"user_id":    userID,

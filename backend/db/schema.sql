@@ -41,6 +41,8 @@ CREATE TABLE todos (
     owner_id            bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     list_id             uuid NOT NULL REFERENCES todo_lists(id) ON DELETE CASCADE,
     rule_id             bigint NOT NULL DEFAULT 1 REFERENCES todo_rule(id),
+    title               varchar(200) NOT NULL CHECK (char_length(title) >= 1),
+    due_at              timestamptz DEFAULT NULL,
     content             jsonb NOT NULL,
     created_at          timestamptz NOT NULL DEFAULT now(),
     completed_at        timestamptz DEFAULT NULL

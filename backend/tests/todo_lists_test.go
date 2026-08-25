@@ -221,6 +221,7 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 	createTodoResp := requestJSON(t, creator.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 		"list_id": list.ID,
 		"rule_id": rule.ID,
+		"title":   "Shared todo",
 		"content": map[string]any{"title": "Shared todo"},
 	})
 	expectStatus(t, createTodoResp, http.StatusCreated)
@@ -247,7 +248,11 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 		member.client,
 		http.MethodPatch,
 		fmt.Sprintf("%s/todos/%d", api.apiURL, createdTodo.ID),
-		map[string]any{"content": map[string]any{"title": "Forbidden"}},
+		map[string]any{
+			"title":   "Forbidden",
+			"due_at":  nil,
+			"content": map[string]any{"title": "Forbidden"},
+		},
 	)
 	expectStatus(t, memberUpdateTodoResp, http.StatusNotFound)
 	memberUpdateTodoResp.Body.Close()
@@ -273,6 +278,7 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 	createMemberTodoResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 		"list_id": list.ID,
 		"rule_id": rule.ID,
+		"title":   "Member todo",
 		"content": map[string]any{"title": "Member todo"},
 	})
 	expectStatus(t, createMemberTodoResp, http.StatusCreated)
@@ -287,7 +293,11 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 		member.client,
 		http.MethodPatch,
 		fmt.Sprintf("%s/todos/%d", api.apiURL, memberOwnedTodo.ID),
-		map[string]any{"content": map[string]any{"title": "Updated by owner"}},
+		map[string]any{
+			"title":   "Updated by owner",
+			"due_at":  nil,
+			"content": map[string]any{"title": "Updated by owner"},
+		},
 	)
 	expectStatus(t, updateOwnTodoResp, http.StatusOK)
 	updateOwnTodoResp.Body.Close()
@@ -316,7 +326,11 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 		member.client,
 		http.MethodPatch,
 		fmt.Sprintf("%s/todos/%d", api.apiURL, createdTodo.ID),
-		map[string]any{"content": map[string]any{"title": "Updated by list owner"}},
+		map[string]any{
+			"title":   "Updated by list owner",
+			"due_at":  nil,
+			"content": map[string]any{"title": "Updated by list owner"},
+		},
 	)
 	expectStatus(t, listOwnerUpdateTodoResp, http.StatusOK)
 	listOwnerUpdateTodoResp.Body.Close()

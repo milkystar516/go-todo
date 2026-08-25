@@ -17,11 +17,6 @@ VALUES (
         "title": "Checklist",
         "type": "object",
         "properties": {
-            "title": {
-                "title": "Title",
-                "type": "string",
-                "minLength": 1
-            },
             "items": {
                 "title": "Items",
                 "type": "array",
@@ -45,16 +40,11 @@ VALUES (
                 }
             }
         },
-        "required": ["title"],
         "additionalProperties": false
     }
     $json$::jsonb,
     $json$
     {
-        "title": {
-            "ui:autofocus": true,
-            "ui:placeholder": "What needs to be done?"
-        },
         "items": {
             "ui:options": {
                 "addable": true,
@@ -73,7 +63,7 @@ VALUES (
         }
     }
     $json$::jsonb,
-    '[{"pointer":"/title","label":"Title"}]'::jsonb
+    '[]'::jsonb
 );
 
 ALTER TABLE todo_rule ALTER COLUMN id RESTART WITH 2;

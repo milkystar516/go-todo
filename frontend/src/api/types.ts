@@ -45,6 +45,8 @@ export interface Todo {
   owner_id: number;
   list_id: string;
   rule_id: number;
+  title: string;
+  due_at: string | null;
   content: Record<string, unknown>;
   created_at: string;
   completed_at: string | null;

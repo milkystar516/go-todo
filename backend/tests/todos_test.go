@@ -3,7 +3,9 @@ package tests
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/milkystar516/go-todo/backend/internal/todo"
 	todorule "github.com/milkystar516/go-todo/backend/internal/todo_rule"
@@ -31,6 +33,12 @@ func TestDefaultChecklistRule(t *testing.T) {
 	properties, ok := checklistRule.ContentSchema["properties"].(map[string]any)
 	if !ok {
 		t.Fatalf("checklist properties = %T, want object", checklistRule.ContentSchema["properties"])
+	}
+	if _, exists := properties["title"]; exists {
+		t.Fatal("checklist content schema must not duplicate todo title")
+	}
+	if len(checklistRule.ListColumns) != 0 {
+		t.Fatalf("checklist list columns = %+v, want none", checklistRule.ListColumns)
 	}
 	itemsSchema, ok := properties["items"].(map[string]any)
 	if !ok || itemsSchema["type"] != "array" {
@@ -94,8 +102,8 @@ func TestDefaultChecklistRule(t *testing.T) {
 	createTodoResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 		"list_id": list.ID,
 		"rule_id": nil,
+		"title":   "Default checklist",
 		"content": map[string]any{
-			"title": "Default checklist",
 			"items": []map[string]any{
 				{"text": "First item", "completed": false},
 			},
@@ -107,11 +115,14 @@ func TestDefaultChecklistRule(t *testing.T) {
 	if createdTodo.RuleID != todorule.DefaultRuleID {
 		t.Fatalf("todo rule = %d, want %d", createdTodo.RuleID, todorule.DefaultRuleID)
 	}
+	if createdTodo.DueAt != nil {
+		t.Fatalf("default due_at = %v, want nil", createdTodo.DueAt)
+	}
 
 	omittedRuleResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 		"list_id": list.ID,
+		"title":   "Omitted rule id",
 		"content": map[string]any{
-			"title": "Omitted rule id",
 			"items": []any{},
 		},
 	})
@@ -120,6 +131,36 @@ func TestDefaultChecklistRule(t *testing.T) {
 	decodeJSON(t, omittedRuleResp, &omittedRuleTodo)
 	if omittedRuleTodo.RuleID != todorule.DefaultRuleID {
 		t.Fatalf("omitted rule_id selected rule %d, want %d", omittedRuleTodo.RuleID, todorule.DefaultRuleID)
+	}
+
+	invalidTitles := []struct {
+		name string
+		body map[string]any
+	}{
+		{
+			name: "missing",
+			body: map[string]any{"list_id": list.ID, "content": map[string]any{}},
+		},
+		{
+			name: "empty",
+			body: map[string]any{"list_id": list.ID, "title": "", "content": map[string]any{}},
+		},
+		{
+			name: "too long",
+			body: map[string]any{"list_id": list.ID, "title": strings.Repeat("a", 201), "content": map[string]any{}},
+		},
+	}
+	for _, tt := range invalidTitles {
+		t.Run(tt.name+" title", func(t *testing.T) {
+			response := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", tt.body)
+			expectProblem(
+				t,
+				response,
+				http.StatusUnprocessableEntity,
+				"/problems/validation-failed",
+				"Request validation failed",
+			)
+		})
 	}
 }
 
@@ -168,8 +209,8 @@ func TestTodoLifecycle(t *testing.T) {
 	nullRuleResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 		"list_id": createdList.ID,
 		"rule_id": nil,
+		"title":   "Global default overrides list UI default",
 		"content": map[string]any{
-			"title": "Global default overrides list UI default",
 			"items": []any{},
 		},
 	})
@@ -181,6 +222,7 @@ func TestTodoLifecycle(t *testing.T) {
 	}
 
 	missingListIDResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
+		"title":   "Todo",
 		"content": map[string]any{"title": "Todo"},
 	})
 	expectProblem(
@@ -194,6 +236,7 @@ func TestTodoLifecycle(t *testing.T) {
 	unknownRuleResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 		"list_id": createdList.ID,
 		"rule_id": 9223372036854775807,
+		"title":   "Todo",
 		"content": map[string]any{"title": "Todo"},
 	})
 	expectProblem(
@@ -207,6 +250,7 @@ func TestTodoLifecycle(t *testing.T) {
 	invalidContentResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 		"list_id": createdList.ID,
 		"rule_id": createdRule.ID,
+		"title":   "Todo",
 		"content": map[string]any{"unknown": true},
 	})
 	expectProblem(
@@ -220,6 +264,8 @@ func TestTodoLifecycle(t *testing.T) {
 	createTodoResp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 		"list_id": createdList.ID,
 		"rule_id": createdRule.ID,
+		"title":   "  테스트 Todo  ",
+		"due_at":  "2030-01-02T03:04:05Z",
 		"content": map[string]any{
 			"title":    "테스트 Todo",
 			"priority": "high",
@@ -239,6 +285,12 @@ func TestTodoLifecycle(t *testing.T) {
 			createdList.ID,
 			createdRule.ID,
 		)
+	}
+	if createdTodo.Title != "  테스트 Todo  " {
+		t.Fatalf("created todo title = %q, want surrounding whitespace preserved", createdTodo.Title)
+	}
+	if createdTodo.DueAt == nil || !createdTodo.DueAt.Equal(time.Date(2030, 1, 2, 3, 4, 5, 0, time.UTC)) {
+		t.Fatalf("created todo due_at = %v, want 2030-01-02T03:04:05Z", createdTodo.DueAt)
 	}
 
 	adminGetTodoResp := request(t, adminClient, http.MethodGet, fmt.Sprintf("%s/todos/%d", api.apiURL, createdTodo.ID))
@@ -273,7 +325,7 @@ func TestTodoLifecycle(t *testing.T) {
 		adminClient,
 		http.MethodPatch,
 		fmt.Sprintf("%s/todos/%d", api.apiURL, createdTodo.ID),
-		map[string]any{"content": createdTodo.Content},
+		map[string]any{"title": createdTodo.Title, "due_at": createdTodo.DueAt, "content": createdTodo.Content},
 	)
 	expectStatus(t, adminUpdateTodoResp, http.StatusNotFound)
 	adminUpdateTodoResp.Body.Close()
@@ -372,7 +424,11 @@ func TestTodoLifecycle(t *testing.T) {
 		member.client,
 		http.MethodPatch,
 		fmt.Sprintf("%s/todos/%d", api.apiURL, createdTodo.ID),
-		map[string]any{"content": map[string]any{"title": "수정된 Todo"}},
+		map[string]any{
+			"title":   " 수정된 Todo ",
+			"due_at":  nil,
+			"content": map[string]any{"title": "수정된 Todo"},
+		},
 	)
 	expectStatus(t, updateTodoResp, http.StatusOK)
 
@@ -381,6 +437,9 @@ func TestTodoLifecycle(t *testing.T) {
 	updatedContent := decodeRawObject(t, updatedTodo.Content)
 	if updatedContent["title"] != "수정된 Todo" {
 		t.Fatalf("updated title = %v, want %q", updatedContent["title"], "수정된 Todo")
+	}
+	if updatedTodo.Title != " 수정된 Todo " || updatedTodo.DueAt != nil {
+		t.Fatalf("updated todo title/due_at = %q/%v", updatedTodo.Title, updatedTodo.DueAt)
 	}
 	if updatedTodo.CompletedAt == nil || !updatedTodo.CompletedAt.Equal(*completedTodo.CompletedAt) {
 		t.Fatalf(
@@ -396,6 +455,7 @@ func TestTodoLifecycle(t *testing.T) {
 		http.MethodPatch,
 		fmt.Sprintf("%s/todos/%d", api.apiURL, createdTodo.ID),
 		map[string]any{
+			"title": "수정된 Todo",
 			"content": map[string]any{
 				"title":    "수정된 Todo",
 				"priority": "high",
@@ -523,6 +583,7 @@ func TestRepeatedRuleUpdatesPruneOnlyRemovedRootFields(t *testing.T) {
 		resp := requestJSON(t, member.client, http.MethodPost, api.apiURL+"/todos", map[string]any{
 			"list_id": createdList.ID,
 			"rule_id": createdRule.ID,
+			"title":   "Repeated rule todo",
 			"content": content,
 		})
 		expectStatus(t, resp, http.StatusCreated)

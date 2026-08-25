@@ -8,10 +8,14 @@ const jsonHeaders = {
 export interface TodoCreateInput {
   list_id: string;
   rule_id?: number | null;
+  title: string;
+  due_at?: string | null;
   content: Record<string, unknown>;
 }
 
 export interface TodoUpdateInput {
+  title: string;
+  due_at: string | null;
   content: Record<string, unknown>;
 }
 
