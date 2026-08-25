@@ -6,7 +6,8 @@ const jsonHeaders = {
 };
 
 export interface TodoCreateInput {
-  rule_id: number;
+  list_id: string;
+  rule_id?: number;
   content: Record<string, unknown>;
 }
 
@@ -19,6 +20,13 @@ export function listTodos(
   signal?: AbortSignal,
 ): Promise<Todo[]> {
   return apiJson<Todo[]>(`/users/${ownerId}/todos`, { signal });
+}
+
+export function listTodosByList(
+  listId: string,
+  signal?: AbortSignal,
+): Promise<Todo[]> {
+  return apiJson<Todo[]>(`/lists/${listId}/todos`, { signal });
 }
 
 export function getTodo(

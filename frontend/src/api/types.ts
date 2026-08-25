@@ -25,9 +25,25 @@ export interface TodoRuleDetail extends TodoRule {
   list_columns: ListColumn[];
 }
 
+export interface TodoList {
+  id: string;
+  name: string;
+  default_rule_id: number;
+}
+
+export type TodoListMemberRole = "member" | "owner";
+
+export interface TodoListMember {
+  id: number;
+  username: string;
+  nickname: string | null;
+  role: TodoListMemberRole;
+}
+
 export interface Todo {
   id: number;
   owner_id: number;
+  list_id: string;
   rule_id: number;
   content: Record<string, unknown>;
   created_at: string;
