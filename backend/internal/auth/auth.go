@@ -118,7 +118,7 @@ func (h *Handler) RequireAuth(next http.Handler) http.Handler {
 
 func (h *Handler) RequireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, err := h.findPublicUser(r.Context(), UserID(r.Context()))
+		user, err := findPublicUser(r.Context(), h.db, UserID(r.Context()))
 		if err != nil {
 			httpx.ServerError(w, r, err)
 			return
@@ -242,7 +242,7 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
-	user, err := h.findPublicUser(r.Context(), UserID(r.Context()))
+	user, err := findPublicUser(r.Context(), h.db, UserID(r.Context()))
 	if err != nil {
 		httpx.ServerError(w, r, err)
 		return
@@ -260,7 +260,7 @@ func (h *Handler) getUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.findPublicUser(r.Context(), userID)
+	user, err := findPublicUser(r.Context(), h.db, userID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpx.WriteProblem(w, http.StatusNotFound, "user not found")
 		return
@@ -338,8 +338,8 @@ func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-func (h *Handler) findPublicUser(ctx context.Context, userID int64) (publicUserResponse, error) {
-	rows, err := h.db.Query(
+func findPublicUser(ctx context.Context, db *pgxpool.Pool, userID int64) (publicUserResponse, error) {
+	rows, err := db.Query(
 		ctx,
 		"SELECT "+publicUserColumns+" FROM users WHERE id = @user_id",
 		pgx.StrictNamedArgs{
