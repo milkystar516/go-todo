@@ -87,6 +87,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /login", h.login)
 	mux.HandleFunc("DELETE /logout", h.logout)
 	mux.Handle("GET /me", h.RequireAuth(http.HandlerFunc(h.me)))
+	mux.Handle("GET /users", h.RequireAuth(h.RequireAdmin(http.HandlerFunc(h.listUsers))))
 	mux.Handle("GET /users/{user_id}", h.RequireAuth(http.HandlerFunc(h.getUser)))
 	mux.Handle("PATCH /users/{user_id}", h.RequireAuth(h.RequireAdmin(http.HandlerFunc(h.updateUser))))
 }
@@ -273,6 +274,17 @@ func (h *Handler) getUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+func (h *Handler) listUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := listPublicUsers(r.Context(), h.db)
+	if err != nil {
+		httpx.ServerError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(users)
+}
+
 func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.ParseInt(r.PathValue("user_id"), 10, 64)
 	if err != nil {
@@ -378,6 +390,27 @@ func findUser(ctx context.Context, db *pgxpool.Pool, username string) (loginUser
 	)
 
 	return user, err
+}
+
+func listPublicUsers(ctx context.Context, db *pgxpool.Pool) ([]publicUserResponse, error) {
+	rows, err := db.Query(
+		ctx,
+		`SELECT `+publicUserColumns+` FROM users
+		ORDER BY id`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+
+	users, err := pgx.CollectRows(
+		rows,
+		pgx.RowToStructByName[publicUserResponse],
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+
+	return users, nil
 }
 
 func createSession(ctx context.Context, db *pgxpool.Pool, userID int64, ttl time.Duration) (string, error) {
