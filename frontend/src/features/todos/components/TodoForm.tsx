@@ -1,10 +1,12 @@
-import CoreForm from "@rjsf/core";
-import RjsfForm from "@rjsf/shadcn";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { TodoUpdateInput } from "../../../api/todos";
 import type { Todo, TodoRuleDetail } from "../../../api/types";
+import {
+  JsonSchemaForm,
+  type JsonSchemaFormHandle,
+} from "#components/schema/JsonSchemaForm";
 import { Button } from "#components/ui/button";
 import {
   Field,
@@ -13,7 +15,6 @@ import {
   FieldLabel,
 } from "#components/ui/field";
 import { Input } from "#components/ui/input";
-import { rjsfValidator } from "../forms/rjsfValidator";
 
 interface TodoFormProps {
   rule: TodoRuleDetail;
@@ -53,7 +54,7 @@ export function TodoForm({
   onCancel,
 }: TodoFormProps) {
   const { t } = useTranslation();
-  const rjsfRef = useRef<CoreForm<Record<string, unknown>>>(null);
+  const schemaFormRef = useRef<JsonSchemaFormHandle>(null);
   const [title, setTitle] = useState(todo?.title ?? "");
   const [dueAt, setDueAt] = useState(toDateTimeLocal(todo?.due_at));
   const [content, setContent] = useState<Record<string, unknown>>(
@@ -69,12 +70,11 @@ export function TodoForm({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!onSubmit || readOnly || !rjsfRef.current?.validateForm()) {
+    if (!onSubmit || readOnly || !schemaFormRef.current?.validateForm()) {
       return;
     }
 
-    const validatedContent =
-      rjsfRef.current.state.formData ?? content;
+    const validatedContent = schemaFormRef.current.getFormData();
 
     try {
       await onSubmit({
@@ -118,22 +118,15 @@ export function TodoForm({
         </Field>
       </FieldGroup>
 
-      <RjsfForm
-        ref={rjsfRef}
-        tagName="div"
+      <JsonSchemaForm
+        ref={schemaFormRef}
         schema={rule.content_schema}
         uiSchema={rule.ui_schema}
         formData={content}
-        validator={rjsfValidator}
-        onChange={({ formData }) => setContent(formData ?? {})}
-        readonly={readOnly}
+        onChange={setContent}
+        readOnly={readOnly}
         disabled={isPending}
-        liveValidate="onBlur"
-        omitExtraData
-        showErrorList={false}
-      >
-        <></>
-      </RjsfForm>
+      />
 
       {errorMessage && <FieldError>{errorMessage}</FieldError>}
 

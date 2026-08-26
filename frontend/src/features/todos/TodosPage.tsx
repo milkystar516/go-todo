@@ -10,6 +10,9 @@ import { useParams } from "react-router";
 
 import type { TodoUpdateInput } from "../../api/todos";
 import type { Todo } from "../../api/types";
+import { AppPage } from "../../app/components/AppPage";
+import { PageHeader } from "../../app/components/PageHeader";
+import { getErrorMessage } from "../../lib/apiError";
 import { currentUserQueryOptions } from "../auth/queries";
 import { useOptionalListAccess } from "../guards/ListAccessGuards";
 import { todoListQueryOptions } from "../todoLists/queries";
@@ -18,7 +21,6 @@ import {
   todoRulesQueryOptions,
 } from "../todoRules/queries";
 import { TodoList } from "./components/TodoList";
-import { TodoListHeader } from "./components/TodoListHeader";
 import { TodoQuickAdd } from "./components/TodoQuickAdd";
 import {
   createTodoMutationOptions,
@@ -28,10 +30,6 @@ import {
   toggleTodoMutationOptions,
   updateTodoMutationOptions,
 } from "./queries";
-
-function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
-}
 
 export function TodosPage() {
   const { t } = useTranslation();
@@ -157,9 +155,11 @@ export function TodosPage() {
       currentUserQuery.error ?? todosQuery.error ?? listQuery.error;
 
     return (
-      <p className="text-sm text-destructive" role="alert">
-        {getErrorMessage(error, fallbackError)}
-      </p>
+      <AppPage>
+        <p className="text-sm text-destructive" role="alert">
+          {getErrorMessage(error, fallbackError)}
+        </p>
+      </AppPage>
     );
   }
 
@@ -170,10 +170,10 @@ export function TodosPage() {
     ruleQueries.some((query) => query.isPending);
 
   return (
-    <main className="mx-auto w-full max-w-4xl space-y-6 py-2">
-      <TodoListHeader
+    <AppPage>
+      <PageHeader
         title={listQuery.data?.name ?? t("todos.mine")}
-        totalCount={todos.length}
+        description={t("todos.count", { count: todos.length })}
       />
 
       {listId && (
@@ -214,6 +214,6 @@ export function TodosPage() {
         onUpdate={handleUpdate}
         onDelete={handleDelete}
       />
-    </main>
+    </AppPage>
   );
 }

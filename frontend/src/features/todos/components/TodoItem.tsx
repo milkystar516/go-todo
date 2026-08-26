@@ -10,16 +10,7 @@ import {
 
 import type { TodoUpdateInput } from "../../../api/todos";
 import type { Todo, TodoRuleDetail } from "../../../api/types";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "#components/ui/alert-dialog";
+import { ConfirmActionDialog } from "#components/common/ConfirmActionDialog";
 import { Button } from "#components/ui/button";
 import { Checkbox } from "#components/ui/checkbox";
 import {
@@ -222,38 +213,16 @@ export function TodoItem({
         </p>
       )}
 
-      <AlertDialog
+      <ConfirmActionDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("todos.delete.title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("todos.delete.description", { title: todo.title })}
-            </AlertDialogDescription>
-            {errorMessage && (
-              <p className="text-sm text-destructive" role="alert">
-                {errorMessage}
-              </p>
-            )}
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={(event) => {
-                event.preventDefault();
-                void onDelete(todo.id)
-                  .then(() => setDeleteDialogOpen(false))
-                  .catch(() => undefined);
-              }}
-            >
-              {t("common.delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title={t("todos.delete.title")}
+        description={t("todos.delete.description", { title: todo.title })}
+        confirmLabel={t("common.delete")}
+        isPending={isPending}
+        errorMessage={errorMessage}
+        onConfirm={() => onDelete(todo.id)}
+      />
     </Collapsible>
   );
 }

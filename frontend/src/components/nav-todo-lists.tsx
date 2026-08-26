@@ -10,16 +10,7 @@ import { useTranslation } from "react-i18next"
 import { Link, useLocation, useNavigate } from "react-router"
 
 import type { TodoList } from "../api/types"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "#components/ui/alert-dialog"
+import { ConfirmActionDialog } from "#components/common/ConfirmActionDialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,10 +34,7 @@ import {
   leaveTodoListMutationOptions,
   todoListsQueryOptions,
 } from "../features/todoLists/queries"
-
-function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback
-}
+import { getErrorMessage } from "../lib/apiError"
 
 export function NavTodoLists() {
   const { t } = useTranslation()
@@ -76,18 +64,13 @@ export function NavTodoLists() {
 
     const listPath = `/lists/${leavingList.id}`
 
-    try {
-      await leaveMutation.mutateAsync(leavingList.id)
-      setLeavingList(null)
+    await leaveMutation.mutateAsync(leavingList.id)
 
-      if (
-        location.pathname === listPath ||
-        location.pathname.startsWith(`${listPath}/`)
-      ) {
-        navigate("/")
-      }
-    } catch {
-      // Keep the confirmation open so the mutation error remains visible.
+    if (
+      location.pathname === listPath ||
+      location.pathname.startsWith(`${listPath}/`)
+    ) {
+      navigate("/")
     }
   }
 
@@ -179,50 +162,29 @@ export function NavTodoLists() {
         </SidebarGroupContent>
       </SidebarGroup>
 
-      <AlertDialog
+      <ConfirmActionDialog
         open={leavingList !== null}
         onOpenChange={(open) => {
-          if (!open && !leaveMutation.isPending) {
+          if (!open) {
             setLeavingList(null)
           }
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("sidebar.todoLists.leaveTitle")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("sidebar.todoLists.leaveDescription", {
-                name: leavingList?.name,
-              })}
-            </AlertDialogDescription>
-            {leaveMutation.isError && (
-              <p className="text-sm text-destructive" role="alert">
-                {getErrorMessage(
-                  leaveMutation.error,
-                  t("common.requestFailed"),
-                )}
-              </p>
-            )}
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={leaveMutation.isPending}>
-              {t("common.cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              disabled={leaveMutation.isPending}
-              onClick={(event) => {
-                event.preventDefault()
-                void handleLeave()
-              }}
-            >
-              {t("sidebar.todoLists.leave")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title={t("sidebar.todoLists.leaveTitle")}
+        description={t("sidebar.todoLists.leaveDescription", {
+          name: leavingList?.name,
+        })}
+        confirmLabel={t("sidebar.todoLists.leave")}
+        isPending={leaveMutation.isPending}
+        errorMessage={
+          leaveMutation.isError
+            ? getErrorMessage(
+                leaveMutation.error,
+                t("common.requestFailed"),
+              )
+            : null
+        }
+        onConfirm={handleLeave}
+      />
     </>
   )
 }
