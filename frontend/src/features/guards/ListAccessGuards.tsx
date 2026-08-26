@@ -11,7 +11,7 @@ import type { TodoListMember } from "../../api/types";
 import { currentUserQueryOptions } from "../auth/queries";
 import { todoListMembersQueryOptions } from "../todoLists/queries";
 
-interface ListAccessContext {
+export interface ListAccessContext {
   listId: string;
   membership: TodoListMember;
 }
@@ -92,4 +92,8 @@ export function RequireListOwner() {
 
 export function useListAccess() {
   return useOutletContext<ListAccessContext>();
+}
+
+export function useOptionalListAccess() {
+  return useOutletContext<ListAccessContext | undefined>();
 }

@@ -3,6 +3,43 @@
     "search": "Search"
   },
 
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "edit": "Edit",
+    "delete": "Delete",
+    "requestFailed": "The request could not be completed."
+  },
+
+  "todos": {
+    "mine": "My tasks",
+    "count_one": "{{count}} task",
+    "count_other": "{{count}} tasks",
+    "add": "Add a task",
+    "completed_one": "{{count}} completed",
+    "completed_other": "{{count}} completed",
+    "ruleUnavailable": "The form definition used by this task could not be loaded.",
+    "empty": {
+      "title": "No tasks yet",
+      "description": "Add a task to get this list started."
+    },
+    "form": {
+      "title": "Title",
+      "dueAt": "Due date",
+      "rule": "Form",
+      "create": "Create task"
+    },
+    "actions": {
+      "menu": "Task menu",
+      "markComplete": "Mark as complete",
+      "markIncomplete": "Mark as incomplete"
+    },
+    "delete": {
+      "title": "Delete this task?",
+      "description": "This will permanently delete ‘{{title}}’."
+    }
+  },
+
   "auth": {
     "username": "Username",
     "nickname": "Nickname",

@@ -1,0 +1,99 @@
+import {
+  mutationOptions,
+  queryOptions,
+  type QueryClient,
+} from "@tanstack/react-query";
+
+import {
+  createTodo,
+  deleteTodo,
+  getTodo,
+  getTodosByList,
+  getTodosByOwner,
+  toggleTodoComplete,
+  updateTodo,
+  type TodoCreateInput,
+  type TodoUpdateInput,
+} from "../../api/todos";
+import type { Todo } from "../../api/types";
+
+export const todoQueryKeys = {
+  all: ["todos"] as const,
+  collections: () => [...todoQueryKeys.all, "collection"] as const,
+  owner: (ownerId: number) =>
+    [...todoQueryKeys.collections(), "owner", ownerId] as const,
+  list: (listId: string) =>
+    [...todoQueryKeys.collections(), "list", listId] as const,
+  detail: (todoId: number) =>
+    [...todoQueryKeys.all, "detail", todoId] as const,
+};
+
+export function ownerTodosQueryOptions(ownerId: number) {
+  return queryOptions({
+    queryKey: todoQueryKeys.owner(ownerId),
+    queryFn: ({ signal }) => getTodosByOwner(ownerId, signal),
+  });
+}
+
+export function listTodosQueryOptions(listId: string) {
+  return queryOptions({
+    queryKey: todoQueryKeys.list(listId),
+    queryFn: ({ signal }) => getTodosByList(listId, signal),
+  });
+}
+
+export function todoQueryOptions(todoId: number) {
+  return queryOptions({
+    queryKey: todoQueryKeys.detail(todoId),
+    queryFn: ({ signal }) => getTodo(todoId, signal),
+  });
+}
+
+function updateTodoCaches(queryClient: QueryClient, todo: Todo) {
+  queryClient.setQueryData(todoQueryKeys.detail(todo.id), todo);
+  void queryClient.invalidateQueries({
+    queryKey: todoQueryKeys.collections(),
+  });
+}
+
+export function createTodoMutationOptions(queryClient: QueryClient) {
+  return mutationOptions({
+    mutationFn: (input: TodoCreateInput) => createTodo(input),
+    onSuccess: (todo) => updateTodoCaches(queryClient, todo),
+  });
+}
+
+interface UpdateTodoVariables {
+  todoId: number;
+  input: TodoUpdateInput;
+}
+
+export function updateTodoMutationOptions(queryClient: QueryClient) {
+  return mutationOptions({
+    mutationFn: ({ todoId, input }: UpdateTodoVariables) =>
+      updateTodo(todoId, input),
+    onSuccess: (todo) => updateTodoCaches(queryClient, todo),
+  });
+}
+
+export function toggleTodoMutationOptions(queryClient: QueryClient) {
+  return mutationOptions({
+    mutationFn: (todoId: number) => toggleTodoComplete(todoId),
+    onSuccess: (todo) => updateTodoCaches(queryClient, todo),
+  });
+}
+
+export function deleteTodoMutationOptions(queryClient: QueryClient) {
+  return mutationOptions({
+    mutationFn: (todoId: number) => deleteTodo(todoId),
+    onSuccess: (_data, todoId) => {
+      queryClient.removeQueries({
+        queryKey: todoQueryKeys.detail(todoId),
+        exact: true,
+      });
+      void queryClient.invalidateQueries({
+        queryKey: todoQueryKeys.collections(),
+      });
+    },
+  });
+}

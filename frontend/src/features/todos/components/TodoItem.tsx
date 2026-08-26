@@ -1,160 +1,259 @@
-import { useState, type ReactNode } from "react"
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
+  CalendarDays,
   ChevronDown,
   MoreHorizontal,
   Pencil,
   Trash2,
-} from "lucide-react"
+} from "lucide-react";
 
-import { Button } from "#components/ui/button"
-import { Checkbox } from "#components/ui/checkbox"
+import type { TodoUpdateInput } from "../../../api/todos";
+import type { Todo, TodoRuleDetail } from "../../../api/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "#components/ui/alert-dialog";
+import { Button } from "#components/ui/button";
+import { Checkbox } from "#components/ui/checkbox";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "#components/ui/collapsible"
+} from "#components/ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "#components/ui/dropdown-menu"
+} from "#components/ui/dropdown-menu";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+} from "#components/ui/item";
+import type { TodoListMetadataItem } from "../lib/listMetadata";
+import { TodoForm } from "./TodoForm";
 
-type TodoItemProps = {
-  id: string
-  label: string
-  completed: boolean
-  metadata?: ReactNode
-  children?: ReactNode
+interface TodoItemProps {
+  todo: Todo;
+  rule?: TodoRuleDetail;
+  metadata: TodoListMetadataItem[];
+  canManage: boolean;
+  isPending?: boolean;
+  errorMessage?: string | null;
+  onToggleCompleted: (todoId: number) => void;
+  onUpdate: (
+    todoId: number,
+    input: TodoUpdateInput,
+  ) => Promise<void>;
+  onDelete: (todoId: number) => Promise<void>;
+}
 
-  onToggleCompleted: (id: string) => void
-  onEdit?: (id: string) => void
-  onDelete?: (id: string) => void
+function formatMetadataValue(value: unknown) {
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
 
-  disabled?: boolean
+  if (typeof value === "boolean") {
+    return value ? "✓" : "–";
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }
 
 export function TodoItem({
-  id,
-  label,
-  completed,
+  todo,
+  rule,
   metadata,
-  children,
+  canManage,
+  isPending = false,
+  errorMessage,
   onToggleCompleted,
-  onEdit,
+  onUpdate,
   onDelete,
-  disabled = false,
 }: TodoItemProps) {
-  const [open, setOpen] = useState(false)
+  const { t, i18n } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const completed = todo.completed_at !== null;
+  const dueAt = todo.due_at
+    ? new Intl.DateTimeFormat(i18n.language, {
+        dateStyle: "medium",
+      }).format(new Date(todo.due_at))
+    : null;
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <div
-        className={[
-          "group rounded-lg border bg-card",
-          "transition-colors hover:bg-accent/40",
-          completed ? "opacity-60" : "",
-        ].join(" ")}
+    <Collapsible
+      role="listitem"
+      open={open}
+      onOpenChange={setOpen}
+    >
+      <Item
+        variant="outline"
+        size="sm"
+        className={completed ? "opacity-60" : undefined}
       >
-        <div className="flex min-h-12 items-center gap-3 px-3">
-          <Checkbox
-            checked={completed}
-            disabled={disabled}
-            aria-label={
-              completed
-                ? "할 일을 미완료로 변경"
-                : "할 일을 완료"
-            }
-            onCheckedChange={() => onToggleCompleted(id)}
-          />
+        <Checkbox
+          checked={completed}
+          disabled={!canManage || isPending}
+          aria-label={
+            completed
+              ? t("todos.actions.markIncomplete")
+              : t("todos.actions.markComplete")
+          }
+          onCheckedChange={() => onToggleCompleted(todo.id)}
+        />
 
+        <ItemContent className="min-w-0">
           <CollapsibleTrigger asChild>
             <button
               type="button"
-              className="flex min-w-0 flex-1 items-center gap-3 py-3 text-left"
+              className="flex w-full min-w-0 items-center gap-3 rounded-md text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
             >
-              <div className="min-w-0 flex-1">
-                <div
+              <span className="min-w-0 flex-1">
+                <span
                   className={[
-                    "truncate text-sm font-medium",
+                    "block truncate text-sm font-medium",
                     completed
                       ? "text-muted-foreground line-through"
                       : "",
                   ].join(" ")}
                 >
-                  {label}
-                </div>
+                  {todo.title}
+                </span>
 
-                {metadata && (
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {metadata}
-                  </div>
+                {(dueAt || metadata.length > 0) && (
+                  <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    {dueAt && (
+                      <span className="inline-flex items-center gap-1">
+                        <CalendarDays className="size-3.5" />
+                        {dueAt}
+                      </span>
+                    )}
+                    {metadata.map((item, index) => (
+                      <span key={`${item.label}-${index}`}>
+                        {item.label}: {formatMetadataValue(item.value)}
+                      </span>
+                    ))}
+                  </span>
                 )}
-              </div>
+              </span>
 
-              {children && (
-                <ChevronDown
-                  className={[
-                    "size-4 shrink-0 text-muted-foreground",
-                    "transition-transform",
-                    open ? "rotate-180" : "",
-                  ].join(" ")}
-                />
-              )}
+              <ChevronDown
+                className={[
+                  "size-4 shrink-0 text-muted-foreground transition-transform",
+                  open ? "rotate-180" : "",
+                ].join(" ")}
+              />
             </button>
           </CollapsibleTrigger>
+        </ItemContent>
 
-          {(onEdit || onDelete) && (
+        {canManage && (
+          <ItemActions>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon"
-                  className="size-8 shrink-0"
-                  aria-label="할 일 메뉴"
+                  size="icon-sm"
+                  aria-label={t("todos.actions.menu")}
+                  disabled={isPending}
                 >
-                  <MoreHorizontal className="size-4" />
+                  <MoreHorizontal />
                 </Button>
               </DropdownMenuTrigger>
-
               <DropdownMenuContent align="end">
-                {onEdit && (
-                  <DropdownMenuItem
-                    onClick={() => onEdit(id)}
-                  >
-                    <Pencil className="size-4" />
-                    수정
-                  </DropdownMenuItem>
-                )}
-
-                {onEdit && onDelete && (
-                  <DropdownMenuSeparator />
-                )}
-
-                {onDelete && (
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => onDelete(id)}
-                  >
-                    <Trash2 className="size-4" />
-                    삭제
-                  </DropdownMenuItem>
-                )}
+                <DropdownMenuItem onClick={() => setOpen(true)}>
+                  <Pencil />
+                  {t("common.edit")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={() => setDeleteDialogOpen(true)}
+                >
+                  <Trash2 />
+                  {t("common.delete")}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          </ItemActions>
+        )}
+      </Item>
+
+      <CollapsibleContent>
+        <div className="mt-2 rounded-xl border bg-card p-4">
+          {rule ? (
+            <TodoForm
+              rule={rule}
+              todo={todo}
+              readOnly={!canManage}
+              isPending={isPending}
+              onSubmit={
+                canManage
+                  ? (input) => onUpdate(todo.id, input)
+                  : undefined
+              }
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {t("todos.ruleUnavailable")}
+            </p>
           )}
         </div>
+      </CollapsibleContent>
 
-        {children && (
-          <CollapsibleContent>
-            <div className="border-t px-4 py-4">
-              {children}
-            </div>
-          </CollapsibleContent>
-        )}
-      </div>
+      {errorMessage && (
+        <p className="mt-2 px-2 text-sm text-destructive" role="alert">
+          {errorMessage}
+        </p>
+      )}
+
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("todos.delete.title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("todos.delete.description", { title: todo.title })}
+            </AlertDialogDescription>
+            {errorMessage && (
+              <p className="text-sm text-destructive" role="alert">
+                {errorMessage}
+              </p>
+            )}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={(event) => {
+                event.preventDefault();
+                void onDelete(todo.id)
+                  .then(() => setDeleteDialogOpen(false))
+                  .catch(() => undefined);
+              }}
+            >
+              {t("common.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Collapsible>
-  )
+  );
 }

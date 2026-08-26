@@ -1,14 +1,24 @@
+import { useTranslation } from "react-i18next";
 
-export TodoListHeader() {
-    return (
-    <h1 className="font-medium my-5 text-center sm:text-left sm:my-8 md:text-2xl text-lg dark:text-slate-200">
-        {tasksTitle}
-    </h1>
-      <ButtonsSort
-        isListInView1={isListInView1}
-        setIsListInView1={setIsListInView1}
-        sortedBy={sortedBy}
-        setSortedBy={setSortedBy}
-      />
-    )
+interface TodoListHeaderProps {
+  title: string;
+  totalCount: number;
+}
+
+export function TodoListHeader({
+  title,
+  totalCount,
+}: TodoListHeaderProps) {
+  const { t } = useTranslation();
+
+  return (
+    <header className="space-y-1">
+      <h1 className="text-2xl font-semibold tracking-tight">
+        {title}
+      </h1>
+      <p className="text-sm text-muted-foreground">
+        {t("todos.count", { count: totalCount })}
+      </p>
+    </header>
+  );
 }

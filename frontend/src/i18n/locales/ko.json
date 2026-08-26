@@ -3,6 +3,43 @@
     "search": "검색"
   },
 
+  "common": {
+    "cancel": "취소",
+    "save": "저장",
+    "edit": "수정",
+    "delete": "삭제",
+    "requestFailed": "요청을 처리하지 못했습니다."
+  },
+
+  "todos": {
+    "mine": "내 할 일",
+    "count": "할 일 {{count}}개",
+    "count_other": "할 일 {{count}}개",
+    "add": "할 일 추가",
+    "completed": "완료됨 {{count}}개",
+    "completed_other": "완료됨 {{count}}개",
+    "ruleUnavailable": "이 할 일에 사용된 양식 정보를 불러올 수 없습니다.",
+    "empty": {
+      "title": "아직 할 일이 없습니다",
+      "description": "새 할 일을 추가해 목록을 시작해보세요."
+    },
+    "form": {
+      "title": "제목",
+      "dueAt": "마감 일시",
+      "rule": "양식",
+      "create": "할 일 만들기"
+    },
+    "actions": {
+      "menu": "할 일 메뉴",
+      "markComplete": "완료로 표시",
+      "markIncomplete": "미완료로 표시"
+    },
+    "delete": {
+      "title": "할 일을 삭제할까요?",
+      "description": "‘{{title}}’ 할 일을 삭제합니다. 이 작업은 되돌릴 수 없습니다."
+    }
+  },
+
   "auth": {
     "username": "사용자 이름",
     "nickname": "닉네임",
