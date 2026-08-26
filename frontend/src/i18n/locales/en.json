@@ -24,7 +24,7 @@
       "leave": "Leave list",
       "leaveTitle": "Leave this list?",
       "leaveDescription": "You will no longer have access to ‘{{name}}’ or its tasks.",
-      "empty": "You do not belong to any lists.",
+      "empty": "You do not have any lists.",
       "loadFailed": "The todo lists could not be loaded."
     }
   },
