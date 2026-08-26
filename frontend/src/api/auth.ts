@@ -66,6 +66,12 @@ export function getUser(
   return apiJson<User>(`/users/${userId}`, { signal });
 }
 
+export function listUsers(
+  signal?: AbortSignal,
+): Promise<User[]> {
+  return apiJson<User[]>("/users", { signal })
+}
+
 export function updateUserRole(
   userId: number,
   role: Role,

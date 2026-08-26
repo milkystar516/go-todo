@@ -7,6 +7,7 @@ import {
 import {
   getCurrentUser,
   getUser,
+  listUsers,
   updateUserRole,
 } from "../../api/auth";
 import type { Role } from "../../api/types";
@@ -16,12 +17,24 @@ export const currentUserQueryOptions = queryOptions({
   queryFn: ({ signal }) => getCurrentUser(signal),
 });
 
+export const userQueryKeys = {
+  all: ["users"] as const,
+  list: () => [...userQueryKeys.all, "list"] as const,
+  detail: (userId: number) =>
+    [...userQueryKeys.all, "detail", userId] as const,
+};
+
 export function userQueryOptions(userId: number) {
   return queryOptions({
-    queryKey: ["users", userId] as const,
+    queryKey: userQueryKeys.detail(userId),
     queryFn: ({ signal }) => getUser(userId, signal),
   });
 }
+
+export const usersQueryOptions = queryOptions({
+  queryKey: userQueryKeys.list(),
+  queryFn: ({ signal }) => listUsers(signal),
+});
 
 interface UpdateUserRoleVariables {
   userId: number;
@@ -35,11 +48,15 @@ export function updateUserRoleMutationOptions(
     mutationFn: ({ userId, role }: UpdateUserRoleVariables) =>
       updateUserRole(userId, role),
 
-    onSuccess: (updatedUser) => {
+    onSuccess: async (updatedUser) => {
       queryClient.setQueryData(
         userQueryOptions(updatedUser.id).queryKey,
         updatedUser,
       );
+
+      await queryClient.invalidateQueries({
+        queryKey: userQueryKeys.list(),
+      });
     },
   });
 }

@@ -9,7 +9,7 @@ import { SignupPage } from "../features/auth/SignupPage";
 import { RequireAuth } from "../features/guards/RequireAuth";
 import { RequireAdmin } from "../features/guards/RequireAdmin";
 import { RequireListMember } from "../features/guards/ListAccessGuards";
-import { AdminPage } from "../features/auth/AdminPage";
+import { AdminPage } from "../features/admin/AdminPage";
 
 export function AppRoutes() {
   return (

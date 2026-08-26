@@ -6,6 +6,7 @@
   "common": {
     "cancel": "Cancel",
     "save": "Save",
+    "confirm": "Confirm",
     "edit": "Edit",
     "delete": "Delete",
     "requestFailed": "The request could not be completed."
@@ -83,6 +84,33 @@
       
       "usernameExists": "This username is already in use.",
       "passwordMismatch": "Passwords do not match."
+    }
+  },
+
+  "admin": {
+    "title": "Administration",
+    "description": "Manage task templates and user roles.",
+    "usersTab": "Users",
+    "todoRulesTab": "Templates",
+    "users": {
+      "title": "User management",
+      "description": "Review user information and change service roles.",
+      "id": "ID",
+      "username": "Username",
+      "nickname": "Nickname",
+      "role": "Role",
+      "empty": "No users were found.",
+      "roles": {
+        "user": "User",
+        "admin": "Administrator"
+      },
+      "detail": {
+        "title": "User details",
+        "description": "Review this user and change their role.",
+        "open": "View details for {{username}}",
+        "ownRole": "You cannot change your own role.",
+        "saving": "Saving…"
+      }
     }
   },
 
