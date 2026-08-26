@@ -1,9 +1,14 @@
-import { queryOptions } from "@tanstack/react-query";
+import {
+  mutationOptions,
+  queryOptions,
+  type QueryClient,
+} from "@tanstack/react-query";
 
 import {
   getTodoList,
   listTodoListMembers,
   listTodoLists,
+  removeTodoListMember,
 } from "../../api/todoLists";
 import { ApiError } from "../../api/client";
 
@@ -35,5 +40,23 @@ export function todoListMembersQueryOptions(listId: string) {
     retry: (failureCount, error) =>
       !(error instanceof ApiError && error.status < 500) &&
       failureCount < 2,
+  });
+}
+
+export function leaveTodoListMutationOptions(
+  queryClient: QueryClient,
+  userId: number,
+) {
+  return mutationOptions({
+    mutationFn: (listId: string) =>
+      removeTodoListMember(listId, userId),
+    onSuccess: (_data, listId) => {
+      queryClient.removeQueries({
+        queryKey: todoListQueryKeys.detail(listId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: todoListQueryKeys.list(),
+      });
+    },
   });
 }

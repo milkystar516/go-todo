@@ -1,5 +1,8 @@
 "use client"
 
+import type { ReactNode } from "react"
+import { Link, useLocation } from "react-router"
+
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -12,22 +15,34 @@ export function NavMain({
   items: {
     title: string
     url: string
-    icon: React.ReactNode
-    isActive?: boolean
+    icon: ReactNode
   }[]
 }) {
+  const location = useLocation()
+
   return (
     <SidebarMenu>
-      {items.map((item) => (
-        <SidebarMenuItem key={item.title}>
-          <SidebarMenuButton asChild isActive={item.isActive}>
-            <a href={item.url}>
+      {items.map((item) => {
+        const isActive = item.url === "/"
+          ? location.pathname === "/"
+          : location.pathname === item.url ||
+            location.pathname.startsWith(`${item.url}/`)
+
+        return (
+          <SidebarMenuItem key={item.url}>
+            <SidebarMenuButton
+              asChild
+              isActive={isActive}
+              tooltip={item.title}
+            >
+              <Link to={item.url}>
               {item.icon}
               <span>{item.title}</span>
-            </a>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      ))}
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        )
+      })}
     </SidebarMenu>
   )
 }

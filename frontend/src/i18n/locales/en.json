@@ -11,6 +11,24 @@
     "requestFailed": "The request could not be completed."
   },
 
+  "sidebar": {
+    "nav": {
+      "home": "Home",
+      "admin": "Admin"
+    },
+    "todoLists": {
+      "title": "Todo Lists",
+      "add": "Add a todo list",
+      "addUnavailable": "List creation is not available yet.",
+      "options": "Settings for {{name}}",
+      "leave": "Leave list",
+      "leaveTitle": "Leave this list?",
+      "leaveDescription": "You will no longer have access to ‘{{name}}’ or its tasks.",
+      "empty": "You do not belong to any lists.",
+      "loadFailed": "The todo lists could not be loaded."
+    }
+  },
+
   "todos": {
     "mine": "My tasks",
     "count_one": "{{count}} task",

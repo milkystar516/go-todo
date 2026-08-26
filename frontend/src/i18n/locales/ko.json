@@ -11,6 +11,24 @@
     "requestFailed": "요청을 처리하지 못했습니다."
   },
 
+  "sidebar": {
+    "nav": {
+      "home": "홈",
+      "admin": "관리"
+    },
+    "todoLists": {
+      "title": "할 일 목록",
+      "add": "할 일 목록 추가",
+      "addUnavailable": "목록 추가 기능은 아직 준비 중입니다.",
+      "options": "{{name}} 목록 설정",
+      "leave": "목록 탈퇴",
+      "leaveTitle": "목록에서 탈퇴할까요?",
+      "leaveDescription": "‘{{name}}’ 목록과 해당 목록의 할 일에 더 이상 접근할 수 없습니다.",
+      "empty": "소속된 목록이 없습니다.",
+      "loadFailed": "할 일 목록을 불러오지 못했습니다."
+    }
+  },
+
   "todos": {
     "mine": "내 할 일",
     "count": "할 일 {{count}}개",
