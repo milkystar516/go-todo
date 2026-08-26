@@ -39,9 +39,17 @@ export const JsonSchemaForm = forwardRef<
     ref,
     () => ({
       validateForm: () => formRef.current?.validateForm() ?? false,
-      getFormData: () => formRef.current?.state.formData ?? formData,
+      getFormData: () => {
+        const currentForm = formRef.current
+        const currentFormData = currentForm?.state.formData ?? formData
+
+        return currentForm?.state.schemaUtils.omitExtraData(
+          schema,
+          currentFormData,
+        ) ?? currentFormData
+      },
     }),
-    [formData],
+    [formData, schema],
   )
 
   return (

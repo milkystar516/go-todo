@@ -40,6 +40,7 @@ interface TodoItemProps {
   canManage: boolean;
   isPending?: boolean;
   errorMessage?: string | null;
+  deleteErrorMessage?: string | null;
   onToggleCompleted: (todoId: number) => void;
   onUpdate: (
     todoId: number,
@@ -71,6 +72,7 @@ export function TodoItem({
   canManage,
   isPending = false,
   errorMessage,
+  deleteErrorMessage,
   onToggleCompleted,
   onUpdate,
   onDelete,
@@ -220,7 +222,7 @@ export function TodoItem({
         description={t("todos.delete.description", { title: todo.title })}
         confirmLabel={t("common.delete")}
         isPending={isPending}
-        errorMessage={errorMessage}
+        errorMessage={deleteErrorMessage}
         onConfirm={() => onDelete(todo.id)}
       />
     </Collapsible>

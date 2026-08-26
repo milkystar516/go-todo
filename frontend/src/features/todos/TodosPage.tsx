@@ -130,6 +130,17 @@ export function TodosPage() {
     return null;
   }
 
+  function getTodoDeleteError(todoId: number) {
+    if (
+      deleteMutation.isError &&
+      deleteMutation.variables === todoId
+    ) {
+      return getErrorMessage(deleteMutation.error, fallbackError);
+    }
+
+    return null;
+  }
+
   async function handleCreate(input: TodoUpdateInput) {
     if (!listId || selectedRuleId === null) {
       return;
@@ -183,6 +194,11 @@ export function TodosPage() {
           selectedRuleId={selectedRuleId}
           selectedRule={selectedRuleQuery.data}
           isRulePending={selectedRuleQuery.isPending}
+          ruleErrorMessage={
+            selectedRuleQuery.isError
+              ? getErrorMessage(selectedRuleQuery.error, fallbackError)
+              : null
+          }
           isPending={createMutation.isPending}
           errorMessage={
             createMutation.isError
@@ -210,6 +226,7 @@ export function TodosPage() {
         canManage={canManage}
         isTodoPending={isTodoPending}
         getTodoError={getTodoError}
+        getTodoDeleteError={getTodoDeleteError}
         onToggleCompleted={(todoId) => toggleMutation.mutate(todoId)}
         onUpdate={handleUpdate}
         onDelete={handleDelete}

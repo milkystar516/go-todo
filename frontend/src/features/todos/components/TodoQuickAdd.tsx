@@ -13,6 +13,7 @@ type TodoQuickAddProps = {
   selectedRuleId: number | null;
   selectedRule?: TodoRuleDetail;
   isRulePending?: boolean;
+  ruleErrorMessage?: string | null;
   isPending?: boolean;
   errorMessage?: string | null;
   onRuleChange: (ruleId: number) => void;
@@ -26,6 +27,7 @@ export function TodoQuickAdd({
   selectedRuleId,
   selectedRule,
   isRulePending = false,
+  ruleErrorMessage,
   isPending = false,
   errorMessage,
   onRuleChange,
@@ -63,6 +65,12 @@ export function TodoQuickAdd({
         </label>
 
         {isRulePending && <Skeleton className="h-48 w-full" />}
+
+        {!isRulePending && ruleErrorMessage && (
+          <p className="text-sm text-destructive" role="alert">
+            {ruleErrorMessage}
+          </p>
+        )}
 
         {!isRulePending && selectedRule && (
           <TodoForm

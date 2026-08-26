@@ -65,7 +65,7 @@ export function TodoForm({
     setTitle(todo?.title ?? "");
     setDueAt(toDateTimeLocal(todo?.due_at));
     setContent(todo?.content ?? {});
-  }, [rule.id, todo]);
+  }, [rule.id, todo?.id]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -25,6 +25,7 @@ interface TodoListProps {
   canManage: (todo: Todo) => boolean;
   isTodoPending: (todoId: number) => boolean;
   getTodoError: (todoId: number) => string | null;
+  getTodoDeleteError: (todoId: number) => string | null;
   onToggleCompleted: (todoId: number) => void;
   onUpdate: (
     todoId: number,
@@ -63,6 +64,7 @@ function TodoItems({
   canManage,
   isTodoPending,
   getTodoError,
+  getTodoDeleteError,
   onToggleCompleted,
   onUpdate,
   onDelete,
@@ -81,6 +83,7 @@ function TodoItems({
             canManage={canManage(todo)}
             isPending={isTodoPending(todo.id)}
             errorMessage={getTodoError(todo.id)}
+            deleteErrorMessage={getTodoDeleteError(todo.id)}
             onToggleCompleted={onToggleCompleted}
             onUpdate={onUpdate}
             onDelete={onDelete}
@@ -128,6 +131,7 @@ export function TodoList({
   canManage,
   isTodoPending,
   getTodoError,
+  getTodoDeleteError,
   onToggleCompleted,
   onUpdate,
   onDelete,
@@ -145,6 +149,7 @@ export function TodoList({
     canManage,
     isTodoPending,
     getTodoError,
+    getTodoDeleteError,
     onToggleCompleted,
     onUpdate,
     onDelete,
