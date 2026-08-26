@@ -8,6 +8,46 @@ import (
 	"github.com/milkystar516/go-todo/backend/internal/auth"
 )
 
+func TestAdminListUsers(t *testing.T) {
+	api := newTestAPI(t)
+	member := api.newAuthenticatedUser(t)
+	adminClient, adminUser := api.newAdminClient(t)
+
+	forbiddenResp := request(
+		t,
+		member.client,
+		http.MethodGet,
+		api.apiURL+"/users",
+	)
+	expectStatus(t, forbiddenResp, http.StatusForbidden)
+	forbiddenResp.Body.Close()
+
+	listResp := request(
+		t,
+		adminClient,
+		http.MethodGet,
+		api.apiURL+"/users",
+	)
+	expectStatus(t, listResp, http.StatusOK)
+
+	var users []publicUserResponse
+	decodeJSON(t, listResp, &users)
+
+	foundMember := false
+	foundAdmin := false
+	for _, user := range users {
+		foundMember = foundMember || user.ID == member.user.ID
+		foundAdmin = foundAdmin || user.ID == adminUser.ID
+	}
+	if !foundMember || !foundAdmin {
+		t.Fatalf(
+			"listed users missing created member or admin: member=%t admin=%t",
+			foundMember,
+			foundAdmin,
+		)
+	}
+}
+
 func TestAdminRoleManagement(t *testing.T) {
 	api := newTestAPI(t)
 	member := api.newAuthenticatedUser(t)
