@@ -69,7 +69,7 @@ export function getUser(
 export function listUsers(
   signal?: AbortSignal,
 ): Promise<User[]> {
-  return apiJson<User[]>("/users", { signal })
+  return apiJson<User[]>("/users", { signal });
 }
 
 export function updateUserRole(

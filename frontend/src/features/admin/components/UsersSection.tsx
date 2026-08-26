@@ -84,22 +84,23 @@ export function UsersSection() {
             {usersQuery.data.map((user) => (
               <TableRow
                 key={user.id}
-                role="button"
-                tabIndex={0}
-                aria-label={t("admin.users.detail.open", {
-                  username: user.username,
-                })}
-                className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                className="cursor-pointer"
                 onClick={() => setSelectedUserId(user.id)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault()
-                    setSelectedUserId(user.id)
-                  }
-                }}
               >
-                <TableCell className="font-medium">
-                  {user.username}
+                <TableCell>
+                  <button
+                    type="button"
+                    className="rounded-sm text-left font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={t("admin.users.detail.open", {
+                      username: user.username,
+                    })}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setSelectedUserId(user.id)
+                    }}
+                  >
+                    {user.username}
+                  </button>
                 </TableCell>
 
                 <TableCell>

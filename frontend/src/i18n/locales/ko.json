@@ -92,7 +92,7 @@
     "usersTab": "이용자 관리",
     "todoRulesTab": "할 일 양식",
     "users": {
-      "title": "사용자 관리",
+      "title": "이용자 관리",
       "description": "사용자 정보를 확인하고 서비스 권한을 변경합니다.",
       "id": "ID",
       "username": "사용자 이름",
