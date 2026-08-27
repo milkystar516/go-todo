@@ -114,6 +114,7 @@
         "todoExample": "Task display example",
         "todoExampleDescription": "How a task created from this template appears in the actual list and detail view.",
         "todoExampleTitle": "Example task",
+        "exampleText": "Example text",
         "name": "Template name",
         "nameRequired": "Enter a template name.",
         "fields": "Fields",

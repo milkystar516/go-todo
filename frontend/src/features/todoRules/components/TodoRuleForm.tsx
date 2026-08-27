@@ -361,7 +361,10 @@ function createDefinition(
   return { contentSchema, uiSchema }
 }
 
-function sampleValue(field: TodoRuleFormField): unknown {
+function sampleValue(
+  field: TodoRuleFormField,
+  exampleText: string,
+): unknown {
   switch (field.type) {
     case "email":
       return "user@example.com"
@@ -398,14 +401,17 @@ function sampleValue(field: TodoRuleFormField): unknown {
     case "textarea":
       return "Example description"
     case "text":
-      return "Example text"
+      return exampleText
   }
 }
 
-function createPreviewContent(fields: TodoRuleFormField[]) {
+function createPreviewContent(
+  fields: TodoRuleFormField[],
+  exampleText: string,
+) {
   return Object.fromEntries(
     fields.flatMap((field) => {
-      const value = sampleValue(field)
+      const value = sampleValue(field, exampleText)
       return value === undefined
         ? []
         : [[field.propertyName, value] as const]
@@ -471,7 +477,10 @@ export function TodoRuleForm({
       rule_id: 0,
       title: t("admin.todoRules.form.todoExampleTitle"),
       due_at: null,
-      content: createPreviewContent(previewFields),
+      content: createPreviewContent(
+        previewFields,
+        t("admin.todoRules.form.exampleText"),
+      ),
       created_at: "2026-08-27T00:00:00.000Z",
       completed_at: null,
     }
