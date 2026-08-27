@@ -4,7 +4,7 @@ import { AppLayout } from "./layouts/AppLayout";
 import { AuthLayout } from "./layouts/AuthLayout";
 import { RootLayout } from "./layouts/RootLayout";
 import { LoginPage } from "../features/auth/LoginPage";
-import { TodosPage } from "../features/todos/TodosPage";
+import { TodosPage } from "../features/todoLists/TodosListPage";
 import { SignupPage } from "../features/auth/SignupPage";
 import { RequireAuth } from "../features/guards/RequireAuth";
 import { RequireAdmin } from "../features/guards/RequireAdmin";

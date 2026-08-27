@@ -15,13 +15,13 @@ import { PageHeader } from "../../app/components/PageHeader";
 import { getErrorMessage } from "../../lib/apiError";
 import { currentUserQueryOptions } from "../auth/queries";
 import { useOptionalListAccess } from "../guards/ListAccessGuards";
-import { todoListQueryOptions } from "../todoLists/queries";
+import { todoListQueryOptions } from "./queries";
 import {
   todoRuleQueryOptions,
   todoRulesQueryOptions,
 } from "../todoRules/queries";
-import { TodoList } from "./components/TodoList";
-import { TodoQuickAdd } from "./components/TodoQuickAdd";
+import { TodoList } from "../todos/components/TodoList";
+import { TodoQuickAdd } from "../todos/components/TodoQuickAdd";
 import {
   createTodoMutationOptions,
   deleteTodoMutationOptions,
@@ -29,7 +29,7 @@ import {
   ownerTodosQueryOptions,
   toggleTodoMutationOptions,
   updateTodoMutationOptions,
-} from "./queries";
+} from "../todos/queries";
 
 export function TodosPage() {
   const { t } = useTranslation();
