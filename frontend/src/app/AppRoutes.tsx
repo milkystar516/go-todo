@@ -11,6 +11,7 @@ import { RequireAdmin } from "../features/guards/RequireAdmin";
 import { RequireListMember } from "../features/guards/ListAccessGuards";
 import { AdminPage } from "../features/admin/AdminPage";
 import { TodoRuleCreatePage } from "../features/todoRules/TodoRuleCreatePage";
+import { TodoRuleDetailPage } from "../features/todoRules/TodoRuleDetailPage";
 
 export function AppRoutes() {
   return (
@@ -34,6 +35,10 @@ export function AppRoutes() {
               <Route
                 path="admin/todo-rules/new"
                 element={<TodoRuleCreatePage />}
+              />
+              <Route
+                path="admin/todo-rules/:ruleId"
+                element={<TodoRuleDetailPage />}
               />
             </Route>
           </Route>

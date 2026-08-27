@@ -24,8 +24,8 @@ export function TodoRuleCreatePage() {
   }
 
   async function handleCreate(input: TodoRuleWriteInput) {
-    await createMutation.mutateAsync(input)
-    navigate("/admin", { replace: true })
+    const todoRule = await createMutation.mutateAsync(input)
+    navigate(`/admin/todo-rules/${todoRule.id}`, { replace: true })
   }
 
   return (

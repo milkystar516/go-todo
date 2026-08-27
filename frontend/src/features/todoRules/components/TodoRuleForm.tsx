@@ -9,11 +9,7 @@ import {
 import { useTranslation } from "react-i18next"
 
 import type { TodoRuleWriteInput } from "../../../api/todoRules"
-import type {
-  Todo,
-  TodoRuleDetail,
-} from "../../../api/types"
-import { TodoItem } from "../../todos/components/TodoItem"
+import type { TodoRuleDetail } from "../../../api/types"
 import { Button } from "#components/ui/button"
 import { ButtonGroup } from "#components/ui/button-group"
 import {
@@ -52,6 +48,7 @@ import {
   ItemTitle,
 } from "#components/ui/item"
 import { Spinner } from "#components/ui/spinner"
+import { TodoRulePreview } from "./TodoRulePreview"
 
 const todoRuleFieldTypes = [
   "text",
@@ -361,67 +358,6 @@ function createDefinition(
   return { contentSchema, uiSchema }
 }
 
-function sampleValue(
-  field: TodoRuleFormField,
-  exampleText: string,
-): unknown {
-  switch (field.type) {
-    case "email":
-      return "user@example.com"
-    case "url":
-      return "https://example.com"
-    case "color":
-      return "#3b82f6"
-    case "date":
-      return "2026-08-27"
-    case "time":
-      return "09:00:00"
-    case "datetime":
-      return "2026-08-27T09:00:00.000Z"
-    case "number":
-      return 12.5
-    case "integer":
-      return 3
-    case "range":
-      return 50
-    case "rating":
-      return 4
-    case "boolean":
-      return true
-    case "select":
-    case "radio":
-      return field.choices[0]?.value
-    case "multiselect":
-    case "checkboxes":
-      return field.choices.slice(0, 2).map((choice) => choice.value)
-    case "textList":
-      return ["First item", "Second item"]
-    case "numberList":
-      return [1, 2]
-    case "textarea":
-      return "Example description"
-    case "text":
-      return exampleText
-  }
-}
-
-function createPreviewContent(
-  fields: TodoRuleFormField[],
-  exampleText: string,
-) {
-  return Object.fromEntries(
-    fields.flatMap((field) => {
-      const value = sampleValue(field, exampleText)
-      return value === undefined
-        ? []
-        : [[field.propertyName, value] as const]
-    }),
-  )
-}
-
-async function ignoreTodoUpdate() {}
-async function ignoreTodoDelete() {}
-
 export function TodoRuleForm({
   initialValue,
   isPending = false,
@@ -445,7 +381,7 @@ export function TodoRuleForm({
     setFormError(null)
   }, [initialValue])
 
-  const preview = useMemo(() => {
+  const previewRule = useMemo<TodoRuleDetail>(() => {
     const previewFields = fields.map((field, fieldIndex) => ({
       ...field,
       label:
@@ -463,35 +399,12 @@ export function TodoRuleForm({
       })),
     }))
     const definition = createDefinition(ruleName, previewFields)
-    const rule: TodoRuleDetail = {
+    return {
       id: 0,
       rule_name: ruleName,
       content_schema: definition.contentSchema,
       ui_schema: definition.uiSchema,
       list_columns: [],
-    }
-    const todo: Todo = {
-      id: 0,
-      owner_id: 0,
-      list_id: "preview",
-      rule_id: 0,
-      title: t("admin.todoRules.form.todoExampleTitle"),
-      due_at: null,
-      content: createPreviewContent(
-        previewFields,
-        t("admin.todoRules.form.exampleText"),
-      ),
-      created_at: "2026-08-27T00:00:00.000Z",
-      completed_at: null,
-    }
-
-    return {
-      key: JSON.stringify([
-        definition.contentSchema,
-        definition.uiSchema,
-      ]),
-      rule,
-      todo,
     }
   }, [fields, ruleName, t])
 
@@ -746,31 +659,10 @@ export function TodoRuleForm({
           </Card>
         </form>
 
-        <Card className="xl:sticky xl:top-4">
-          <CardHeader>
-            <CardTitle>
-              {t("admin.todoRules.form.todoExample")}
-            </CardTitle>
-            <CardDescription>
-              {t("admin.todoRules.form.todoExampleDescription")}
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent>
-            <TodoItem
-              key={preview.key}
-              todo={preview.todo}
-              rule={preview.rule}
-              metadata={[]}
-              canManage={false}
-              defaultOpen
-              showTitleInput={false}
-              onToggleCompleted={() => {}}
-              onUpdate={ignoreTodoUpdate}
-              onDelete={ignoreTodoDelete}
-            />
-          </CardContent>
-        </Card>
+        <TodoRulePreview
+          rule={previewRule}
+          className="xl:sticky xl:top-4"
+        />
       </div>
 
       {(formError || errorMessage) && (

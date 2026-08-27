@@ -107,6 +107,18 @@
         "submit": "양식 만들기",
         "back": "관리로 돌아가기"
       },
+      "detail": {
+        "back": "관리로 돌아가기",
+        "description": "저장된 양식의 구성과 실제 할 일 표시 모습을 확인합니다.",
+        "fieldsTitle": "양식 구성",
+        "fieldsCount": "필드 {{count}}개",
+        "required": "필수",
+        "choiceCount": "선택지 {{count}}개",
+        "noFields": "이 양식에는 표시할 필드가 없습니다.",
+        "loadFailed": "할 일 양식을 불러오지 못했습니다",
+        "invalidTitle": "올바르지 않은 할 일 양식입니다",
+        "invalidDescription": "요청한 할 일 양식 ID를 확인해주세요."
+      },
       "form": {
         "definitionTitle": "양식 정의",
         "definitionDescription": "필드의 레이블, 입력 유형과 필수 여부를 설정합니다.",
@@ -154,7 +166,8 @@
           "multiselect": "다중 선택",
           "checkboxes": "체크박스 그룹",
           "textList": "텍스트 목록",
-          "numberList": "숫자 목록"
+          "numberList": "숫자 목록",
+          "custom": "사용자 정의 필드"
         }
       }
     },
