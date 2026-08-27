@@ -15,6 +15,7 @@ import type {
 } from "../../../api/types"
 import { TodoItem } from "../../todos/components/TodoItem"
 import { Button } from "#components/ui/button"
+import { ButtonGroup } from "#components/ui/button-group"
 import {
   Card,
   CardContent,
@@ -23,6 +24,14 @@ import {
   CardTitle,
 } from "#components/ui/card"
 import { Checkbox } from "#components/ui/checkbox"
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "#components/ui/combobox"
 import {
   Field,
   FieldDescription,
@@ -42,13 +51,7 @@ import {
   ItemHeader,
   ItemTitle,
 } from "#components/ui/item"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "#components/ui/select"
+import { Spinner } from "#components/ui/spinner"
 
 const todoRuleFieldTypes = [
   "text",
@@ -602,7 +605,9 @@ export function TodoRuleForm({
 
   function removeField(fieldId: string) {
     setFields((currentFields) =>
-      currentFields.filter((field) => field.id !== fieldId),
+      currentFields.length > 1
+        ? currentFields.filter((field) => field.id !== fieldId)
+        : currentFields,
     )
     setFormError(null)
   }
@@ -725,6 +730,7 @@ export function TodoRuleForm({
                         field={field}
                         index={index}
                         disabled={isPending}
+                        canRemove={fields.length > 1}
                         onChange={(update) =>
                           updateField(field.id, update)
                         }
@@ -777,6 +783,7 @@ export function TodoRuleForm({
               metadata={[]}
               canManage={false}
               defaultOpen
+              showTitleInput={false}
               onToggleCompleted={() => {}}
               onUpdate={ignoreTodoUpdate}
               onDelete={ignoreTodoDelete}
@@ -806,6 +813,7 @@ export function TodoRuleForm({
           form="todo-rule-definition-form"
           disabled={isPending}
         >
+          {isPending && <Spinner aria-hidden="true" />}
           {submitLabel ?? t("common.save")}
         </Button>
       </ItemActions>
@@ -817,6 +825,7 @@ interface TodoRuleFieldEditorProps {
   field: TodoRuleFormField
   index: number
   disabled: boolean
+  canRemove: boolean
   onChange: (
     update: Partial<
       Pick<TodoRuleFormField, "label" | "required">
@@ -833,6 +842,7 @@ function TodoRuleFieldEditor({
   field,
   index,
   disabled,
+  canRemove,
   onChange,
   onTypeChange,
   onAddChoice,
@@ -844,6 +854,13 @@ function TodoRuleFieldEditor({
   const labelInputId = `todo-rule-field-label-${field.id}`
   const typeInputId = `todo-rule-field-type-${field.id}`
   const requiredInputId = `todo-rule-field-required-${field.id}`
+  const fieldTypeItems = todoRuleFieldTypes.map((type) => ({
+    value: type,
+    label: t(`admin.todoRules.form.types.${type}`),
+  }))
+  const selectedFieldType = fieldTypeItems.find(
+    (item) => item.value === field.type,
+  )
 
   return (
     <Item role="listitem" variant="outline">
@@ -863,7 +880,7 @@ function TodoRuleFieldEditor({
               number: index + 1,
             })}
             onClick={onRemove}
-            disabled={disabled}
+            disabled={disabled || !canRemove}
           >
             <Minus />
           </Button>
@@ -894,24 +911,37 @@ function TodoRuleFieldEditor({
             <FieldLabel htmlFor={typeInputId}>
               {t("admin.todoRules.form.fieldType")}
             </FieldLabel>
-            <Select
-              value={field.type}
-              onValueChange={(value) =>
-                onTypeChange(value as TodoRuleFieldType)
-              }
+            <Combobox
+              items={fieldTypeItems}
+              value={selectedFieldType}
+              onValueChange={(item) => {
+                if (item) {
+                  onTypeChange(item.value)
+                }
+              }}
+              itemToStringValue={(item) => item.label}
               disabled={disabled}
             >
-              <SelectTrigger id={typeInputId} className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {todoRuleFieldTypes.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {t(`admin.todoRules.form.types.${type}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <ComboboxInput
+                id={typeInputId}
+                className="w-full"
+                placeholder={t(
+                  "admin.todoRules.form.selectFieldType",
+                )}
+              />
+              <ComboboxContent>
+                <ComboboxEmpty>
+                  {t("admin.todoRules.form.noFieldType")}
+                </ComboboxEmpty>
+                <ComboboxList>
+                  {(item) => (
+                    <ComboboxItem key={item.value} value={item}>
+                      {item.label}
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
           </Field>
 
           <Field orientation="horizontal">
@@ -940,40 +970,50 @@ function TodoRuleFieldEditor({
 
               <FieldGroup>
                 {field.choices.map((choice, choiceIndex) => (
-                  <Field key={choice.id} orientation="horizontal">
-                    <Input
-                      value={choice.label}
-                      placeholder={t(
-                        "admin.todoRules.form.choicePlaceholder",
-                        { number: choiceIndex + 1 },
-                      )}
+                  <Field key={choice.id}>
+                    <ButtonGroup
+                      className="w-full"
                       aria-label={t(
                         "admin.todoRules.form.choiceLabel",
                         { number: choiceIndex + 1 },
                       )}
-                      onChange={(event) =>
-                        onChoiceChange(
-                          choice.id,
-                          event.target.value,
-                        )
-                      }
-                      disabled={disabled}
-                      required
-                    />
-
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={t(
-                        "admin.todoRules.form.removeChoice",
-                        { number: choiceIndex + 1 },
-                      )}
-                      onClick={() => onRemoveChoice(choice.id)}
-                      disabled={disabled}
                     >
-                      <Minus />
-                    </Button>
+                      <Input
+                        value={choice.label}
+                        placeholder={t(
+                          "admin.todoRules.form.choicePlaceholder",
+                          { number: choiceIndex + 1 },
+                        )}
+                        aria-label={t(
+                          "admin.todoRules.form.choiceLabel",
+                          { number: choiceIndex + 1 },
+                        )}
+                        onChange={(event) =>
+                          onChoiceChange(
+                            choice.id,
+                            event.target.value,
+                          )
+                        }
+                        disabled={disabled}
+                        required
+                      />
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        aria-label={t(
+                          "admin.todoRules.form.removeChoice",
+                          { number: choiceIndex + 1 },
+                        )}
+                        onClick={() =>
+                          onRemoveChoice(choice.id)
+                        }
+                        disabled={disabled}
+                      >
+                        <Minus />
+                      </Button>
+                    </ButtonGroup>
                   </Field>
                 ))}
               </FieldGroup>

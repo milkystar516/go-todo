@@ -123,6 +123,8 @@
         "fieldLabelPlaceholder": "For example, Priority",
         "fieldLabelRequired": "Enter a label for every field.",
         "fieldType": "Input type",
+        "selectFieldType": "Search input types",
+        "noFieldType": "No matching input type.",
         "required": "Required field",
         "addField": "Add field",
         "removeField": "Remove field {{number}}",

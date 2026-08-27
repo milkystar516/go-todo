@@ -39,6 +39,7 @@ interface TodoItemProps {
   metadata: TodoListMetadataItem[];
   canManage: boolean;
   defaultOpen?: boolean;
+  showTitleInput?: boolean;
   isPending?: boolean;
   errorMessage?: string | null;
   deleteErrorMessage?: string | null;
@@ -72,6 +73,7 @@ export function TodoItem({
   metadata,
   canManage,
   defaultOpen = false,
+  showTitleInput = true,
   isPending = false,
   errorMessage,
   deleteErrorMessage,
@@ -196,6 +198,7 @@ export function TodoItem({
               rule={rule}
               todo={todo}
               readOnly={!canManage}
+              showTitleInput={showTitleInput}
               isPending={isPending}
               onSubmit={
                 canManage

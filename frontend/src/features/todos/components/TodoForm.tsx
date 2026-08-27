@@ -20,6 +20,7 @@ interface TodoFormProps {
   rule: TodoRuleDetail;
   todo?: Todo;
   readOnly?: boolean;
+  showTitleInput?: boolean;
   isPending?: boolean;
   errorMessage?: string | null;
   submitLabel?: string;
@@ -47,6 +48,7 @@ export function TodoForm({
   rule,
   todo,
   readOnly = false,
+  showTitleInput = true,
   isPending = false,
   errorMessage,
   submitLabel,
@@ -90,19 +92,21 @@ export function TodoForm({
   return (
     <form className="space-y-5" onSubmit={handleSubmit}>
       <FieldGroup className="gap-4">
-        <Field>
-          <FieldLabel htmlFor={`todo-title-${todo?.id ?? "new"}`}>
-            {t("todos.form.title")}
-          </FieldLabel>
-          <Input
-            id={`todo-title-${todo?.id ?? "new"}`}
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            maxLength={200}
-            disabled={readOnly || isPending}
-            required
-          />
-        </Field>
+        {showTitleInput && (
+          <Field>
+            <FieldLabel htmlFor={`todo-title-${todo?.id ?? "new"}`}>
+              {t("todos.form.title")}
+            </FieldLabel>
+            <Input
+              id={`todo-title-${todo?.id ?? "new"}`}
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              maxLength={200}
+              disabled={readOnly || isPending}
+              required
+            />
+          </Field>
+        )}
 
         <Field>
           <FieldLabel htmlFor={`todo-due-at-${todo?.id ?? "new"}`}>

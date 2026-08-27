@@ -4,6 +4,13 @@ import type { RJSFSchema, UiSchema } from "@rjsf/utils"
 import { forwardRef, useImperativeHandle, useRef } from "react"
 
 import { rjsfValidator } from "../../lib/schema/rjsfValidator"
+import { TodoFieldTemplate } from "./TodoFieldTemplate"
+import { TodoTitleFieldTemplate } from "./TodoTitleFieldTemplate"
+
+const todoFormTemplates = {
+  FieldTemplate: TodoFieldTemplate,
+  TitleFieldTemplate: TodoTitleFieldTemplate,
+}
 
 export interface JsonSchemaFormHandle {
   validateForm: () => boolean
@@ -60,6 +67,7 @@ export const JsonSchemaForm = forwardRef<
       uiSchema={uiSchema}
       formData={formData}
       validator={rjsfValidator}
+      templates={todoFormTemplates}
       onChange={({ formData: nextFormData }) =>
         onChange(nextFormData ?? {})
       }

@@ -122,6 +122,8 @@
         "fieldLabelPlaceholder": "예: 우선순위",
         "fieldLabelRequired": "모든 필드의 레이블을 입력해주세요.",
         "fieldType": "입력 유형",
+        "selectFieldType": "입력 유형 검색",
+        "noFieldType": "일치하는 입력 유형이 없습니다.",
         "required": "필수 항목",
         "addField": "필드 추가",
         "removeField": "필드 {{number}} 제거",
