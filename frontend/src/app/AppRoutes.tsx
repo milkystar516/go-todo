@@ -10,6 +10,7 @@ import { RequireAuth } from "../features/guards/RequireAuth";
 import { RequireAdmin } from "../features/guards/RequireAdmin";
 import { RequireListMember } from "../features/guards/ListAccessGuards";
 import { AdminPage } from "../features/admin/AdminPage";
+import { TodoRuleCreatePage } from "../features/todoRules/TodoRuleCreatePage";
 
 export function AppRoutes() {
   return (
@@ -30,6 +31,10 @@ export function AppRoutes() {
 
             <Route element={<RequireAdmin />}>
               <Route path="admin" element={<AdminPage />} />
+              <Route
+                path="admin/todo-rules/new"
+                element={<TodoRuleCreatePage />}
+              />
             </Route>
           </Route>
         </Route>

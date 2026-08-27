@@ -38,6 +38,7 @@ interface TodoItemProps {
   rule?: TodoRuleDetail;
   metadata: TodoListMetadataItem[];
   canManage: boolean;
+  defaultOpen?: boolean;
   isPending?: boolean;
   errorMessage?: string | null;
   deleteErrorMessage?: string | null;
@@ -70,6 +71,7 @@ export function TodoItem({
   rule,
   metadata,
   canManage,
+  defaultOpen = false,
   isPending = false,
   errorMessage,
   deleteErrorMessage,
@@ -78,7 +80,7 @@ export function TodoItem({
   onDelete,
 }: TodoItemProps) {
   const { t, i18n } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const completed = todo.completed_at !== null;
   const dueAt = todo.due_at

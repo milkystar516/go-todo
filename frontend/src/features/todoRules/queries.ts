@@ -1,6 +1,11 @@
-import { queryOptions } from "@tanstack/react-query";
+import {
+  mutationOptions,
+  queryOptions,
+  type QueryClient,
+} from "@tanstack/react-query";
 
 import {
+  createTodoRule,
   getTodoRule,
   listTodoRules,
 } from "../../api/todoRules";
@@ -21,5 +26,18 @@ export function todoRuleQueryOptions(ruleId: number) {
   return queryOptions({
     queryKey: todoRuleQueryKeys.detail(ruleId),
     queryFn: ({ signal }) => getTodoRule(ruleId, signal),
+  });
+}
+
+export function createTodoRuleMutationOptions(
+  queryClient: QueryClient,
+) {
+  return mutationOptions({
+    mutationFn: createTodoRule,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: todoRuleQueryKeys.list(),
+      });
+    },
   });
 }
