@@ -108,6 +108,13 @@
         "submit": "Create template",
         "back": "Back to administration"
       },
+      "edit": {
+        "action": "Update template",
+        "title": "Update a task template",
+        "description": "Configure fields and see how tasks created from this template will appear.",
+        "submit": "Update template",
+        "back": "Back to administration"
+      },
       "detail": {
         "back": "Back to administration",
         "description": "Review the saved template structure and how it appears on a task.",
