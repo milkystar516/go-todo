@@ -58,10 +58,7 @@ const todoRuleFieldTypes = [
   "textarea",
   "email",
   "url",
-  "password",
   "color",
-  "file",
-  "files",
   "date",
   "time",
   "datetime",
@@ -192,30 +189,10 @@ function definitionForField(
         schema: { type: "string", format: "uri", title },
       }
       break
-    case "password":
-      definition = {
-        schema: { type: "string", title },
-        uiSchema: { "ui:widget": "password" },
-      }
-      break
     case "color":
       definition = {
         schema: { type: "string", format: "color", title },
         uiSchema: { "ui:widget": "color" },
-      }
-      break
-    case "file":
-      definition = {
-        schema: { type: "string", format: "data-url", title },
-      }
-      break
-    case "files":
-      definition = {
-        schema: {
-          type: "array",
-          title,
-          items: { type: "string", format: "data-url" },
-        },
       }
       break
     case "date":
@@ -262,7 +239,7 @@ function definitionForField(
           minimum: 1,
           maximum: 5,
         },
-        uiSchema: { "ui:widget": "rating" },
+        uiSchema: { "ui:widget": "RatingWidget" },
       }
       break
     case "boolean":
@@ -390,8 +367,6 @@ function sampleValue(field: TodoRuleFormField): unknown {
       return "user@example.com"
     case "url":
       return "https://example.com"
-    case "password":
-      return "example"
     case "color":
       return "#3b82f6"
     case "date":
@@ -420,9 +395,6 @@ function sampleValue(field: TodoRuleFormField): unknown {
       return ["First item", "Second item"]
     case "numberList":
       return [1, 2]
-    case "file":
-    case "files":
-      return undefined
     case "textarea":
       return "Example description"
     case "text":
