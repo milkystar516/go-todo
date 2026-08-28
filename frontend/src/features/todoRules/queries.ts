@@ -6,8 +6,11 @@ import {
 
 import {
   createTodoRule,
+  deleteTodoRule,
   getTodoRule,
   listTodoRules,
+  updateTodoRule,
+  type TodoRuleWriteInput,
 } from "../../api/todoRules";
 
 export const todoRuleQueryKeys = {
@@ -35,6 +38,50 @@ export function createTodoRuleMutationOptions(
   return mutationOptions({
     mutationFn: createTodoRule,
     onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: todoRuleQueryKeys.list(),
+      });
+    },
+  });
+}
+
+interface UpdateTodoRuleVariables {
+  ruleId: number;
+  input: TodoRuleWriteInput;
+}
+
+export function updateTodoRuleMutationOptions(
+  queryClient: QueryClient,
+) {
+  return mutationOptions({
+    mutationFn: ({ ruleId, input }: UpdateTodoRuleVariables) =>
+      updateTodoRule(ruleId, input),
+    onSuccess: async (todoRule, { ruleId, input }) => {
+      queryClient.setQueryData(todoRuleQueryKeys.detail(ruleId), {
+        ...todoRule,
+        content_schema: input.content_schema,
+        ui_schema: input.ui_schema,
+        list_columns: input.list_columns,
+      });
+
+      await queryClient.invalidateQueries({
+        queryKey: todoRuleQueryKeys.list(),
+      });
+    },
+  });
+}
+
+export function deleteTodoRuleMutationOptions(
+  queryClient: QueryClient,
+) {
+  return mutationOptions({
+    mutationFn: (ruleId: number) => deleteTodoRule(ruleId),
+    onSuccess: async (_data, ruleId) => {
+      queryClient.removeQueries({
+        queryKey: todoRuleQueryKeys.detail(ruleId),
+        exact: true,
+      });
+
       await queryClient.invalidateQueries({
         queryKey: todoRuleQueryKeys.list(),
       });

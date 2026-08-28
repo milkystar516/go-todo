@@ -1,4 +1,4 @@
-import type { RJSFSchema, UiSchema } from "@rjsf/utils"
+import type { RJSFSchema } from "@rjsf/utils"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -20,8 +20,10 @@ import {
 import {
   getChoiceValues,
   getItemSchema,
+  getOrderedPropertyNames,
+  getPropertyWidget,
   getPropertySchemas,
-  isSchemaObject,
+  isChecklistSchema,
 } from "../lib/schema"
 
 type FieldTypeKey =
@@ -42,6 +44,7 @@ type FieldTypeKey =
   | "radio"
   | "multiselect"
   | "checkboxes"
+  | "checklist"
   | "textList"
   | "numberList"
   | "custom"
@@ -58,16 +61,6 @@ interface TodoRuleSummaryFieldsProps {
   rule: TodoRuleDetail
 }
 
-function widgetForProperty(uiSchema: UiSchema, name: string) {
-  const propertyUiSchema = uiSchema[name]
-  if (!isSchemaObject(propertyUiSchema)) {
-    return undefined
-  }
-
-  const widget = propertyUiSchema["ui:widget"]
-  return typeof widget === "string" ? widget : undefined
-}
-
 function fieldType(schema: RJSFSchema, widget?: string): FieldTypeKey {
   if (widget === "RatingWidget") return "rating"
   if (widget === "range") return "range"
@@ -76,6 +69,8 @@ function fieldType(schema: RJSFSchema, widget?: string): FieldTypeKey {
   if (widget === "checkboxes") return "checkboxes"
 
   if (schema.type === "array") {
+    if (isChecklistSchema(schema)) return "checklist"
+
     const items = getItemSchema(schema)
 
     if (items && getChoiceValues(items).length > 0) {
@@ -107,17 +102,10 @@ function fieldType(schema: RJSFSchema, widget?: string): FieldTypeKey {
 
 function summarizeFields(rule: TodoRuleDetail): FieldSummary[] {
   const properties = getPropertySchemas(rule.content_schema)
-  const names = Object.keys(properties)
-  const configuredOrder = rule.ui_schema["ui:order"]
-  const orderedNames = Array.isArray(configuredOrder)
-    ? [
-        ...configuredOrder.filter(
-          (name): name is string =>
-            typeof name === "string" && name !== "*" && name in properties,
-        ),
-        ...names.filter((name) => !configuredOrder.includes(name)),
-      ]
-    : names
+  const orderedNames = getOrderedPropertyNames(
+    rule.content_schema,
+    rule.ui_schema,
+  )
   const required = new Set(
     Array.isArray(rule.content_schema.required)
       ? rule.content_schema.required
@@ -138,7 +126,7 @@ function summarizeFields(rule: TodoRuleDetail): FieldSummary[] {
         typeof schema.title === "string" && schema.title.trim()
           ? schema.title
           : name,
-      type: fieldType(schema, widgetForProperty(rule.ui_schema, name)),
+      type: fieldType(schema, getPropertyWidget(rule.ui_schema, name)),
       required: required.has(name),
       choiceCount: choices.length,
     }

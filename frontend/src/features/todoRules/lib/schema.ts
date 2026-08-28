@@ -1,4 +1,4 @@
-import type { RJSFSchema } from "@rjsf/utils"
+import type { RJSFSchema, UiSchema } from "@rjsf/utils"
 
 export function isSchemaObject(value: unknown): value is RJSFSchema {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -19,6 +19,58 @@ export function getPropertySchemas(schema: RJSFSchema) {
 
 export function getItemSchema(schema: RJSFSchema) {
   return isSchemaObject(schema.items) ? schema.items : undefined
+}
+
+export function isChecklistSchema(schema: RJSFSchema) {
+  if (schema.type !== "array") return false
+
+  const items = getItemSchema(schema)
+  if (!items || items.type !== "object") return false
+
+  const properties = getPropertySchemas(items)
+  return (
+    Object.keys(properties).length === 2 &&
+    properties.text?.type === "string" &&
+    properties.completed?.type === "boolean"
+  )
+}
+
+export function getPropertyUiSchema(uiSchema: UiSchema, name: string) {
+  const propertyUiSchema = uiSchema[name]
+  if (!isSchemaObject(propertyUiSchema)) {
+    return undefined
+  }
+
+  return structuredClone(propertyUiSchema) as UiSchema
+}
+
+export function getPropertyWidget(uiSchema: UiSchema, name: string) {
+  const propertyUiSchema = getPropertyUiSchema(uiSchema, name)
+  if (!propertyUiSchema) return undefined
+
+  const widget = propertyUiSchema["ui:widget"]
+  return typeof widget === "string" ? widget : undefined
+}
+
+export function getOrderedPropertyNames(
+  schema: RJSFSchema,
+  uiSchema: UiSchema,
+) {
+  const properties = getPropertySchemas(schema)
+  const names = Object.keys(properties)
+  const configuredOrder = uiSchema["ui:order"]
+
+  if (!Array.isArray(configuredOrder)) {
+    return names
+  }
+
+  return [
+    ...configuredOrder.filter(
+      (name): name is string =>
+        typeof name === "string" && name !== "*" && name in properties,
+    ),
+    ...names.filter((name) => !configuredOrder.includes(name)),
+  ]
 }
 
 export function getChoiceValues(schema: RJSFSchema): unknown[] {

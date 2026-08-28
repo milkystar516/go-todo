@@ -1,12 +1,19 @@
-import { useQuery } from "@tanstack/react-query"
-import { ArrowLeft } from "lucide-react"
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
+import { ArrowLeft, Pencil, Trash2 } from "lucide-react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useParams } from "react-router"
 
-import type { TodoRuleDetail } from "../../api/types"
+import { isApiErrorOfType } from "../../api/client"
+import { PROBLEM_TYPE, type TodoRuleDetail } from "../../api/types"
 import { AppPage } from "../../app/components/AppPage"
 import { PageHeader } from "../../app/components/PageHeader"
 import { getErrorMessage } from "../../lib/apiError"
+import { ConfirmActionDialog } from "#components/common/ConfirmActionDialog"
 import { Button } from "#components/ui/button"
 import {
   Card,
@@ -16,7 +23,10 @@ import {
 import { Skeleton } from "#components/ui/skeleton"
 import { TodoRulePreview } from "./components/TodoRulePreview"
 import { TodoRuleSummaryFields } from "./components/TodoRuleSummaryFields"
-import { todoRuleQueryOptions } from "./queries"
+import {
+  deleteTodoRuleMutationOptions,
+  todoRuleQueryOptions,
+} from "./queries"
 
 export function TodoRuleDetailPage() {
   const { t } = useTranslation()
@@ -82,6 +92,38 @@ function TodoRuleDetailContent({
   onBack,
 }: TodoRuleDetailContentProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const deleteMutation = useMutation(
+    deleteTodoRuleMutationOptions(queryClient),
+  )
+
+  function openEditPage() {
+    navigate(`/admin/todo-rules/${rule.id}/edit`)
+  }
+
+  async function handleDelete() {
+    await deleteMutation.mutateAsync(rule.id)
+    navigate("/admin", { replace: true })
+  }
+
+  const deleteErrorMessage = deleteMutation.isError
+    ? isApiErrorOfType(
+        deleteMutation.error,
+        PROBLEM_TYPE.DEFAULT_RULE_PROTECTED,
+      )
+      ? t("admin.todoRules.delete.defaultProtected")
+      : isApiErrorOfType(
+            deleteMutation.error,
+            PROBLEM_TYPE.RULE_IN_USE,
+          )
+        ? t("admin.todoRules.delete.ruleInUse")
+        : getErrorMessage(
+            deleteMutation.error,
+            t("common.requestFailed"),
+          )
+    : null
 
   return (
     <AppPage size="wide">
@@ -89,6 +131,28 @@ function TodoRuleDetailContent({
         leading={<BackButton onClick={onBack} />}
         title={rule.rule_name}
         description={t("admin.todoRules.detail.description")}
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={openEditPage}
+              disabled={deleteMutation.isPending}
+            >
+              <Pencil />
+              {t("common.edit")}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => setDeleteDialogOpen(true)}
+              disabled={deleteMutation.isPending}
+            >
+              <Trash2 />
+              {t("common.delete")}
+            </Button>
+          </>
+        }
       />
 
       <div className="grid items-start gap-6 lg:grid-cols-2">
@@ -96,6 +160,19 @@ function TodoRuleDetailContent({
 
         <TodoRulePreview rule={rule} />
       </div>
+
+      <ConfirmActionDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title={t("admin.todoRules.delete.title")}
+        description={t("admin.todoRules.delete.description", {
+          name: rule.rule_name,
+        })}
+        confirmLabel={t("common.delete")}
+        isPending={deleteMutation.isPending}
+        errorMessage={deleteErrorMessage}
+        onConfirm={handleDelete}
+      />
     </AppPage>
   )
 }

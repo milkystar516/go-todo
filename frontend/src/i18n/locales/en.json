@@ -113,7 +113,15 @@
         "title": "Update a task template",
         "description": "Configure fields and see how tasks created from this template will appear.",
         "submit": "Update template",
-        "back": "Back to administration"
+        "back": "Back to template details",
+        "unsupportedTitle": "This template cannot be changed in the visual editor",
+        "unsupportedDescription": "It contains JSON Schema structures that the current editor does not support, such as nested groups."
+      },
+      "delete": {
+        "title": "Delete this task template?",
+        "description": "This will permanently delete ‘{{name}}’.",
+        "defaultProtected": "The default task template cannot be deleted.",
+        "ruleInUse": "A template in use by a list or task cannot be deleted."
       },
       "detail": {
         "back": "Back to administration",
@@ -125,6 +133,10 @@
         "choiceCount_one": "{{count}} choice",
         "choiceCount_other": "{{count}} choices",
         "noFields": "This template does not contain any fields to display.",
+        "open": "Open details for {{name}}",
+        "expand": "Open the full detail page",
+        "closePanel": "Close detail panel",
+        "panelDescription": "Review the saved fields in this template.",
         "loadFailed": "The task template could not be loaded",
         "invalidTitle": "Invalid task template",
         "invalidDescription": "Check the requested task template ID."
@@ -175,6 +187,7 @@
           "radio": "Radio group",
           "multiselect": "Multi-select",
           "checkboxes": "Checkbox group",
+          "checklist": "Checklist",
           "textList": "Text list",
           "numberList": "Number list",
           "custom": "Custom field"

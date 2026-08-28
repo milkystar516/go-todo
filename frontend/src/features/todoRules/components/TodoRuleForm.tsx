@@ -68,17 +68,27 @@ const todoRuleFieldTypes = [
   "radio",
   "multiselect",
   "checkboxes",
+  "checklist",
   "textList",
   "numberList",
 ] as const
 
 export type TodoRuleFieldType =
-  (typeof todoRuleFieldTypes)[number]
+  | (typeof todoRuleFieldTypes)[number]
+  | "custom"
 
 export interface TodoRuleChoice {
   id: string
   value: string
   label: string
+  originalSchema?: RJSFSchema
+}
+
+export interface TodoRuleOriginalFieldDefinition {
+  type: TodoRuleFieldType
+  schema: RJSFSchema
+  uiSchema?: UiSchema
+  required: boolean
 }
 
 export interface TodoRuleFormField {
@@ -88,11 +98,16 @@ export interface TodoRuleFormField {
   type: TodoRuleFieldType
   required: boolean
   choices: TodoRuleChoice[]
+  originalDefinition?: TodoRuleOriginalFieldDefinition
 }
 
 export interface TodoRuleFormInitialValue {
   ruleName: string
   fields: TodoRuleFormField[]
+  originalDefinition?: {
+    contentSchema: RJSFSchema
+    uiSchema: UiSchema
+  }
 }
 
 interface TodoRuleFormProps {
@@ -153,6 +168,9 @@ function createInitialFields(
 
 function choiceSchemas(field: TodoRuleFormField) {
   return field.choices.map((choice) => ({
+    ...(choice.originalSchema
+      ? structuredClone(choice.originalSchema)
+      : {}),
     const: choice.value,
     title: choice.label.trim(),
   }))
@@ -163,9 +181,73 @@ interface GeneratedFieldDefinition {
   uiSchema?: UiSchema
 }
 
+function applyChoices(
+  schema: RJSFSchema,
+  field: TodoRuleFormField,
+) {
+  const choiceSchema =
+    schema.type === "array" &&
+    typeof schema.items === "object" &&
+    schema.items !== null &&
+    !Array.isArray(schema.items)
+      ? schema.items
+      : schema
+
+  delete choiceSchema.enum
+  choiceSchema.oneOf = choiceSchemas(field)
+}
+
+function applyArrayRequirement(
+  schema: RJSFSchema,
+  field: TodoRuleFormField,
+) {
+  if (schema.type !== "array") return
+
+  if (field.required) {
+    if (typeof schema.minItems !== "number" || schema.minItems < 1) {
+      schema.minItems = 1
+    }
+    return
+  }
+
+  const original = field.originalDefinition
+  if (
+    original?.required &&
+    original.schema.minItems === 1
+  ) {
+    delete schema.minItems
+  }
+}
+
+function preservedDefinitionForField(
+  field: TodoRuleFormField,
+): GeneratedFieldDefinition | null {
+  const original = field.originalDefinition
+  if (!original || original.type !== field.type) return null
+
+  const schema = structuredClone(original.schema)
+  schema.title = field.label.trim()
+
+  if (isChoiceField(field.type)) {
+    applyChoices(schema, field)
+  }
+
+  applyArrayRequirement(schema, field)
+
+  return {
+    schema,
+    uiSchema: original.uiSchema
+      ? structuredClone(original.uiSchema)
+      : undefined,
+  }
+}
+
 function definitionForField(
   field: TodoRuleFormField,
 ): GeneratedFieldDefinition {
+  const preservedDefinition = preservedDefinitionForField(field)
+  if (preservedDefinition) return preservedDefinition
+
   const title = field.label.trim()
   let definition: GeneratedFieldDefinition
 
@@ -290,6 +372,48 @@ function definitionForField(
         uiSchema: { "ui:widget": "checkboxes" },
       }
       break
+    case "checklist":
+      definition = {
+        schema: {
+          type: "array",
+          title,
+          default: [],
+          items: {
+            type: "object",
+            properties: {
+              text: {
+                type: "string",
+                title: "Item",
+                minLength: 1,
+              },
+              completed: {
+                type: "boolean",
+                title: "Completed",
+                default: false,
+              },
+            },
+            required: ["text", "completed"],
+            additionalProperties: false,
+          },
+        },
+        uiSchema: {
+          "ui:options": {
+            addable: true,
+            copyable: true,
+            orderable: true,
+            removable: true,
+          },
+          items: {
+            text: {
+              "ui:placeholder": "Checklist item",
+            },
+            completed: {
+              "ui:widget": "checkbox",
+            },
+          },
+        },
+      }
+      break
     case "textList":
       definition = {
         schema: {
@@ -311,11 +435,13 @@ function definitionForField(
     case "text":
       definition = { schema: { type: "string", title } }
       break
+    case "custom":
+      throw new Error(
+        "Custom fields require a preserved original definition",
+      )
   }
 
-  if (field.required && definition.schema.type === "array") {
-    definition.schema.minItems = 1
-  }
+  applyArrayRequirement(definition.schema, field)
 
   return definition
 }
@@ -323,12 +449,33 @@ function definitionForField(
 function createDefinition(
   ruleName: string,
   fields: TodoRuleFormField[],
+  originalDefinition?: TodoRuleFormInitialValue["originalDefinition"],
 ) {
   const properties: Record<string, RJSFSchema> = {}
   const required: string[] = []
-  const uiSchema: UiSchema = {
-    "ui:order": fields.map((field) => field.propertyName),
+  const contentSchema: RJSFSchema = originalDefinition
+    ? structuredClone(originalDefinition.contentSchema)
+    : {
+        $schema: "https://json-schema.org/draft/2020-12/schema",
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      }
+  const uiSchema: UiSchema = originalDefinition
+    ? structuredClone(originalDefinition.uiSchema)
+    : {}
+
+  if (
+    typeof contentSchema.properties === "object" &&
+    contentSchema.properties !== null &&
+    !Array.isArray(contentSchema.properties)
+  ) {
+    for (const propertyName of Object.keys(contentSchema.properties)) {
+      delete uiSchema[propertyName]
+    }
   }
+
+  uiSchema["ui:order"] = fields.map((field) => field.propertyName)
 
   for (const field of fields) {
     const definition = definitionForField(field)
@@ -343,16 +490,15 @@ function createDefinition(
     }
   }
 
-  const contentSchema: RJSFSchema = {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    title: ruleName.trim(),
-    type: "object",
-    properties,
-    additionalProperties: false,
-  }
+  contentSchema.title = ruleName.trim()
+  contentSchema.type = "object"
+  contentSchema.properties = properties
+  contentSchema.additionalProperties = false
 
   if (required.length > 0) {
     contentSchema.required = required
+  } else {
+    delete contentSchema.required
   }
 
   return { contentSchema, uiSchema }
@@ -398,7 +544,11 @@ export function TodoRuleForm({
           }),
       })),
     }))
-    const definition = createDefinition(ruleName, previewFields)
+    const definition = createDefinition(
+      ruleName,
+      previewFields,
+      initialValue?.originalDefinition,
+    )
     return {
       id: 0,
       rule_name: ruleName,
@@ -406,7 +556,7 @@ export function TodoRuleForm({
       ui_schema: definition.uiSchema,
       list_columns: [],
     }
-  }, [fields, ruleName, t])
+  }, [fields, initialValue?.originalDefinition, ruleName, t])
 
   function updateField(
     fieldId: string,
@@ -560,6 +710,7 @@ export function TodoRuleForm({
     const { contentSchema, uiSchema } = createDefinition(
       normalizedRuleName,
       fields,
+      initialValue?.originalDefinition,
     )
 
     try {
@@ -727,7 +878,11 @@ function TodoRuleFieldEditor({
   const labelInputId = `todo-rule-field-label-${field.id}`
   const typeInputId = `todo-rule-field-type-${field.id}`
   const requiredInputId = `todo-rule-field-required-${field.id}`
-  const fieldTypeItems = todoRuleFieldTypes.map((type) => ({
+  const availableFieldTypes =
+    field.type === "custom"
+      ? (["custom", ...todoRuleFieldTypes] as const)
+      : todoRuleFieldTypes
+  const fieldTypeItems = availableFieldTypes.map((type) => ({
     value: type,
     label: t(`admin.todoRules.form.types.${type}`),
   }))

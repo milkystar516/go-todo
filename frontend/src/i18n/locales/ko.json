@@ -112,7 +112,15 @@
         "title": "할 일 양식 수정하기",
         "description": "필드를 구성하고 이 양식으로 만들어질 할 일의 모습을 확인합니다.",
         "submit": "양식 수정하기",
-        "back": "관리로 돌아가기"
+        "back": "양식 상세로 돌아가기",
+        "unsupportedTitle": "이 양식은 시각적 편집기로 수정할 수 없습니다",
+        "unsupportedDescription": "중첩된 그룹 등 현재 편집기가 지원하지 않는 JSON Schema 구조가 포함되어 있습니다."
+      },
+      "delete": {
+        "title": "할 일 양식을 삭제할까요?",
+        "description": "‘{{name}}’ 양식을 삭제합니다. 이 작업은 되돌릴 수 없습니다.",
+        "defaultProtected": "기본 할 일 양식은 삭제할 수 없습니다.",
+        "ruleInUse": "목록이나 할 일에서 사용 중인 양식은 삭제할 수 없습니다."
       },
       "detail": {
         "back": "관리로 돌아가기",
@@ -122,6 +130,10 @@
         "required": "필수",
         "choiceCount": "선택지 {{count}}개",
         "noFields": "이 양식에는 표시할 필드가 없습니다.",
+        "open": "{{name}} 양식 상세 열기",
+        "expand": "전체 상세 페이지로 열기",
+        "closePanel": "상세 패널 닫기",
+        "panelDescription": "저장된 양식의 필드 구성을 확인합니다.",
         "loadFailed": "할 일 양식을 불러오지 못했습니다",
         "invalidTitle": "올바르지 않은 할 일 양식입니다",
         "invalidDescription": "요청한 할 일 양식 ID를 확인해주세요."
@@ -172,6 +184,7 @@
           "radio": "단일 선택 버튼",
           "multiselect": "다중 선택",
           "checkboxes": "체크박스 그룹",
+          "checklist": "체크리스트",
           "textList": "텍스트 목록",
           "numberList": "숫자 목록",
           "custom": "사용자 정의 필드"
