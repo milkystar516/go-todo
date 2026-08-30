@@ -1,7 +1,5 @@
-import type { RJSFSchema, UiSchema } from "@rjsf/utils"
 import { Minus, Plus } from "lucide-react"
 import {
-  useEffect,
   useMemo,
   useState,
   type FormEvent,
@@ -48,67 +46,16 @@ import {
   ItemTitle,
 } from "#components/ui/item"
 import { Spinner } from "#components/ui/spinner"
+import {
+  createTodoRuleDefinition,
+  isChoiceField,
+  todoRuleFieldTypes,
+  type TodoRuleChoice,
+  type TodoRuleFieldType,
+  type TodoRuleFormField,
+  type TodoRuleFormInitialValue,
+} from "../lib/fieldDefinitions"
 import { TodoRulePreview } from "./TodoRulePreview"
-
-const todoRuleFieldTypes = [
-  "text",
-  "textarea",
-  "email",
-  "url",
-  "color",
-  "date",
-  "time",
-  "datetime",
-  "number",
-  "integer",
-  "range",
-  "rating",
-  "boolean",
-  "select",
-  "radio",
-  "multiselect",
-  "checkboxes",
-  "checklist",
-  "textList",
-  "numberList",
-] as const
-
-export type TodoRuleFieldType =
-  | (typeof todoRuleFieldTypes)[number]
-  | "custom"
-
-export interface TodoRuleChoice {
-  id: string
-  value: string
-  label: string
-  originalSchema?: RJSFSchema
-}
-
-export interface TodoRuleOriginalFieldDefinition {
-  type: TodoRuleFieldType
-  schema: RJSFSchema
-  uiSchema?: UiSchema
-  required: boolean
-}
-
-export interface TodoRuleFormField {
-  id: string
-  propertyName: string
-  label: string
-  type: TodoRuleFieldType
-  required: boolean
-  choices: TodoRuleChoice[]
-  originalDefinition?: TodoRuleOriginalFieldDefinition
-}
-
-export interface TodoRuleFormInitialValue {
-  ruleName: string
-  fields: TodoRuleFormField[]
-  originalDefinition?: {
-    contentSchema: RJSFSchema
-    uiSchema: UiSchema
-  }
-}
 
 interface TodoRuleFormProps {
   initialValue?: TodoRuleFormInitialValue
@@ -119,17 +66,6 @@ interface TodoRuleFormProps {
     input: TodoRuleWriteInput,
   ) => void | Promise<void>
   onCancel?: () => void
-}
-
-const choiceFieldTypes = new Set<TodoRuleFieldType>([
-  "select",
-  "radio",
-  "multiselect",
-  "checkboxes",
-])
-
-function isChoiceField(type: TodoRuleFieldType) {
-  return choiceFieldTypes.has(type)
 }
 
 function createChoice(): TodoRuleChoice {
@@ -166,344 +102,6 @@ function createInitialFields(
     : [createField()]
 }
 
-function choiceSchemas(field: TodoRuleFormField) {
-  return field.choices.map((choice) => ({
-    ...(choice.originalSchema
-      ? structuredClone(choice.originalSchema)
-      : {}),
-    const: choice.value,
-    title: choice.label.trim(),
-  }))
-}
-
-interface GeneratedFieldDefinition {
-  schema: RJSFSchema
-  uiSchema?: UiSchema
-}
-
-function applyChoices(
-  schema: RJSFSchema,
-  field: TodoRuleFormField,
-) {
-  const choiceSchema =
-    schema.type === "array" &&
-    typeof schema.items === "object" &&
-    schema.items !== null &&
-    !Array.isArray(schema.items)
-      ? schema.items
-      : schema
-
-  delete choiceSchema.enum
-  choiceSchema.oneOf = choiceSchemas(field)
-}
-
-function applyArrayRequirement(
-  schema: RJSFSchema,
-  field: TodoRuleFormField,
-) {
-  if (schema.type !== "array") return
-
-  if (field.required) {
-    if (typeof schema.minItems !== "number" || schema.minItems < 1) {
-      schema.minItems = 1
-    }
-    return
-  }
-
-  const original = field.originalDefinition
-  if (
-    original?.required &&
-    original.schema.minItems === 1
-  ) {
-    delete schema.minItems
-  }
-}
-
-function preservedDefinitionForField(
-  field: TodoRuleFormField,
-): GeneratedFieldDefinition | null {
-  const original = field.originalDefinition
-  if (!original || original.type !== field.type) return null
-
-  const schema = structuredClone(original.schema)
-  schema.title = field.label.trim()
-
-  if (isChoiceField(field.type)) {
-    applyChoices(schema, field)
-  }
-
-  applyArrayRequirement(schema, field)
-
-  return {
-    schema,
-    uiSchema: original.uiSchema
-      ? structuredClone(original.uiSchema)
-      : undefined,
-  }
-}
-
-function definitionForField(
-  field: TodoRuleFormField,
-): GeneratedFieldDefinition {
-  const preservedDefinition = preservedDefinitionForField(field)
-  if (preservedDefinition) return preservedDefinition
-
-  const title = field.label.trim()
-  let definition: GeneratedFieldDefinition
-
-  switch (field.type) {
-    case "textarea":
-      definition = {
-        schema: { type: "string", title },
-        uiSchema: { "ui:widget": "textarea" },
-      }
-      break
-    case "email":
-      definition = {
-        schema: { type: "string", format: "email", title },
-      }
-      break
-    case "url":
-      definition = {
-        schema: { type: "string", format: "uri", title },
-      }
-      break
-    case "color":
-      definition = {
-        schema: { type: "string", format: "color", title },
-        uiSchema: { "ui:widget": "color" },
-      }
-      break
-    case "date":
-      definition = {
-        schema: { type: "string", format: "date", title },
-      }
-      break
-    case "time":
-      definition = {
-        schema: { type: "string", format: "time", title },
-      }
-      break
-    case "datetime":
-      definition = {
-        schema: {
-          type: "string",
-          format: "date-time",
-          title,
-        },
-      }
-      break
-    case "number":
-      definition = { schema: { type: "number", title } }
-      break
-    case "integer":
-      definition = { schema: { type: "integer", title } }
-      break
-    case "range":
-      definition = {
-        schema: {
-          type: "number",
-          title,
-          minimum: 0,
-          maximum: 100,
-        },
-        uiSchema: { "ui:widget": "range" },
-      }
-      break
-    case "rating":
-      definition = {
-        schema: {
-          type: "integer",
-          title,
-          minimum: 1,
-          maximum: 5,
-        },
-        uiSchema: { "ui:widget": "RatingWidget" },
-      }
-      break
-    case "boolean":
-      definition = { schema: { type: "boolean", title } }
-      break
-    case "select":
-      definition = {
-        schema: {
-          type: "string",
-          title,
-          oneOf: choiceSchemas(field),
-        },
-        uiSchema: { "ui:widget": "select" },
-      }
-      break
-    case "radio":
-      definition = {
-        schema: {
-          type: "string",
-          title,
-          oneOf: choiceSchemas(field),
-        },
-        uiSchema: { "ui:widget": "radio" },
-      }
-      break
-    case "multiselect":
-      definition = {
-        schema: {
-          type: "array",
-          title,
-          uniqueItems: true,
-          items: {
-            type: "string",
-            oneOf: choiceSchemas(field),
-          },
-        },
-        uiSchema: { "ui:widget": "select" },
-      }
-      break
-    case "checkboxes":
-      definition = {
-        schema: {
-          type: "array",
-          title,
-          uniqueItems: true,
-          items: {
-            type: "string",
-            oneOf: choiceSchemas(field),
-          },
-        },
-        uiSchema: { "ui:widget": "checkboxes" },
-      }
-      break
-    case "checklist":
-      definition = {
-        schema: {
-          type: "array",
-          title,
-          default: [],
-          items: {
-            type: "object",
-            properties: {
-              text: {
-                type: "string",
-                title: "Item",
-                minLength: 1,
-              },
-              completed: {
-                type: "boolean",
-                title: "Completed",
-                default: false,
-              },
-            },
-            required: ["text", "completed"],
-            additionalProperties: false,
-          },
-        },
-        uiSchema: {
-          "ui:options": {
-            addable: true,
-            copyable: true,
-            orderable: true,
-            removable: true,
-          },
-          items: {
-            text: {
-              "ui:placeholder": "Checklist item",
-            },
-            completed: {
-              "ui:widget": "checkbox",
-            },
-          },
-        },
-      }
-      break
-    case "textList":
-      definition = {
-        schema: {
-          type: "array",
-          title,
-          items: { type: "string" },
-        },
-      }
-      break
-    case "numberList":
-      definition = {
-        schema: {
-          type: "array",
-          title,
-          items: { type: "number" },
-        },
-      }
-      break
-    case "text":
-      definition = { schema: { type: "string", title } }
-      break
-    case "custom":
-      throw new Error(
-        "Custom fields require a preserved original definition",
-      )
-  }
-
-  applyArrayRequirement(definition.schema, field)
-
-  return definition
-}
-
-function createDefinition(
-  ruleName: string,
-  fields: TodoRuleFormField[],
-  originalDefinition?: TodoRuleFormInitialValue["originalDefinition"],
-) {
-  const properties: Record<string, RJSFSchema> = {}
-  const required: string[] = []
-  const contentSchema: RJSFSchema = originalDefinition
-    ? structuredClone(originalDefinition.contentSchema)
-    : {
-        $schema: "https://json-schema.org/draft/2020-12/schema",
-        type: "object",
-        properties: {},
-        additionalProperties: false,
-      }
-  const uiSchema: UiSchema = originalDefinition
-    ? structuredClone(originalDefinition.uiSchema)
-    : {}
-
-  if (
-    typeof contentSchema.properties === "object" &&
-    contentSchema.properties !== null &&
-    !Array.isArray(contentSchema.properties)
-  ) {
-    for (const propertyName of Object.keys(contentSchema.properties)) {
-      delete uiSchema[propertyName]
-    }
-  }
-
-  uiSchema["ui:order"] = fields.map((field) => field.propertyName)
-
-  for (const field of fields) {
-    const definition = definitionForField(field)
-    properties[field.propertyName] = definition.schema
-
-    if (definition.uiSchema) {
-      uiSchema[field.propertyName] = definition.uiSchema
-    }
-
-    if (field.required) {
-      required.push(field.propertyName)
-    }
-  }
-
-  contentSchema.title = ruleName.trim()
-  contentSchema.type = "object"
-  contentSchema.properties = properties
-  contentSchema.additionalProperties = false
-
-  if (required.length > 0) {
-    contentSchema.required = required
-  } else {
-    delete contentSchema.required
-  }
-
-  return { contentSchema, uiSchema }
-}
-
 export function TodoRuleForm({
   initialValue,
   isPending = false,
@@ -513,6 +111,20 @@ export function TodoRuleForm({
   onCancel,
 }: TodoRuleFormProps) {
   const { t } = useTranslation()
+  const generatedLabels = useMemo(
+    () => ({
+      checklistItem: t(
+        "admin.todoRules.form.checklist.item",
+      ),
+      checklistCompleted: t(
+        "admin.todoRules.form.checklist.completed",
+      ),
+      checklistItemPlaceholder: t(
+        "admin.todoRules.form.checklist.itemPlaceholder",
+      ),
+    }),
+    [t],
+  )
   const [ruleName, setRuleName] = useState(
     initialValue?.ruleName ?? "",
   )
@@ -520,12 +132,6 @@ export function TodoRuleForm({
     createInitialFields(initialValue),
   )
   const [formError, setFormError] = useState<string | null>(null)
-
-  useEffect(() => {
-    setRuleName(initialValue?.ruleName ?? "")
-    setFields(createInitialFields(initialValue))
-    setFormError(null)
-  }, [initialValue])
 
   const previewRule = useMemo<TodoRuleDetail>(() => {
     const previewFields = fields.map((field, fieldIndex) => ({
@@ -544,9 +150,10 @@ export function TodoRuleForm({
           }),
       })),
     }))
-    const definition = createDefinition(
+    const definition = createTodoRuleDefinition(
       ruleName,
       previewFields,
+      generatedLabels,
       initialValue?.originalDefinition,
     )
     return {
@@ -556,7 +163,13 @@ export function TodoRuleForm({
       ui_schema: definition.uiSchema,
       list_columns: [],
     }
-  }, [fields, initialValue?.originalDefinition, ruleName, t])
+  }, [
+    fields,
+    generatedLabels,
+    initialValue?.originalDefinition,
+    ruleName,
+    t,
+  ])
 
   function updateField(
     fieldId: string,
@@ -707,9 +320,10 @@ export function TodoRuleForm({
       return
     }
 
-    const { contentSchema, uiSchema } = createDefinition(
+    const { contentSchema, uiSchema } = createTodoRuleDefinition(
       normalizedRuleName,
       fields,
+      generatedLabels,
       initialValue?.originalDefinition,
     )
 

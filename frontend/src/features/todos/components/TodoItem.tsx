@@ -10,6 +10,7 @@ import {
 
 import type { TodoUpdateInput } from "../../../api/todos";
 import type { Todo, TodoRuleDetail } from "../../../api/types";
+import { cn } from "#lib/utils";
 import { ConfirmActionDialog } from "#components/common/ConfirmActionDialog";
 import { Button } from "#components/ui/button";
 import { Checkbox } from "#components/ui/checkbox";
@@ -121,12 +122,12 @@ export function TodoItem({
             >
               <span className="min-w-0 flex-1">
                 <span
-                  className={[
+                  className={cn(
                     "block truncate text-sm font-medium",
                     completed
                       ? "text-muted-foreground line-through"
                       : "",
-                  ].join(" ")}
+                  )}
                 >
                   {todo.title}
                 </span>
@@ -149,10 +150,10 @@ export function TodoItem({
               </span>
 
               <ChevronDown
-                className={[
+                className={cn(
                   "size-4 shrink-0 text-muted-foreground transition-transform",
                   open ? "rotate-180" : "",
-                ].join(" ")}
+                )}
               />
             </button>
           </CollapsibleTrigger>

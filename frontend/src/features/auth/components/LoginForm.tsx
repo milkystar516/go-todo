@@ -21,7 +21,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { login } from "../../../api/auth";
 import { isApiErrorOfType } from "../../../api/client";
 import { PROBLEM_TYPE } from "../../../api/types";
-import { currentUserQueryOptions } from "../queries";
+import { refreshSessionCache } from "../sessionCache";
 
 export function LoginForm({
   className,
@@ -35,9 +35,7 @@ export function LoginForm({
     mutationFn: login,
 
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: currentUserQueryOptions.queryKey,
-      });
+      await refreshSessionCache(queryClient);
 
       navigate("/", { replace: true });
     },
@@ -90,15 +88,9 @@ export function LoginForm({
                 />
               </Field>
               <Field>
-                <div className="flex items-center">
-                  <FieldLabel htmlFor="password">{t("auth.password")}</FieldLabel>
-                  <a
-                    href="#"
-                    className="ml-auto text-sm underline-offset-4 hover:underline"
-                  >
-                    {t("auth.login.forgotPassword")}
-                  </a>
-                </div>
+                <FieldLabel htmlFor="password">
+                  {t("auth.password")}
+                </FieldLabel>
                 <Input
                   id="password"
                   name="password"

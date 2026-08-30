@@ -28,43 +28,43 @@ interface AdminTabComponentProps {
   onSelectRule: (ruleId: number) => void
 }
 
-interface ViewTransitionDocument {
-  startViewTransition?: (update: () => void) => {
-    finished: Promise<void>
-  }
-}
-
 let transitionSequence = 0
 
 function runAdminViewTransition(
   kind: "open" | "close" | "switch",
   update: () => void,
 ) {
-  const viewTransitionDocument = document as unknown as ViewTransitionDocument
-
-  if (
-    !viewTransitionDocument.startViewTransition ||
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  ) {
-    update()
-    return
-  }
-
   const transitionId = String(++transitionSequence)
   const root = document.documentElement
   root.dataset.adminTransition = kind
   root.dataset.adminTransitionId = transitionId
 
-  const transition = viewTransitionDocument.startViewTransition(() => {
+  if (!shouldUseViewTransition()) {
+    update()
+    delete root.dataset.adminTransition
+    delete root.dataset.adminTransitionId
+    return
+  }
+
+  const transition = document.startViewTransition(() => {
     flushSync(update)
   })
 
-  void transition.finished.finally(() => {
+  const cleanup = () => {
     if (root.dataset.adminTransitionId === transitionId) {
       delete root.dataset.adminTransition
       delete root.dataset.adminTransitionId
     }
-  })
+  }
+
+  void transition.finished.then(cleanup, cleanup)
+}
+
+function shouldUseViewTransition() {
+  return (
+    typeof document.startViewTransition === "function" &&
+    !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  )
 }
 
 function TodoRulesTab({
@@ -83,7 +83,7 @@ function UsersTab(_props: AdminTabComponentProps) {
   return <UsersSection />
 }
 
-export function AdminPage() {
+function AdminPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -136,7 +136,7 @@ export function AdminPage() {
     }
 
     navigate(`/admin/todo-rules/${selectedRuleId}`, {
-      viewTransition: true,
+      viewTransition: shouldUseViewTransition(),
     })
   }
 
@@ -144,8 +144,7 @@ export function AdminPage() {
     <Tabs
       value={activeTab}
       onValueChange={changeTab}
-      className="space-y-6"
-      style={{ viewTransitionName: "admin-tabs" }}
+      className="space-y-6 [view-transition-name:admin-tabs]"
     >
       <TabsList variant="line" className="w-full justify-start">
         {adminTabs.map((tab) => (
@@ -182,7 +181,7 @@ export function AdminPage() {
       ) : (
         <ResizablePanelGroup
           orientation={isMobile ? "vertical" : "horizontal"}
-          className="min-h-[36rem]"
+          className="min-h-144"
         >
           <ResizablePanel
             id="admin-tabs"
@@ -213,3 +212,5 @@ export function AdminPage() {
     </AppPage>
   )
 }
+
+export { AdminPage as Component }

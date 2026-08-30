@@ -28,7 +28,7 @@ import {
   todoRuleQueryOptions,
 } from "./queries"
 
-export function TodoRuleDetailPage() {
+function TodoRuleDetailPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { ruleId: ruleIdParam } = useParams()
@@ -82,6 +82,8 @@ export function TodoRuleDetailPage() {
   )
 }
 
+export { TodoRuleDetailPage as Component }
+
 interface TodoRuleDetailContentProps {
   rule: TodoRuleDetail
   onBack: () => void
@@ -128,12 +130,12 @@ function TodoRuleDetailContent({
   return (
     <AppPage
       size="wide"
+      className="[view-transition-name:todo-rule-detail]"
       data-todo-rule-transition-fallback={
         typeof document.startViewTransition === "function"
           ? undefined
           : "page"
       }
-      style={{ viewTransitionName: "todo-rule-detail" }}
     >
       <PageHeader
         leading={<BackButton onClick={onBack} />}

@@ -28,6 +28,15 @@ export const todoQueryKeys = {
     [...todoQueryKeys.all, "detail", todoId] as const,
 };
 
+export const todoMutationKeys = {
+  all: ["todos", "mutation"] as const,
+  items: ["todos", "mutation", "item"] as const,
+  create: ["todos", "mutation", "create"] as const,
+  update: ["todos", "mutation", "item", "update"] as const,
+  toggle: ["todos", "mutation", "item", "toggle"] as const,
+  delete: ["todos", "mutation", "item", "delete"] as const,
+};
+
 export function ownerTodosQueryOptions(ownerId: number) {
   return queryOptions({
     queryKey: todoQueryKeys.owner(ownerId),
@@ -58,6 +67,7 @@ function updateTodoCaches(queryClient: QueryClient, todo: Todo) {
 
 export function createTodoMutationOptions(queryClient: QueryClient) {
   return mutationOptions({
+    mutationKey: todoMutationKeys.create,
     mutationFn: (input: TodoCreateInput) => createTodo(input),
     onSuccess: (todo) => updateTodoCaches(queryClient, todo),
   });
@@ -68,8 +78,13 @@ interface UpdateTodoVariables {
   input: TodoUpdateInput;
 }
 
+interface TodoIdVariables {
+  todoId: number;
+}
+
 export function updateTodoMutationOptions(queryClient: QueryClient) {
   return mutationOptions({
+    mutationKey: todoMutationKeys.update,
     mutationFn: ({ todoId, input }: UpdateTodoVariables) =>
       updateTodo(todoId, input),
     onSuccess: (todo) => updateTodoCaches(queryClient, todo),
@@ -78,15 +93,18 @@ export function updateTodoMutationOptions(queryClient: QueryClient) {
 
 export function toggleTodoMutationOptions(queryClient: QueryClient) {
   return mutationOptions({
-    mutationFn: (todoId: number) => toggleTodoComplete(todoId),
+    mutationKey: todoMutationKeys.toggle,
+    mutationFn: ({ todoId }: TodoIdVariables) =>
+      toggleTodoComplete(todoId),
     onSuccess: (todo) => updateTodoCaches(queryClient, todo),
   });
 }
 
 export function deleteTodoMutationOptions(queryClient: QueryClient) {
   return mutationOptions({
-    mutationFn: (todoId: number) => deleteTodo(todoId),
-    onSuccess: (_data, todoId) => {
+    mutationKey: todoMutationKeys.delete,
+    mutationFn: ({ todoId }: TodoIdVariables) => deleteTodo(todoId),
+    onSuccess: (_data, { todoId }) => {
       queryClient.removeQueries({
         queryKey: todoQueryKeys.detail(todoId),
         exact: true,

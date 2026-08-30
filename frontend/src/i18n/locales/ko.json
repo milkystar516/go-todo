@@ -166,6 +166,11 @@
         "choiceLabelDuplicate": "같은 필드에서 선택지 레이블을 중복해서 사용할 수 없습니다.",
         "addChoice": "선택지 추가",
         "removeChoice": "선택지 {{number}} 제거",
+        "checklist": {
+          "item": "항목",
+          "completed": "완료",
+          "itemPlaceholder": "체크리스트 항목"
+        },
         "types": {
           "text": "짧은 텍스트",
           "textarea": "긴 텍스트",

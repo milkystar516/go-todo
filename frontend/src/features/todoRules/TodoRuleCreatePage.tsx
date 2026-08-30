@@ -11,7 +11,7 @@ import { Button } from "#components/ui/button"
 import { TodoRuleForm } from "./components/TodoRuleForm"
 import { createTodoRuleMutationOptions } from "./queries"
 
-export function TodoRuleCreatePage() {
+function TodoRuleCreatePage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -66,3 +66,5 @@ export function TodoRuleCreatePage() {
     </AppPage>
   )
 }
+
+export { TodoRuleCreatePage as Component }

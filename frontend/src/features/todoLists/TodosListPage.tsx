@@ -1,5 +1,6 @@
 import {
   useMutation,
+  useMutationState,
   useQueries,
   useQuery,
   useQueryClient,
@@ -27,11 +28,34 @@ import {
   deleteTodoMutationOptions,
   listTodosQueryOptions,
   ownerTodosQueryOptions,
+  todoMutationKeys,
   toggleTodoMutationOptions,
   updateTodoMutationOptions,
 } from "../todos/queries";
 
-export function TodosPage() {
+interface TodoMutationState {
+  todoId: number;
+  action: "update" | "toggle" | "delete";
+  status: "idle" | "pending" | "success" | "error";
+  error: unknown;
+  submittedAt: number;
+}
+
+function latestTodoMutation(
+  states: TodoMutationState[],
+  todoId: number,
+) {
+  return states.reduce<TodoMutationState | undefined>(
+    (latest, state) =>
+      state.todoId === todoId &&
+      (!latest || state.submittedAt >= latest.submittedAt)
+        ? state
+        : latest,
+    undefined,
+  );
+}
+
+function TodosPage() {
   const { t } = useTranslation();
   const { listId } = useParams<{ listId: string }>();
   const listAccess = useOptionalListAccess();
@@ -80,6 +104,24 @@ export function TodosPage() {
   const updateMutation = useMutation(updateTodoMutationOptions(queryClient));
   const toggleMutation = useMutation(toggleTodoMutationOptions(queryClient));
   const deleteMutation = useMutation(deleteTodoMutationOptions(queryClient));
+  const todoMutationStates = useMutationState<TodoMutationState>({
+    filters: {
+      mutationKey: todoMutationKeys.items,
+    },
+    select: (mutation) => {
+      const mutationKey = mutation.options.mutationKey ?? [];
+
+      return {
+        todoId: (
+          mutation.state.variables as { todoId: number }
+        ).todoId,
+        action: mutationKey.at(-1) as TodoMutationState["action"],
+        status: mutation.state.status,
+        error: mutation.state.error,
+        submittedAt: mutation.state.submittedAt,
+      };
+    },
+  });
 
   useEffect(() => {
     setSelectedRuleId(listQuery.data?.default_rule_id ?? null);
@@ -99,43 +141,35 @@ export function TodosPage() {
 
   function isTodoPending(todoId: number) {
     return (
-      (toggleMutation.isPending && toggleMutation.variables === todoId) ||
-      (deleteMutation.isPending && deleteMutation.variables === todoId) ||
-      (updateMutation.isPending && updateMutation.variables?.todoId === todoId)
+      latestTodoMutation(todoMutationStates, todoId)?.status ===
+      "pending"
     );
   }
 
   function getTodoError(todoId: number) {
-    if (
-      toggleMutation.isError &&
-      toggleMutation.variables === todoId
-    ) {
-      return getErrorMessage(toggleMutation.error, fallbackError);
-    }
+    const failedState = latestTodoMutation(
+      todoMutationStates,
+      todoId,
+    );
 
-    if (
-      deleteMutation.isError &&
-      deleteMutation.variables === todoId
-    ) {
-      return getErrorMessage(deleteMutation.error, fallbackError);
-    }
-
-    if (
-      updateMutation.isError &&
-      updateMutation.variables?.todoId === todoId
-    ) {
-      return getErrorMessage(updateMutation.error, fallbackError);
+    if (failedState?.status === "error") {
+      return getErrorMessage(failedState.error, fallbackError);
     }
 
     return null;
   }
 
   function getTodoDeleteError(todoId: number) {
+    const latestState = latestTodoMutation(
+      todoMutationStates,
+      todoId,
+    );
+
     if (
-      deleteMutation.isError &&
-      deleteMutation.variables === todoId
+      latestState?.action === "delete" &&
+      latestState.status === "error"
     ) {
-      return getErrorMessage(deleteMutation.error, fallbackError);
+      return getErrorMessage(latestState.error, fallbackError);
     }
 
     return null;
@@ -158,7 +192,7 @@ export function TodosPage() {
   }
 
   async function handleDelete(todoId: number) {
-    await deleteMutation.mutateAsync(todoId);
+    await deleteMutation.mutateAsync({ todoId });
   }
 
   if (currentUserQuery.isError || todosQuery.isError || listQuery.isError) {
@@ -227,10 +261,14 @@ export function TodosPage() {
         isTodoPending={isTodoPending}
         getTodoError={getTodoError}
         getTodoDeleteError={getTodoDeleteError}
-        onToggleCompleted={(todoId) => toggleMutation.mutate(todoId)}
+        onToggleCompleted={(todoId) =>
+          toggleMutation.mutate({ todoId })
+        }
         onUpdate={handleUpdate}
         onDelete={handleDelete}
       />
     </AppPage>
   );
 }
+
+export { TodosPage as Component }

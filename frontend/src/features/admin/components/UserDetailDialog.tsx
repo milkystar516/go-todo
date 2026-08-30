@@ -65,7 +65,7 @@ export function UserDetailDialog({
     if (user) {
       setRole(user.role)
     }
-  }, [user?.id])
+  }, [user?.id, user?.role])
 
   function handleRoleChange(value: string) {
     if (isRole(value)) {

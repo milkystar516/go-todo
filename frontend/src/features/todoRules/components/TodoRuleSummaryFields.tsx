@@ -1,5 +1,3 @@
-import type { RJSFSchema } from "@rjsf/utils"
-import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 
 import type { TodoRuleDetail } from "../../../api/types"
@@ -17,127 +15,17 @@ import {
   ItemGroup,
   ItemTitle,
 } from "#components/ui/item"
-import {
-  getChoiceValues,
-  getItemSchema,
-  getOrderedPropertyNames,
-  getPropertyWidget,
-  getPropertySchemas,
-  isChecklistSchema,
-} from "../lib/schema"
-
-type FieldTypeKey =
-  | "text"
-  | "textarea"
-  | "email"
-  | "url"
-  | "color"
-  | "date"
-  | "time"
-  | "datetime"
-  | "number"
-  | "integer"
-  | "range"
-  | "rating"
-  | "boolean"
-  | "select"
-  | "radio"
-  | "multiselect"
-  | "checkboxes"
-  | "checklist"
-  | "textList"
-  | "numberList"
-  | "custom"
-
-interface FieldSummary {
-  name: string
-  label: string
-  type: FieldTypeKey
-  required: boolean
-  choiceCount: number
-}
+import { summarizeTodoRuleFields } from "../lib/fieldDefinitions"
 
 interface TodoRuleSummaryFieldsProps {
   rule: TodoRuleDetail
-}
-
-function fieldType(schema: RJSFSchema, widget?: string): FieldTypeKey {
-  if (widget === "RatingWidget") return "rating"
-  if (widget === "range") return "range"
-  if (widget === "textarea") return "textarea"
-  if (widget === "radio") return "radio"
-  if (widget === "checkboxes") return "checkboxes"
-
-  if (schema.type === "array") {
-    if (isChecklistSchema(schema)) return "checklist"
-
-    const items = getItemSchema(schema)
-
-    if (items && getChoiceValues(items).length > 0) {
-      return "multiselect"
-    }
-
-    return items?.type === "number" || items?.type === "integer"
-      ? "numberList"
-      : "textList"
-  }
-
-  if (getChoiceValues(schema).length > 0) return "select"
-  if (schema.type === "boolean") return "boolean"
-  if (schema.type === "number") return "number"
-  if (schema.type === "integer") return "integer"
-
-  if (schema.type === "string") {
-    if (schema.format === "email") return "email"
-    if (schema.format === "uri") return "url"
-    if (schema.format === "color") return "color"
-    if (schema.format === "date") return "date"
-    if (schema.format === "time") return "time"
-    if (schema.format === "date-time") return "datetime"
-    return "text"
-  }
-
-  return "custom"
-}
-
-function summarizeFields(rule: TodoRuleDetail): FieldSummary[] {
-  const properties = getPropertySchemas(rule.content_schema)
-  const orderedNames = getOrderedPropertyNames(
-    rule.content_schema,
-    rule.ui_schema,
-  )
-  const required = new Set(
-    Array.isArray(rule.content_schema.required)
-      ? rule.content_schema.required
-      : [],
-  )
-
-  return orderedNames.map((name) => {
-    const schema = properties[name]
-    const items = getItemSchema(schema)
-    const choices =
-      schema.type === "array" && items
-        ? getChoiceValues(items)
-        : getChoiceValues(schema)
-
-    return {
-      name,
-      label:
-        typeof schema.title === "string" && schema.title.trim()
-          ? schema.title
-          : name,
-      type: fieldType(schema, getPropertyWidget(rule.ui_schema, name)),
-      required: required.has(name),
-      choiceCount: choices.length,
-    }
-  })
 }
 
 export function TodoRuleSummaryFields({
   rule,
 }: TodoRuleSummaryFieldsProps) {
   const { t } = useTranslation()
-  const fields = useMemo(() => summarizeFields(rule), [rule])
+  const fields = summarizeTodoRuleFields(rule)
 
   return (
     <Card>

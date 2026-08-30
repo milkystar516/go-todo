@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import type { TodoUpdateInput } from "../../../api/todos";
 import type { Todo, TodoRuleDetail } from "../../../api/types";
+import { cn } from "#lib/utils";
 import { Button } from "#components/ui/button";
 import {
   Collapsible,
@@ -107,10 +108,10 @@ function CompletedTodos(props: TodoItemsProps) {
       <CollapsibleTrigger asChild>
         <Button type="button" variant="outline" size="sm">
           <ChevronDown
-            className={[
+            className={cn(
               "transition-transform",
               open ? "rotate-180" : "",
-            ].join(" ")}
+            )}
           />
           {t("todos.completed", { count: props.todos.length })}
         </Button>

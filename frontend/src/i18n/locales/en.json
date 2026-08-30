@@ -169,6 +169,11 @@
         "choiceLabelDuplicate": "Choice labels must be unique within a field.",
         "addChoice": "Add choice",
         "removeChoice": "Remove choice {{number}}",
+        "checklist": {
+          "item": "Item",
+          "completed": "Completed",
+          "itemPlaceholder": "Checklist item"
+        },
         "types": {
           "text": "Short text",
           "textarea": "Long text",

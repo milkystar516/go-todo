@@ -25,14 +25,13 @@ export function TodoRuleDetailPanel({
 
   return (
     <aside
-      className="flex h-full min-h-0 flex-col bg-background"
+      className="flex h-full min-h-0 flex-col bg-background [view-transition-name:todo-rule-detail]"
       aria-labelledby={headingId}
       data-todo-rule-transition-fallback={
         typeof document.startViewTransition === "function"
           ? undefined
           : "panel"
       }
-      style={{ viewTransitionName: "todo-rule-detail" }}
     >
       <header className="flex items-start justify-between gap-3 border-b p-4">
         <div className="min-w-0 space-y-1">
