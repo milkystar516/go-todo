@@ -1,20 +1,12 @@
 import { useQuery } from "@tanstack/react-query"
 import { Plus } from "lucide-react"
-import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
 
 import { getErrorMessage } from "../../../lib/apiError"
-import { useIsMobile } from "#hooks/use-mobile"
-import { TodoRuleDetailPanel } from "../../todoRules/components/TodoRuleDetailPanel"
 import { todoRulesQueryOptions } from "../../todoRules/queries"
 
 import { Button } from "#components/ui/button"
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "#components/ui/resizable"
 import { Skeleton } from "#components/ui/skeleton"
 import {
   Table,
@@ -27,20 +19,21 @@ import {
 
 import { TodoRulesEmpty } from "./TodoRulesEmpty"
 
-export function TodoRulesSection() {
+interface TodoRulesSectionProps {
+  selectedRuleId: number | null
+  onSelectRule: (ruleId: number) => void
+}
+
+export function TodoRulesSection({
+  selectedRuleId,
+  onSelectRule,
+}: TodoRulesSectionProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const isMobile = useIsMobile()
-  const [selectedRuleId, setSelectedRuleId] =
-    useState<number | null>(null)
   const todoRulesQuery = useQuery(todoRulesQueryOptions)
 
   function openCreatePage() {
     navigate("/admin/todo-rules/new")
-  }
-
-  function openDetailPage(ruleId: number) {
-    navigate(`/admin/todo-rules/${ruleId}`)
   }
 
   if (todoRulesQuery.isPending) {
@@ -81,48 +74,14 @@ export function TodoRulesSection() {
 
       {todoRulesQuery.data.length === 0 ? (
         <TodoRulesEmpty onCreate={openCreatePage} />
-      ) : selectedRuleId === null ? (
+      ) : (
         <div className="overflow-hidden rounded-lg border">
           <TodoRulesTable
             rules={todoRulesQuery.data}
             selectedRuleId={selectedRuleId}
-            onSelect={setSelectedRuleId}
+            onSelect={onSelectRule}
           />
         </div>
-      ) : (
-        <ResizablePanelGroup
-          orientation={isMobile ? "vertical" : "horizontal"}
-          className="min-h-[36rem] overflow-hidden rounded-lg border"
-        >
-          <ResizablePanel
-            id="todo-rules-list"
-            defaultSize={isMobile ? "45" : "58"}
-            minSize={isMobile ? "25" : "35"}
-          >
-            <div className="h-full overflow-auto">
-              <TodoRulesTable
-                rules={todoRulesQuery.data}
-                selectedRuleId={selectedRuleId}
-                onSelect={setSelectedRuleId}
-              />
-            </div>
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
-
-          <ResizablePanel
-            id="todo-rule-detail"
-            defaultSize={isMobile ? "55" : "42"}
-            minSize={isMobile ? "35" : "30"}
-            maxSize={isMobile ? "75" : "65"}
-          >
-            <TodoRuleDetailPanel
-              ruleId={selectedRuleId}
-              onExpand={() => openDetailPage(selectedRuleId)}
-              onClose={() => setSelectedRuleId(null)}
-            />
-          </ResizablePanel>
-        </ResizablePanelGroup>
       )}
     </section>
   )

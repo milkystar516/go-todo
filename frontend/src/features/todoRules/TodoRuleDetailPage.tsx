@@ -126,7 +126,15 @@ function TodoRuleDetailContent({
     : null
 
   return (
-    <AppPage size="wide">
+    <AppPage
+      size="wide"
+      data-todo-rule-transition-fallback={
+        typeof document.startViewTransition === "function"
+          ? undefined
+          : "page"
+      }
+      style={{ viewTransitionName: "todo-rule-detail" }}
+    >
       <PageHeader
         leading={<BackButton onClick={onBack} />}
         title={rule.rule_name}
