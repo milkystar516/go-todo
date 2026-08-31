@@ -2,7 +2,7 @@ import { Minus, Plus } from "lucide-react"
 import {
   useMemo,
   useState,
-  type FormEvent,
+  type SubmitEvent,
 } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -277,7 +277,7 @@ export function TodoRuleForm({
     setFormError(null)
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     setFormError(null)
 

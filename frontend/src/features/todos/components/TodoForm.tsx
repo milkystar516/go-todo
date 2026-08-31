@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { TodoUpdateInput } from "../../../api/todos";
@@ -63,7 +63,7 @@ export function TodoForm({
     () => todo?.content ?? {},
   );
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!onSubmit || readOnly || !schemaFormRef.current?.validateForm()) {
