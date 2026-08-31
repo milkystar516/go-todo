@@ -326,7 +326,6 @@ export function TodoRuleForm({
       generatedLabels,
       initialValue?.originalDefinition,
     )
-
     try {
       await onSubmit({
         rule_name: normalizedRuleName,

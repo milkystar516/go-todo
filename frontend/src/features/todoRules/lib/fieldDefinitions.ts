@@ -301,25 +301,6 @@ function applyChoices(
   choiceSchema.oneOf = choiceSchemas(field)
 }
 
-function applyArrayRequirement(
-  schema: RJSFSchema,
-  field: TodoRuleFormField,
-) {
-  if (schema.type !== "array") return
-
-  if (field.required) {
-    if (typeof schema.minItems !== "number" || schema.minItems < 1) {
-      schema.minItems = 1
-    }
-    return
-  }
-
-  const original = field.originalDefinition
-  if (original?.required && original.schema.minItems === 1) {
-    delete schema.minItems
-  }
-}
-
 function preservedDefinitionForField(
   field: TodoRuleFormField,
 ): GeneratedFieldDefinition | null {
@@ -332,8 +313,6 @@ function preservedDefinitionForField(
   if (isChoiceField(field.type)) {
     applyChoices(schema, field)
   }
-
-  applyArrayRequirement(schema, field)
 
   return {
     schema,
@@ -538,8 +517,6 @@ function definitionForField(
         "Custom fields require a preserved original definition",
       )
   }
-
-  applyArrayRequirement(definition.schema, field)
 
   return definition
 }
