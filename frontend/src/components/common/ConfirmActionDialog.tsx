@@ -45,7 +45,6 @@ export function ConfirmActionDialog({
       await onConfirm()
       onOpenChange(false)
     } catch {
-      // Keep the dialog open so the owning mutation can render its error.
     }
   }
 

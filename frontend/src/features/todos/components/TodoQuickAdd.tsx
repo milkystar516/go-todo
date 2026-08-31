@@ -59,7 +59,6 @@ export function TodoQuickAdd({
       });
       onOpenChange(false);
     } catch {
-      // The mutation error remains visible in the open form.
     }
   }
 

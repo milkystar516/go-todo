@@ -334,7 +334,6 @@ export function TodoRuleForm({
         list_columns: [],
       })
     } catch {
-      // The owning mutation renders its error without losing form state.
     }
   }
 

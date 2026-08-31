@@ -77,7 +77,6 @@ export function TodoForm({
         content,
       });
     } catch {
-      // The owning mutation renders its error without losing form state.
     }
   }
 

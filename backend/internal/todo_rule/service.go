@@ -177,9 +177,6 @@ func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName str
 				return fmt.Errorf("lock todo rule for update: %w", err)
 			}
 
-			// A missing root property is an explicit field deletion. Do not infer
-			// deletions from nested/composed schema changes: rename and type-change
-			// migrations require semantics that a JSON Schema diff cannot provide.
 			_, err = tx.Exec(
 				ctx,
 				`WITH deleted AS (

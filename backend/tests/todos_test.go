@@ -613,8 +613,6 @@ func TestRepeatedRuleUpdatesPruneOnlyRemovedRootFields(t *testing.T) {
 	var completedSecond todo.Todo
 	decodeJSON(t, completeResp, &completedSecond)
 
-	// Adding a required field is allowed without rewriting old Todos. Removed
-	// root properties, however, are pruned from every affected Todo.
 	secondSchema := schema(map[string]any{
 		"title":    map[string]any{"type": "string", "minLength": 1},
 		"deadline": map[string]any{"type": "string", "format": "date"},
@@ -665,8 +663,6 @@ func TestRepeatedRuleUpdatesPruneOnlyRemovedRootFields(t *testing.T) {
 		)
 	}
 
-	// Re-adding a previously removed property, even with a default, must not
-	// resurrect or backfill content that was deliberately pruned.
 	thirdSchema := schema(map[string]any{
 		"title": map[string]any{"type": "string", "minLength": 2},
 		"memo":  map[string]any{"type": "string", "default": "new default"},

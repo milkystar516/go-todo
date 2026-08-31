@@ -135,7 +135,6 @@ export function TodoListForm({
         memberIds,
       });
     } catch {
-      // The owning mutation renders its error without losing form state.
     }
   }
 

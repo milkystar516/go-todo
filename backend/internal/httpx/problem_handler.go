@@ -2,8 +2,6 @@ package httpx
 
 import "net/http"
 
-// ProblemFallbackHandler converts ServeMux-generated 404 and 405 responses into
-// Problem Details responses while preserving the method-derived Allow header.
 func ProblemFallbackHandler(mux *http.ServeMux) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handler, pattern := mux.Handler(r)
