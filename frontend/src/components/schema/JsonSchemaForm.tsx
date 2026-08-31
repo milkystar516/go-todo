@@ -14,7 +14,6 @@ const todoFormTemplates = {
 
 export interface JsonSchemaFormHandle {
   validateForm: () => boolean
-  getFormData: () => Record<string, unknown>
 }
 
 interface JsonSchemaFormProps {
@@ -46,17 +45,8 @@ export const JsonSchemaForm = forwardRef<
     ref,
     () => ({
       validateForm: () => formRef.current?.validateForm() ?? false,
-      getFormData: () => {
-        const currentForm = formRef.current
-        const currentFormData = currentForm?.state.formData ?? formData
-
-        return currentForm?.state.schemaUtils.omitExtraData(
-          schema,
-          currentFormData,
-        ) ?? currentFormData
-      },
     }),
-    [formData, schema],
+    [],
   )
 
   return (
@@ -75,6 +65,7 @@ export const JsonSchemaForm = forwardRef<
       disabled={disabled}
       liveValidate="onBlur"
       omitExtraData
+      liveOmit="onChange"
       showErrorList={false}
     >
       <></>

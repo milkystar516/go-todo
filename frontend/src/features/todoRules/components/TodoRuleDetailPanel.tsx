@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { Maximize2, X } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router"
 
 import { getErrorMessage } from "../../../lib/apiError"
 import { Button } from "#components/ui/button"
@@ -10,13 +11,11 @@ import { todoRuleQueryOptions } from "../queries"
 
 interface TodoRuleDetailPanelProps {
   ruleId: number
-  onExpand: () => void
   onClose: () => void
 }
 
 export function TodoRuleDetailPanel({
   ruleId,
-  onExpand,
   onClose,
 }: TodoRuleDetailPanelProps) {
   const { t } = useTranslation()
@@ -59,13 +58,17 @@ export function TodoRuleDetailPanel({
 
         <div className="flex shrink-0 items-center gap-1">
           <Button
-            type="button"
+            asChild
             variant="ghost"
             size="icon-sm"
-            aria-label={t("admin.todoRules.detail.expand")}
-            onClick={onExpand}
           >
-            <Maximize2 />
+            <Link
+              to={`/admin/todo-rules/${ruleId}`}
+              viewTransition
+              aria-label={t("admin.todoRules.detail.expand")}
+            >
+              <Maximize2 />
+            </Link>
           </Button>
           <Button
             type="button"

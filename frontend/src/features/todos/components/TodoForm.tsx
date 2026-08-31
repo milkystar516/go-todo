@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { TodoUpdateInput } from "../../../api/todos";
@@ -60,14 +60,8 @@ export function TodoForm({
   const [title, setTitle] = useState(todo?.title ?? "");
   const [dueAt, setDueAt] = useState(toDateTimeLocal(todo?.due_at));
   const [content, setContent] = useState<Record<string, unknown>>(
-    todo?.content ?? {},
+    () => todo?.content ?? {},
   );
-
-  useEffect(() => {
-    setTitle(todo?.title ?? "");
-    setDueAt(toDateTimeLocal(todo?.due_at));
-    setContent(todo?.content ?? {});
-  }, [rule.id, todo?.id]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -76,13 +70,11 @@ export function TodoForm({
       return;
     }
 
-    const validatedContent = schemaFormRef.current.getFormData();
-
     try {
       await onSubmit({
         title,
         due_at: dueAt ? new Date(dueAt).toISOString() : null,
-        content: validatedContent,
+        content,
       });
     } catch {
       // The owning mutation renders its error without losing form state.

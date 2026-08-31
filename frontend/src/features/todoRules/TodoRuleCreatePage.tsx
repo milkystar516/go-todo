@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { ArrowLeft } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router"
+import { Link, useNavigate } from "react-router"
 
 import type { TodoRuleWriteInput } from "../../api/todoRules"
 import { AppPage } from "../../app/components/AppPage"
@@ -20,7 +20,7 @@ function TodoRuleCreatePage() {
   )
 
   function returnToAdmin() {
-    navigate("/admin")
+    navigate("/admin/todo-rules")
   }
 
   async function handleCreate(input: TodoRuleWriteInput) {
@@ -32,15 +32,11 @@ function TodoRuleCreatePage() {
     <AppPage size="wide">
       <PageHeader
         leading={
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="-ml-3"
-            onClick={returnToAdmin}
-          >
-            <ArrowLeft />
-            {t("admin.todoRules.create.back")}
+          <Button asChild variant="ghost" size="sm" className="-ml-3">
+            <Link to="/admin/todo-rules" viewTransition>
+              <ArrowLeft />
+              {t("admin.todoRules.create.back")}
+            </Link>
           </Button>
         }
         title={t("admin.todoRules.create.title")}

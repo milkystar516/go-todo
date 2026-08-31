@@ -6,7 +6,7 @@ import {
 import { ArrowLeft } from "lucide-react"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate, useParams } from "react-router"
+import { Link, useNavigate, useParams } from "react-router"
 
 import type { TodoRuleWriteInput } from "../../api/todoRules"
 import type { TodoRuleDetail } from "../../api/types"
@@ -24,7 +24,6 @@ import {
 
 function TodoRuleEditPage() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const { ruleId: ruleIdParam } = useParams()
   const ruleId = Number(ruleIdParam)
   const hasValidRuleId = Number.isSafeInteger(ruleId) && ruleId > 0
@@ -32,10 +31,6 @@ function TodoRuleEditPage() {
     ...todoRuleQueryOptions(ruleId),
     enabled: hasValidRuleId,
   })
-
-  function returnToDetail() {
-    navigate(`/admin/todo-rules/${ruleId}`)
-  }
 
   if (!hasValidRuleId) {
     return (
@@ -52,7 +47,7 @@ function TodoRuleEditPage() {
     return (
       <AppPage size="wide">
         <PageHeader
-          leading={<BackButton onClick={returnToDetail} />}
+          leading={<BackButton to={`/admin/todo-rules/${ruleId}`} />}
           title={<Skeleton className="h-8 w-56" />}
           description={<Skeleton className="h-4 w-80" />}
         />
@@ -65,7 +60,7 @@ function TodoRuleEditPage() {
     return (
       <AppPage>
         <PageHeader
-          leading={<BackButton onClick={returnToDetail} />}
+          leading={<BackButton to={`/admin/todo-rules/${ruleId}`} />}
           title={t("admin.todoRules.detail.loadFailed")}
           description={getErrorMessage(
             todoRuleQuery.error,
@@ -110,7 +105,7 @@ function TodoRuleEditContent({ rule }: { rule: TodoRuleDetail }) {
     return (
       <AppPage>
         <PageHeader
-          leading={<BackButton onClick={returnToDetail} />}
+          leading={<BackButton to={`/admin/todo-rules/${rule.id}`} />}
           title={t("admin.todoRules.edit.unsupportedTitle")}
           description={t("admin.todoRules.edit.unsupportedDescription")}
         />
@@ -121,7 +116,7 @@ function TodoRuleEditContent({ rule }: { rule: TodoRuleDetail }) {
   return (
     <AppPage size="wide">
       <PageHeader
-        leading={<BackButton onClick={returnToDetail} />}
+        leading={<BackButton to={`/admin/todo-rules/${rule.id}`} />}
         title={t("admin.todoRules.edit.title")}
         description={t(
           "admin.todoRules.edit.description",
@@ -150,19 +145,20 @@ function TodoRuleEditContent({ rule }: { rule: TodoRuleDetail }) {
 
 export { TodoRuleEditPage as Component }
 
-function BackButton({ onClick }: { onClick: () => void }) {
+function BackButton({ to }: { to: string }) {
   const { t } = useTranslation()
 
   return (
     <Button
-      type="button"
+      asChild
       variant="ghost"
       size="sm"
       className="-ml-3"
-      onClick={onClick}
     >
-      <ArrowLeft />
-      {t("admin.todoRules.edit.back")}
+      <Link to={to} viewTransition>
+        <ArrowLeft />
+        {t("admin.todoRules.edit.back")}
+      </Link>
     </Button>
   )
 }

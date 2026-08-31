@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import {
   useMutation,
   useQuery,
@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 
-import { ROLES, type Role } from "../../../api/types"
+import { ROLES, type Role, type User } from "../../../api/types"
 import { getErrorMessage } from "../../../lib/apiError"
 import {
   currentUserQueryOptions,
@@ -46,59 +46,18 @@ export function UserDetailDialog({
   onClose,
 }: UserDetailDialogProps) {
   const { t } = useTranslation()
-  const queryClient = useQueryClient()
-
   const userQuery = useQuery(userQueryOptions(userId))
   const currentUserQuery = useQuery(currentUserQueryOptions)
-
-  const roleMutation = useMutation(
-    updateUserRoleMutationOptions(queryClient),
-  )
-
-  const [role, setRole] = useState<Role | null>(null)
-
   const user = userQuery.data
   const currentUser = currentUserQuery.data
-  const isOwnUser = user?.id === currentUser?.id
-
-  useEffect(() => {
-    if (user) {
-      setRole(user.role)
-    }
-  }, [user?.id, user?.role])
-
-  function handleRoleChange(value: string) {
-    if (isRole(value)) {
-      roleMutation.reset()
-      setRole(value)
-    }
-  }
-
-  function handleConfirm() {
-    if (
-      !user ||
-      !currentUser ||
-      role === null ||
-      role === user.role ||
-      isOwnUser
-    ) {
-      return
-    }
-
-    roleMutation.mutate(
-      {
-        userId: user.id,
-        role,
-      },
-      { onSuccess: onClose },
-    )
-  }
+  const [isRoleMutationPending, setIsRoleMutationPending] =
+    useState(false)
 
   return (
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open && !roleMutation.isPending) {
+        if (!open && !isRoleMutationPending) {
           onClose()
         }
       }}
@@ -135,102 +94,21 @@ export function UserDetailDialog({
             </p>
           )}
 
-        {user && currentUser && role !== null && (
-          <div className="space-y-6">
-            <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">
-              <dt className="text-muted-foreground">
-                {t("admin.users.id")}
-              </dt>
-              <dd>{user.id}</dd>
-
-              <dt className="text-muted-foreground">
-                {t("admin.users.username")}
-              </dt>
-              <dd>{user.username}</dd>
-
-              <dt className="text-muted-foreground">
-                {t("admin.users.nickname")}
-              </dt>
-              <dd>{user.nickname ?? "—"}</dd>
-            </dl>
-
-            <div className="space-y-2">
-              <label
-                htmlFor="user-role"
-                className="text-sm font-medium"
-              >
-                {t("admin.users.role")}
-              </label>
-
-              <Select
-                value={role}
-                onValueChange={handleRoleChange}
-                disabled={
-                  isOwnUser ||
-                  roleMutation.isPending
-                }
-              >
-                <SelectTrigger
-                  id="user-role"
-                  className="w-full"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-
-                <SelectContent>
-                  {ROLES.map((roleOption) => (
-                    <SelectItem key={roleOption} value={roleOption}>
-                      {t(`admin.users.roles.${roleOption}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {isOwnUser && (
-                <p className="text-xs text-muted-foreground">
-                  {t("admin.users.detail.ownRole")}
-                </p>
-              )}
-            </div>
-
-            {roleMutation.isError && (
-              <p className="text-sm text-destructive" role="alert">
-                {getErrorMessage(
-                  roleMutation.error,
-                  t("common.requestFailed"),
-                )}
-              </p>
-            )}
-          </div>
+        {user && currentUser ? (
+          <UserRoleEditor
+            key={user.id}
+            user={user}
+            currentUser={currentUser}
+            onPendingChange={setIsRoleMutationPending}
+            onClose={onClose}
+          />
+        ) : (
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              {t("common.cancel")}
+            </Button>
+          </DialogFooter>
         )}
-
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            disabled={roleMutation.isPending}
-          >
-            {t("common.cancel")}
-          </Button>
-
-          <Button
-            type="button"
-            disabled={
-              !user ||
-              !currentUser ||
-              role === null ||
-              role === user.role ||
-              isOwnUser ||
-              roleMutation.isPending
-            }
-            onClick={handleConfirm}
-          >
-            {roleMutation.isPending
-              ? t("admin.users.detail.saving")
-              : t("common.confirm")}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
@@ -244,5 +122,133 @@ function UserDetailSkeleton() {
       <Skeleton className="h-4 w-32" />
       <Skeleton className="h-9 w-full" />
     </div>
+  )
+}
+
+interface UserRoleEditorProps {
+  user: User
+  currentUser: User
+  onPendingChange: (isPending: boolean) => void
+  onClose: () => void
+}
+
+function UserRoleEditor({
+  user,
+  currentUser,
+  onPendingChange,
+  onClose,
+}: UserRoleEditorProps) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [role, setRole] = useState<Role>(user.role)
+  const roleMutation = useMutation(
+    updateUserRoleMutationOptions(queryClient),
+  )
+  const isOwnUser = user.id === currentUser.id
+
+  function handleRoleChange(value: string) {
+    if (isRole(value)) {
+      roleMutation.reset()
+      setRole(value)
+    }
+  }
+
+  async function handleConfirm() {
+    if (role === user.role || isOwnUser) {
+      return
+    }
+
+    onPendingChange(true)
+
+    try {
+      await roleMutation.mutateAsync({ userId: user.id, role })
+      onPendingChange(false)
+      onClose()
+    } catch {
+      onPendingChange(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="space-y-6">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">
+          <dt className="text-muted-foreground">{t("admin.users.id")}</dt>
+          <dd>{user.id}</dd>
+
+          <dt className="text-muted-foreground">
+            {t("admin.users.username")}
+          </dt>
+          <dd>{user.username}</dd>
+
+          <dt className="text-muted-foreground">
+            {t("admin.users.nickname")}
+          </dt>
+          <dd>{user.nickname ?? "—"}</dd>
+        </dl>
+
+        <div className="space-y-2">
+          <label htmlFor="user-role" className="text-sm font-medium">
+            {t("admin.users.role")}
+          </label>
+
+          <Select
+            value={role}
+            onValueChange={handleRoleChange}
+            disabled={isOwnUser || roleMutation.isPending}
+          >
+            <SelectTrigger id="user-role" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+
+            <SelectContent>
+              {ROLES.map((roleOption) => (
+                <SelectItem key={roleOption} value={roleOption}>
+                  {t(`admin.users.roles.${roleOption}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {isOwnUser && (
+            <p className="text-xs text-muted-foreground">
+              {t("admin.users.detail.ownRole")}
+            </p>
+          )}
+        </div>
+
+        {roleMutation.isError && (
+          <p className="text-sm text-destructive" role="alert">
+            {getErrorMessage(
+              roleMutation.error,
+              t("common.requestFailed"),
+            )}
+          </p>
+        )}
+      </div>
+
+      <DialogFooter>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
+          disabled={roleMutation.isPending}
+        >
+          {t("common.cancel")}
+        </Button>
+
+        <Button
+          type="button"
+          disabled={
+            role === user.role || isOwnUser || roleMutation.isPending
+          }
+          onClick={handleConfirm}
+        >
+          {roleMutation.isPending
+            ? t("admin.users.detail.saving")
+            : t("common.confirm")}
+        </Button>
+      </DialogFooter>
+    </>
   )
 }

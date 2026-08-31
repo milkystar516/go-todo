@@ -1,32 +1,24 @@
-import type { ComponentType } from "react"
 import { useState } from "react"
 import { flushSync } from "react-dom"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router"
+import { NavLink, Outlet } from "react-router"
 
 import { AppPage } from "../../app/components/AppPage"
 import { PageHeader } from "../../app/components/PageHeader"
 import { useIsMobile } from "#hooks/use-mobile"
+import { buttonVariants } from "#components/ui/button"
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "#components/ui/resizable"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "#components/ui/tabs"
+import { cn } from "#lib/utils"
 
-import { TodoRulesSection } from "./components/TodoRulesSection"
-import { UsersSection } from "./components/UsersSection"
 import { TodoRuleDetailPanel } from "../todoRules/components/TodoRuleDetailPanel"
-
-interface AdminTabComponentProps {
-  selectedRuleId: number | null
-  onSelectRule: (ruleId: number) => void
-}
+import {
+  adminTabs,
+  type AdminTabComponentProps,
+} from "./adminTabs"
 
 let transitionSequence = 0
 
@@ -67,45 +59,11 @@ function shouldUseViewTransition() {
   )
 }
 
-function TodoRulesTab({
-  selectedRuleId,
-  onSelectRule,
-}: AdminTabComponentProps) {
-  return (
-    <TodoRulesSection
-      selectedRuleId={selectedRuleId}
-      onSelectRule={onSelectRule}
-    />
-  )
-}
-
-function UsersTab(_props: AdminTabComponentProps) {
-  return <UsersSection />
-}
-
 function AdminPage() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const isMobile = useIsMobile()
-  const [activeTab, setActiveTab] = useState("rules")
   const [selectedRuleId, setSelectedRuleId] =
     useState<number | null>(null)
-  const adminTabs = [
-    {
-      value: "rules",
-      label: t("admin.todoRulesTab"),
-      component: TodoRulesTab,
-    },
-    {
-      value: "users",
-      label: t("admin.usersTab"),
-      component: UsersTab,
-    },
-  ] satisfies ReadonlyArray<{
-    value: string
-    label: string
-    component: ComponentType<AdminTabComponentProps>
-  }>
 
   function selectRule(ruleId: number) {
     runAdminViewTransition(
@@ -118,55 +76,42 @@ function AdminPage() {
     runAdminViewTransition("close", () => setSelectedRuleId(null))
   }
 
-  function changeTab(value: string) {
-    if (value !== "rules" && selectedRuleId !== null) {
-      runAdminViewTransition("close", () => {
-        setActiveTab(value)
-        setSelectedRuleId(null)
-      })
-      return
-    }
-
-    setActiveTab(value)
-  }
-
-  function expandRuleDetail() {
-    if (selectedRuleId === null) {
-      return
-    }
-
-    navigate(`/admin/todo-rules/${selectedRuleId}`, {
-      viewTransition: shouldUseViewTransition(),
-    })
-  }
-
-  const tabs = (
-    <Tabs
-      value={activeTab}
-      onValueChange={changeTab}
-      className="space-y-6 [view-transition-name:admin-tabs]"
-    >
-      <TabsList variant="line" className="w-full justify-start">
+  const adminContent = (
+    <div className="space-y-6 [view-transition-name:admin-tabs]">
+      <nav
+        aria-label={t("admin.title")}
+        className="flex w-full items-center gap-1 border-b"
+      >
         {adminTabs.map((tab) => (
-          <TabsTrigger key={tab.value} value={tab.value}>
-            {tab.label}
-          </TabsTrigger>
+          <NavLink
+            key={tab.value}
+            to={tab.to}
+            viewTransition
+            className={({ isActive }) =>
+              cn(
+                buttonVariants({ variant: "ghost", size: "sm" }),
+                "rounded-none border-b-2 border-transparent",
+                isActive && "border-foreground text-foreground",
+              )
+            }
+            onClick={() => {
+              if (tab.value !== "rules" && selectedRuleId !== null) {
+                setSelectedRuleId(null)
+              }
+            }}
+          >
+            {t(tab.labelKey)}
+          </NavLink>
         ))}
-      </TabsList>
+      </nav>
 
-      {adminTabs.map((tab) => {
-        const Component = tab.component
-
-        return (
-          <TabsContent key={tab.value} value={tab.value}>
-            <Component
-              selectedRuleId={selectedRuleId}
-              onSelectRule={selectRule}
-            />
-          </TabsContent>
-        )
-      })}
-    </Tabs>
+      <Outlet
+        context={{
+          selectedRuleId,
+          onSelectRule: selectRule,
+        } satisfies AdminTabComponentProps}
+      />
+    </div>
   )
 
   return (
@@ -177,7 +122,7 @@ function AdminPage() {
       />
 
       {selectedRuleId === null ? (
-        tabs
+        adminContent
       ) : (
         <ResizablePanelGroup
           orientation={isMobile ? "vertical" : "horizontal"}
@@ -188,7 +133,7 @@ function AdminPage() {
             defaultSize={isMobile ? "45" : "58"}
             minSize={isMobile ? "25" : "35"}
           >
-            <div className="h-full overflow-y-auto">{tabs}</div>
+            <div className="h-full overflow-y-auto">{adminContent}</div>
           </ResizablePanel>
 
           <ResizableHandle withHandle className="mx-4" />
@@ -202,7 +147,6 @@ function AdminPage() {
             <div className="h-full overflow-hidden rounded-lg border">
               <TodoRuleDetailPanel
                 ruleId={selectedRuleId}
-                onExpand={expandRuleDetail}
                 onClose={closeRulePanel}
               />
             </div>

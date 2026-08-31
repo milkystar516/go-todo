@@ -2,7 +2,6 @@ import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { TodoUpdateInput } from "../../../api/todos";
 import type { Todo, TodoRuleDetail } from "../../../api/types";
 import { cn } from "#lib/utils";
 import { Button } from "#components/ui/button";
@@ -24,15 +23,6 @@ interface TodoListProps {
   isLoading?: boolean;
   onAdd?: () => void;
   canManage: (todo: Todo) => boolean;
-  isTodoPending: (todoId: number) => boolean;
-  getTodoError: (todoId: number) => string | null;
-  getTodoDeleteError: (todoId: number) => string | null;
-  onToggleCompleted: (todoId: number) => void;
-  onUpdate: (
-    todoId: number,
-    input: TodoUpdateInput,
-  ) => Promise<void>;
-  onDelete: (todoId: number) => Promise<void>;
 }
 
 function TodoListSkeleton() {
@@ -63,12 +53,6 @@ function TodoItems({
   todos,
   rulesById,
   canManage,
-  isTodoPending,
-  getTodoError,
-  getTodoDeleteError,
-  onToggleCompleted,
-  onUpdate,
-  onDelete,
 }: TodoItemsProps) {
   return (
     <ItemGroup className="gap-2">
@@ -82,12 +66,6 @@ function TodoItems({
             rule={rule}
             metadata={getTodoListMetadata(todo, rule)}
             canManage={canManage(todo)}
-            isPending={isTodoPending(todo.id)}
-            errorMessage={getTodoError(todo.id)}
-            deleteErrorMessage={getTodoDeleteError(todo.id)}
-            onToggleCompleted={onToggleCompleted}
-            onUpdate={onUpdate}
-            onDelete={onDelete}
           />
         );
       })}
@@ -130,12 +108,6 @@ export function TodoList({
   isLoading = false,
   onAdd,
   canManage,
-  isTodoPending,
-  getTodoError,
-  getTodoDeleteError,
-  onToggleCompleted,
-  onUpdate,
-  onDelete,
 }: TodoListProps) {
   if (isLoading) {
     return <TodoListSkeleton />;
@@ -148,12 +120,6 @@ export function TodoList({
   const sharedProps = {
     rulesById,
     canManage,
-    isTodoPending,
-    getTodoError,
-    getTodoDeleteError,
-    onToggleCompleted,
-    onUpdate,
-    onDelete,
   };
 
   return (

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { Plus } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router"
+import { Link } from "react-router"
 
 import { getErrorMessage } from "../../../lib/apiError"
 import { todoRulesQueryOptions } from "../../todoRules/queries"
@@ -29,12 +29,7 @@ export function TodoRulesSection({
   onSelectRule,
 }: TodoRulesSectionProps) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const todoRulesQuery = useQuery(todoRulesQueryOptions)
-
-  function openCreatePage() {
-    navigate("/admin/todo-rules/new")
-  }
 
   if (todoRulesQuery.isPending) {
     return <TodoRulesTableSkeleton />
@@ -65,15 +60,17 @@ export function TodoRulesSection({
         </div>
 
         {todoRulesQuery.data.length > 0 && (
-          <Button type="button" onClick={openCreatePage}>
-            <Plus />
-            {t("admin.todoRules.create.action")}
+          <Button asChild>
+            <Link to="/admin/todo-rules/new" viewTransition>
+              <Plus />
+              {t("admin.todoRules.create.action")}
+            </Link>
           </Button>
         )}
       </div>
 
       {todoRulesQuery.data.length === 0 ? (
-        <TodoRulesEmpty onCreate={openCreatePage} />
+        <TodoRulesEmpty />
       ) : (
         <div className="overflow-hidden rounded-lg border">
           <TodoRulesTable

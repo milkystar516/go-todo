@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { Link, useLocation } from "react-router"
+import { NavLink } from "react-router"
 
 import {
   SidebarMenu,
@@ -18,31 +18,22 @@ export function NavMain({
     icon: ReactNode
   }[]
 }) {
-  const location = useLocation()
-
   return (
     <SidebarMenu>
-      {items.map((item) => {
-        const isActive = item.url === "/"
-          ? location.pathname === "/"
-          : location.pathname === item.url ||
-            location.pathname.startsWith(`${item.url}/`)
-
-        return (
-          <SidebarMenuItem key={item.url}>
-            <SidebarMenuButton
-              asChild
-              isActive={isActive}
-              tooltip={item.title}
-            >
-              <Link to={item.url}>
+      {items.map((item) => (
+        <SidebarMenuItem key={item.url}>
+          <SidebarMenuButton
+            asChild
+            tooltip={item.title}
+            className="aria-[current=page]:bg-sidebar-accent aria-[current=page]:font-medium aria-[current=page]:text-sidebar-accent-foreground"
+          >
+            <NavLink to={item.url} end={item.url === "/"}>
               {item.icon}
               <span>{item.title}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        )
-      })}
+            </NavLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      ))}
     </SidebarMenu>
   )
 }

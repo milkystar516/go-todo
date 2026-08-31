@@ -17,9 +17,6 @@ interface TodoRulePreviewProps {
   className?: string
 }
 
-async function ignoreTodoUpdate() {}
-async function ignoreTodoDelete() {}
-
 export function TodoRulePreview({
   rule,
   className,
@@ -65,9 +62,6 @@ export function TodoRulePreview({
           canManage={false}
           defaultOpen
           showTitleInput={false}
-          onToggleCompleted={() => {}}
-          onUpdate={ignoreTodoUpdate}
-          onDelete={ignoreTodoDelete}
         />
       </CardContent>
     </Card>

@@ -1,5 +1,6 @@
 import { FileJson, Plus } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router"
 
 import { Button } from "#components/ui/button"
 import {
@@ -11,13 +12,7 @@ import {
   EmptyTitle,
 } from "#components/ui/empty"
 
-interface TodoRulesEmptyProps {
-  onCreate: () => void
-}
-
-export function TodoRulesEmpty({
-  onCreate,
-}: TodoRulesEmptyProps) {
+export function TodoRulesEmpty() {
   const { t } = useTranslation()
 
   return (
@@ -37,9 +32,11 @@ export function TodoRulesEmpty({
       </EmptyHeader>
 
       <EmptyContent>
-        <Button type="button" onClick={onCreate}>
-          <Plus />
-          {t("admin.todoRules.create.action")}
+        <Button asChild>
+          <Link to="/admin/todo-rules/new" viewTransition>
+            <Plus />
+            {t("admin.todoRules.create.action")}
+          </Link>
         </Button>
       </EmptyContent>
     </Empty>

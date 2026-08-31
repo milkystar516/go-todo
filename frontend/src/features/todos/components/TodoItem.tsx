@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
   ChevronDown,
@@ -8,8 +9,8 @@ import {
   Trash2,
 } from "lucide-react";
 
-import type { TodoUpdateInput } from "../../../api/todos";
 import type { Todo, TodoRuleDetail } from "../../../api/types";
+import { getErrorMessage } from "../../../lib/apiError";
 import { cn } from "#lib/utils";
 import { ConfirmActionDialog } from "#components/common/ConfirmActionDialog";
 import { Button } from "#components/ui/button";
@@ -32,6 +33,11 @@ import {
   ItemContent,
 } from "#components/ui/item";
 import type { TodoListMetadataItem } from "../lib/listMetadata";
+import {
+  deleteTodoMutationOptions,
+  toggleTodoMutationOptions,
+  updateTodoMutationOptions,
+} from "../queries";
 import { TodoForm } from "./TodoForm";
 
 interface TodoItemProps {
@@ -41,15 +47,6 @@ interface TodoItemProps {
   canManage: boolean;
   defaultOpen?: boolean;
   showTitleInput?: boolean;
-  isPending?: boolean;
-  errorMessage?: string | null;
-  deleteErrorMessage?: string | null;
-  onToggleCompleted: (todoId: number) => void;
-  onUpdate: (
-    todoId: number,
-    input: TodoUpdateInput,
-  ) => Promise<void>;
-  onDelete: (todoId: number) => Promise<void>;
 }
 
 function formatMetadataValue(value: unknown) {
@@ -75,17 +72,35 @@ export function TodoItem({
   canManage,
   defaultOpen = false,
   showTitleInput = true,
-  isPending = false,
-  errorMessage,
-  deleteErrorMessage,
-  onToggleCompleted,
-  onUpdate,
-  onDelete,
 }: TodoItemProps) {
   const { t, i18n } = useTranslation();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(defaultOpen);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const mutationScope = { id: `todo:${todo.id}` };
+  const updateMutation = useMutation({
+    ...updateTodoMutationOptions(queryClient),
+    scope: mutationScope,
+  });
+  const toggleMutation = useMutation({
+    ...toggleTodoMutationOptions(queryClient),
+    scope: mutationScope,
+  });
+  const deleteMutation = useMutation({
+    ...deleteTodoMutationOptions(queryClient),
+    scope: mutationScope,
+  });
   const completed = todo.completed_at !== null;
+  const fallbackError = t("common.requestFailed");
+  const toggleErrorMessage = toggleMutation.isError
+    ? getErrorMessage(toggleMutation.error, fallbackError)
+    : null;
+  const updateErrorMessage = updateMutation.isError
+    ? getErrorMessage(updateMutation.error, fallbackError)
+    : null;
+  const deleteErrorMessage = deleteMutation.isError
+    ? getErrorMessage(deleteMutation.error, fallbackError)
+    : null;
   const dueAt = todo.due_at
     ? new Intl.DateTimeFormat(i18n.language, {
         dateStyle: "medium",
@@ -105,13 +120,17 @@ export function TodoItem({
       >
         <Checkbox
           checked={completed}
-          disabled={!canManage || isPending}
+          disabled={
+            !canManage ||
+            toggleMutation.isPending ||
+            deleteMutation.isPending
+          }
           aria-label={
             completed
               ? t("todos.actions.markIncomplete")
               : t("todos.actions.markComplete")
           }
-          onCheckedChange={() => onToggleCompleted(todo.id)}
+          onCheckedChange={() => toggleMutation.mutate({ todoId: todo.id })}
         />
 
         <ItemContent className="min-w-0">
@@ -168,7 +187,7 @@ export function TodoItem({
                   variant="ghost"
                   size="icon-sm"
                   aria-label={t("todos.actions.menu")}
-                  disabled={isPending}
+                  disabled={deleteMutation.isPending}
                 >
                   <MoreHorizontal />
                 </Button>
@@ -181,6 +200,9 @@ export function TodoItem({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   variant="destructive"
+                  disabled={
+                    updateMutation.isPending || toggleMutation.isPending
+                  }
                   onSelect={() => setDeleteDialogOpen(true)}
                 >
                   <Trash2 />
@@ -196,14 +218,21 @@ export function TodoItem({
         <div className="mt-2 rounded-xl border bg-card p-4">
           {rule ? (
             <TodoForm
+              key={`${todo.id}:${rule.id}`}
               rule={rule}
               todo={todo}
               readOnly={!canManage}
               showTitleInput={showTitleInput}
-              isPending={isPending}
+              isPending={updateMutation.isPending || deleteMutation.isPending}
+              errorMessage={updateErrorMessage}
               onSubmit={
                 canManage
-                  ? (input) => onUpdate(todo.id, input)
+                  ? async (input) => {
+                      await updateMutation.mutateAsync({
+                        todoId: todo.id,
+                        input,
+                      });
+                    }
                   : undefined
               }
             />
@@ -215,9 +244,9 @@ export function TodoItem({
         </div>
       </CollapsibleContent>
 
-      {errorMessage && (
+      {toggleErrorMessage && (
         <p className="mt-2 px-2 text-sm text-destructive" role="alert">
-          {errorMessage}
+          {toggleErrorMessage}
         </p>
       )}
 
@@ -227,9 +256,9 @@ export function TodoItem({
         title={t("todos.delete.title")}
         description={t("todos.delete.description", { title: todo.title })}
         confirmLabel={t("common.delete")}
-        isPending={isPending}
+        isPending={deleteMutation.isPending}
         errorMessage={deleteErrorMessage}
-        onConfirm={() => onDelete(todo.id)}
+        onConfirm={() => deleteMutation.mutateAsync({ todoId: todo.id })}
       />
     </Collapsible>
   );

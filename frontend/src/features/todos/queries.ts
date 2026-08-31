@@ -28,9 +28,7 @@ export const todoQueryKeys = {
     [...todoQueryKeys.all, "detail", todoId] as const,
 };
 
-export const todoMutationKeys = {
-  all: ["todos", "mutation"] as const,
-  items: ["todos", "mutation", "item"] as const,
+const todoMutationKeys = {
   create: ["todos", "mutation", "create"] as const,
   update: ["todos", "mutation", "item", "update"] as const,
   toggle: ["todos", "mutation", "item", "toggle"] as const,
@@ -60,7 +58,7 @@ export function todoQueryOptions(todoId: number) {
 
 function updateTodoCaches(queryClient: QueryClient, todo: Todo) {
   queryClient.setQueryData(todoQueryKeys.detail(todo.id), todo);
-  void queryClient.invalidateQueries({
+  return queryClient.invalidateQueries({
     queryKey: todoQueryKeys.collections(),
   });
 }
@@ -109,7 +107,7 @@ export function deleteTodoMutationOptions(queryClient: QueryClient) {
         queryKey: todoQueryKeys.detail(todoId),
         exact: true,
       });
-      void queryClient.invalidateQueries({
+      return queryClient.invalidateQueries({
         queryKey: todoQueryKeys.collections(),
       });
     },
