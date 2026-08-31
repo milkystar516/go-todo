@@ -6,6 +6,7 @@ import {
 } from "react-router";
 
 import { queryClient } from "./queryClient";
+import { RootRouteErrorBoundary } from "./components/RootRouteErrorBoundary";
 import { AppLayout } from "./layouts/AppLayout";
 import { AuthLayout } from "./layouts/AuthLayout";
 import { RootLayout } from "./layouts/RootLayout";
@@ -19,7 +20,7 @@ import {
 } from "../features/admin/adminTabs";
 
 async function redirectAuthenticatedUser() {
-  const currentUser = await queryClient.fetchQuery(
+  const currentUser = await queryClient.query(
     currentUserQueryOptions,
   );
 
@@ -28,7 +29,10 @@ async function redirectAuthenticatedUser() {
 
 export const appRouter = createBrowserRouter(
   createRoutesFromElements(
-    <Route element={<RootLayout />}>
+    <Route
+      element={<RootLayout />}
+      errorElement={<RootRouteErrorBoundary />}
+    >
       <Route
         loader={redirectAuthenticatedUser}
         element={<AuthLayout />}

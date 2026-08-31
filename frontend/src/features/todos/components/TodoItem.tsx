@@ -42,7 +42,7 @@ import { TodoForm } from "./TodoForm";
 
 interface TodoItemProps {
   todo: Todo;
-  rule?: TodoRuleDetail;
+  rule: TodoRuleDetail;
   metadata: TodoListMetadataItem[];
   canManage: boolean;
   defaultOpen?: boolean;
@@ -216,31 +216,25 @@ export function TodoItem({
 
       <CollapsibleContent>
         <div className="mt-2 rounded-xl border bg-card p-4">
-          {rule ? (
-            <TodoForm
-              key={`${todo.id}:${rule.id}`}
-              rule={rule}
-              todo={todo}
-              readOnly={!canManage}
-              showTitleInput={showTitleInput}
-              isPending={updateMutation.isPending || deleteMutation.isPending}
-              errorMessage={updateErrorMessage}
-              onSubmit={
-                canManage
-                  ? async (input) => {
-                      await updateMutation.mutateAsync({
-                        todoId: todo.id,
-                        input,
-                      });
-                    }
-                  : undefined
-              }
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {t("todos.ruleUnavailable")}
-            </p>
-          )}
+          <TodoForm
+            key={`${todo.id}:${rule.id}`}
+            rule={rule}
+            todo={todo}
+            readOnly={!canManage}
+            showTitleInput={showTitleInput}
+            isPending={updateMutation.isPending || deleteMutation.isPending}
+            errorMessage={updateErrorMessage}
+            onSubmit={
+              canManage
+                ? (input) => {
+                    updateMutation.mutate({
+                      todoId: todo.id,
+                      input,
+                    });
+                  }
+                : undefined
+            }
+          />
         </div>
       </CollapsibleContent>
 
@@ -258,7 +252,16 @@ export function TodoItem({
         confirmLabel={t("common.delete")}
         isPending={deleteMutation.isPending}
         errorMessage={deleteErrorMessage}
-        onConfirm={() => deleteMutation.mutateAsync({ todoId: todo.id })}
+        onConfirm={() => {
+          deleteMutation.mutate(
+            { todoId: todo.id },
+            {
+              onSuccess: () => {
+                setDeleteDialogOpen(false);
+              },
+            },
+          );
+        }}
       />
     </Collapsible>
   );

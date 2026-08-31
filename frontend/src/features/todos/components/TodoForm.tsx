@@ -1,4 +1,4 @@
-import { useRef, useState, type SubmitEvent } from "react";
+import { useId, useRef, useState, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { TodoUpdateInput } from "../../../api/todos";
@@ -24,7 +24,7 @@ interface TodoFormProps {
   isPending?: boolean;
   errorMessage?: string | null;
   submitLabel?: string;
-  onSubmit?: (input: TodoUpdateInput) => void | Promise<void>;
+  onSubmit?: (input: TodoUpdateInput) => void;
   onCancel?: () => void;
 }
 
@@ -56,6 +56,7 @@ export function TodoForm({
   onCancel,
 }: TodoFormProps) {
   const { t } = useTranslation();
+  const idPrefix = `todo-${useId().replaceAll(":", "")}`;
   const schemaFormRef = useRef<JsonSchemaFormHandle>(null);
   const [title, setTitle] = useState(todo?.title ?? "");
   const [dueAt, setDueAt] = useState(toDateTimeLocal(todo?.due_at));
@@ -63,21 +64,18 @@ export function TodoForm({
     () => todo?.content ?? {},
   );
 
-  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
+  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!onSubmit || readOnly || !schemaFormRef.current?.validateForm()) {
       return;
     }
 
-    try {
-      await onSubmit({
-        title,
-        due_at: dueAt ? new Date(dueAt).toISOString() : null,
-        content,
-      });
-    } catch {
-    }
+    onSubmit({
+      title,
+      due_at: dueAt ? new Date(dueAt).toISOString() : null,
+      content,
+    });
   }
 
   return (
@@ -85,11 +83,11 @@ export function TodoForm({
       <FieldGroup className="gap-4">
         {showTitleInput && (
           <Field>
-            <FieldLabel htmlFor={`todo-title-${todo?.id ?? "new"}`}>
+            <FieldLabel htmlFor={`${idPrefix}-title`}>
               {t("todos.form.title")}
             </FieldLabel>
             <Input
-              id={`todo-title-${todo?.id ?? "new"}`}
+              id={`${idPrefix}-title`}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               maxLength={200}
@@ -100,11 +98,11 @@ export function TodoForm({
         )}
 
         <Field>
-          <FieldLabel htmlFor={`todo-due-at-${todo?.id ?? "new"}`}>
+          <FieldLabel htmlFor={`${idPrefix}-due-at`}>
             {t("todos.form.dueAt")}
           </FieldLabel>
           <Input
-            id={`todo-due-at-${todo?.id ?? "new"}`}
+            id={`${idPrefix}-due-at`}
             type="datetime-local"
             value={dueAt}
             onChange={(event) => setDueAt(event.target.value)}
@@ -115,6 +113,7 @@ export function TodoForm({
 
       <JsonSchemaForm
         ref={schemaFormRef}
+        idPrefix={`${idPrefix}-content`}
         schema={rule.content_schema}
         uiSchema={rule.ui_schema}
         formData={content}

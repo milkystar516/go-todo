@@ -62,9 +62,7 @@ interface TodoRuleFormProps {
   isPending?: boolean
   errorMessage?: string | null
   submitLabel?: string
-  onSubmit: (
-    input: TodoRuleWriteInput,
-  ) => void | Promise<void>
+  onSubmit: (input: TodoRuleWriteInput) => void
   onCancel?: () => void
 }
 
@@ -277,7 +275,7 @@ export function TodoRuleForm({
     setFormError(null)
   }
 
-  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
+  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     setFormError(null)
 
@@ -326,15 +324,12 @@ export function TodoRuleForm({
       generatedLabels,
       initialValue?.originalDefinition,
     )
-    try {
-      await onSubmit({
-        rule_name: normalizedRuleName,
-        content_schema: contentSchema,
-        ui_schema: uiSchema,
-        list_columns: [],
-      })
-    } catch {
-    }
+    onSubmit({
+      rule_name: normalizedRuleName,
+      content_schema: contentSchema,
+      ui_schema: uiSchema,
+      list_columns: [],
+    })
   }
 
   return (

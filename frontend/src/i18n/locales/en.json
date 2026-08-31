@@ -12,6 +12,15 @@
     "requestFailed": "The request could not be completed."
   },
 
+  "routeError": {
+    "title": "Something went wrong",
+    "description": "The page could not be loaded. You can return home or reload the page.",
+    "notFoundTitle": "Page not found",
+    "notFoundDescription": "The page you requested does not exist.",
+    "home": "Go home",
+    "reload": "Reload"
+  },
+
   "sidebar": {
     "nav": {
       "home": "Home",

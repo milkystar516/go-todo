@@ -46,20 +46,23 @@ export function TodoQuickAdd({
     onOpenChange(nextOpen);
   }
 
-  async function handleCreate(input: TodoUpdateInput) {
+  function handleCreate(input: TodoUpdateInput) {
     if (selectedRuleId === null) {
       return;
     }
 
-    try {
-      await createMutation.mutateAsync({
+    createMutation.mutate(
+      {
         ...input,
         list_id: listId,
         rule_id: selectedRuleId,
-      });
-      onOpenChange(false);
-    } catch {
-    }
+      },
+      {
+        onSuccess: () => {
+          onOpenChange(false);
+        },
+      },
+    );
   }
 
   if (open) {

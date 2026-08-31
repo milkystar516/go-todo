@@ -54,14 +54,21 @@ function TodosPage() {
     () => [...new Set(todos.map((todo) => todo.rule_id))],
     [todos],
   );
-  const ruleQueries = useQueries({
+  const ruleQueryState = useQueries({
     queries: ruleIds.map((ruleId) => todoRuleQueryOptions(ruleId)),
+    combine: (queries) => ({
+      rulesById: new Map(
+        queries.flatMap((query) =>
+          query.data
+            ? [[query.data.id, query.data] as const]
+            : [],
+        ),
+      ),
+      isPending: queries.some((query) => query.isPending),
+      error:
+        queries.find((query) => query.isError)?.error ?? null,
+    }),
   });
-  const rulesById = new Map(
-    ruleQueries.flatMap((query) =>
-      query.data ? [[query.data.id, query.data] as const] : [],
-    ),
-  );
 
   const activeTodos = todos.filter((todo) => todo.completed_at === null);
   const completedTodos = todos.filter((todo) => todo.completed_at !== null);
@@ -74,9 +81,17 @@ function TodosPage() {
     );
   }
 
-  if (currentUserQuery.isError || todosQuery.isError || listQuery.isError) {
+  if (
+    currentUserQuery.isError ||
+    todosQuery.isError ||
+    listQuery.isError ||
+    ruleQueryState.error
+  ) {
     const error =
-      currentUserQuery.error ?? todosQuery.error ?? listQuery.error;
+      currentUserQuery.error ??
+      todosQuery.error ??
+      listQuery.error ??
+      ruleQueryState.error;
 
     return (
       <AppPage>
@@ -91,7 +106,7 @@ function TodosPage() {
     currentUserQuery.isPending ||
     todosQuery.isPending ||
     (Boolean(listId) && listQuery.isPending) ||
-    ruleQueries.some((query) => query.isPending);
+    ruleQueryState.isPending;
 
   return (
     <AppPage>
@@ -120,7 +135,7 @@ function TodosPage() {
       <TodoList
         activeTodos={activeTodos}
         completedTodos={completedTodos}
-        rulesById={rulesById}
+        rulesById={ruleQueryState.rulesById}
         isLoading={isLoading}
         onAdd={listId ? () => setQuickAddOpen(true) : undefined}
         canManage={canManage}

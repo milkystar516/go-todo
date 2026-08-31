@@ -153,20 +153,22 @@ function UserRoleEditor({
     }
   }
 
-  async function handleConfirm() {
+  function handleConfirm() {
     if (role === user.role || isOwnUser) {
       return
     }
 
     onPendingChange(true)
 
-    try {
-      await roleMutation.mutateAsync({ userId: user.id, role })
-      onPendingChange(false)
-      onClose()
-    } catch {
-      onPendingChange(false)
-    }
+    roleMutation.mutate(
+      { userId: user.id, role },
+      {
+        onSuccess: onClose,
+        onSettled: () => {
+          onPendingChange(false)
+        },
+      },
+    )
   }
 
   return (

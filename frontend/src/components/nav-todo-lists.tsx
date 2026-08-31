@@ -57,21 +57,25 @@ export function NavTodoLists() {
     setLeavingList(list)
   }
 
-  async function handleLeave() {
+  function handleLeave() {
     if (!leavingList || !currentUserQuery.data) {
       return
     }
 
     const listPath = `/lists/${leavingList.id}`
 
-    await leaveMutation.mutateAsync(leavingList.id)
+    leaveMutation.mutate(leavingList.id, {
+      onSuccess: () => {
+        setLeavingList(null)
 
-    if (
-      location.pathname === listPath ||
-      location.pathname.startsWith(`${listPath}/`)
-    ) {
-      navigate("/")
-    }
+        if (
+          location.pathname === listPath ||
+          location.pathname.startsWith(`${listPath}/`)
+        ) {
+          navigate("/")
+        }
+      },
+    })
   }
 
   return (

@@ -58,6 +58,11 @@ function TodoItems({
     <ItemGroup className="gap-2">
       {todos.map((todo) => {
         const rule = rulesById.get(todo.rule_id);
+        if (!rule) {
+          throw new Error(
+            `Missing todo rule ${todo.rule_id} for todo ${todo.id}`,
+          );
+        }
 
         return (
           <TodoItem

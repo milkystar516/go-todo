@@ -90,15 +90,21 @@ function TodoRuleEditContent({ rule }: { rule: TodoRuleDetail }) {
     navigate(`/admin/todo-rules/${rule.id}`)
   }
 
-  async function handleUpdate(input: TodoRuleWriteInput) {
-    await updateMutation.mutateAsync({
-      ruleId: rule.id,
-      input: {
-        ...input,
-        list_columns: rule.list_columns,
+  function handleUpdate(input: TodoRuleWriteInput) {
+    updateMutation.mutate(
+      {
+        ruleId: rule.id,
+        input: {
+          ...input,
+          list_columns: rule.list_columns,
+        },
       },
-    })
-    navigate(`/admin/todo-rules/${rule.id}`, { replace: true })
+      {
+        onSuccess: () => {
+          navigate(`/admin/todo-rules/${rule.id}`, { replace: true })
+        },
+      },
+    )
   }
 
   if (!initialValue) {

@@ -11,6 +11,7 @@ import {
   removeTodoListMember,
 } from "../../api/todoLists";
 import { ApiError } from "../../api/client";
+import { todoQueryKeys } from "../todos/queries";
 
 export const todoListQueryKeys = {
   all: ["todo-lists"] as const,
@@ -54,7 +55,11 @@ export function leaveTodoListMutationOptions(
       queryClient.removeQueries({
         queryKey: todoListQueryKeys.detail(listId),
       });
-      void queryClient.invalidateQueries({
+      queryClient.removeQueries({
+        queryKey: todoQueryKeys.list(listId),
+        exact: true,
+      });
+      return queryClient.invalidateQueries({
         queryKey: todoListQueryKeys.list(),
       });
     },

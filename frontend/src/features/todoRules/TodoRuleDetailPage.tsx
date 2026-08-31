@@ -83,9 +83,12 @@ function TodoRuleDetailContent({ rule }: { rule: TodoRuleDetail }) {
     deleteTodoRuleMutationOptions(queryClient),
   )
 
-  async function handleDelete() {
-    await deleteMutation.mutateAsync(rule.id)
-    navigate("/admin/todo-rules", { replace: true })
+  function handleDelete() {
+    deleteMutation.mutate(rule.id, {
+      onSuccess: () => {
+        navigate("/admin/todo-rules", { replace: true })
+      },
+    })
   }
 
   const deleteErrorMessage = deleteMutation.isError

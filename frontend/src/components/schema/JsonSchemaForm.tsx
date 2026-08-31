@@ -17,6 +17,7 @@ export interface JsonSchemaFormHandle {
 }
 
 interface JsonSchemaFormProps {
+  idPrefix: string
   schema: RJSFSchema
   uiSchema?: UiSchema
   formData: Record<string, unknown>
@@ -30,6 +31,7 @@ export const JsonSchemaForm = forwardRef<
   JsonSchemaFormProps
 >(function JsonSchemaForm(
   {
+    idPrefix,
     schema,
     uiSchema,
     formData,
@@ -52,6 +54,7 @@ export const JsonSchemaForm = forwardRef<
   return (
     <RjsfForm
       ref={formRef}
+      idPrefix={idPrefix}
       tagName="div"
       schema={schema}
       uiSchema={uiSchema}

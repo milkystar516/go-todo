@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import type { MouseEvent, ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 
 import {
@@ -23,7 +23,7 @@ interface ConfirmActionDialogProps {
   isPending?: boolean
   errorMessage?: ReactNode
   onOpenChange: (open: boolean) => void
-  onConfirm: () => void | Promise<void>
+  onConfirm: () => void
 }
 
 export function ConfirmActionDialog({
@@ -40,12 +40,9 @@ export function ConfirmActionDialog({
 }: ConfirmActionDialogProps) {
   const { t } = useTranslation()
 
-  async function handleConfirm() {
-    try {
-      await onConfirm()
-      onOpenChange(false)
-    } catch {
-    }
+  function handleConfirm(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault()
+    onConfirm()
   }
 
   return (
@@ -74,10 +71,7 @@ export function ConfirmActionDialog({
           <AlertDialogAction
             variant={confirmVariant}
             disabled={isPending}
-            onClick={(event) => {
-              event.preventDefault()
-              void handleConfirm()
-            }}
+            onClick={handleConfirm}
           >
             {confirmLabel}
           </AlertDialogAction>
