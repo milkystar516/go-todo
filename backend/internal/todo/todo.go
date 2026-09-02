@@ -56,9 +56,9 @@ type TodoCreateRequest struct {
 }
 
 type TodoUpdateRequest struct {
-	Title   string          `json:"title" validate:"required,min=1,max=200"`
-	DueAt   *time.Time      `json:"due_at"`
-	Content json.RawMessage `json:"content" validate:"required"`
+	Title   *string         `json:"title" validate:"omitempty,min=1,max=200"`
+	DueAt   json.RawMessage `json:"due_at"`
+	Content json.RawMessage `json:"content"`
 }
 
 var errInvalidTodoContent = errors.New("invalid todo content")
@@ -326,6 +326,22 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	setTitle := req.Title != nil
+	setDueAt := len(req.DueAt) > 0
+	setContent := len(req.Content) > 0
+	if !setTitle && !setDueAt && !setContent {
+		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "empty todo update")
+		return
+	}
+
+	var dueAt *time.Time
+	if setDueAt {
+		if err := json.Unmarshal(req.DueAt, &dueAt); err != nil {
+			httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "invalid due_at")
+			return
+		}
+	}
+
 	userID := auth.UserID(r.Context())
 
 	var todo Todo
@@ -356,19 +372,23 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 				return err
 			}
 
-			validator, err := h.rules.ValidatorTx(r.Context(), tx, ruleID)
-			if err != nil {
-				return err
-			}
+			if setContent {
+				validator, err := h.rules.ValidatorTx(r.Context(), tx, ruleID)
+				if err != nil {
+					return err
+				}
 
-			if err := validator.ValidateJSON(req.Content); err != nil {
-				return errors.Join(errInvalidTodoContent, err)
+				if err := validator.ValidateJSON(req.Content); err != nil {
+					return errors.Join(errInvalidTodoContent, err)
+				}
 			}
 
 			rows, err := tx.Query(
 				r.Context(),
 				`UPDATE todos
-				SET title = @title, due_at = @due_at, content = @content
+				SET title = CASE WHEN @set_title THEN @title ELSE title END,
+				    due_at = CASE WHEN @set_due_at THEN @due_at ELSE due_at END,
+				    content = CASE WHEN @set_content THEN @content ELSE content END
 				WHERE id = @todo_id
 				  AND EXISTS (
 					SELECT 1 FROM todo_list_members AS member
@@ -378,8 +398,11 @@ func (h *Handler) updateTodo(w http.ResponseWriter, r *http.Request) {
 				  )
 				RETURNING `+todoColumns,
 				pgx.StrictNamedArgs{
-					"title":      req.Title,
-					"due_at":     req.DueAt,
+					"set_title":   setTitle,
+					"title":       req.Title,
+					"set_due_at":  setDueAt,
+					"due_at":      dueAt,
+					"set_content": setContent,
 					"content":    req.Content,
 					"todo_id":    todoID,
 					"user_id":    userID,

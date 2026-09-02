@@ -9,6 +9,10 @@ import {
   Trash2,
 } from "lucide-react";
 
+import type {
+  TodoFieldsInput,
+  TodoUpdateInput,
+} from "../../../api/todos";
 import type { Todo, TodoRuleDetail } from "../../../api/types";
 import { getErrorMessage } from "../../../lib/apiError";
 import { cn } from "#lib/utils";
@@ -63,6 +67,25 @@ function formatMetadataValue(value: unknown) {
   } catch {
     return String(value);
   }
+}
+
+function changedTodoFields(
+  todo: Todo,
+  input: TodoFieldsInput,
+): TodoUpdateInput {
+  const changes: TodoUpdateInput = {};
+
+  if (input.title !== todo.title) {
+    changes.title = input.title;
+  }
+  if (input.due_at !== todo.due_at) {
+    changes.due_at = input.due_at;
+  }
+  if (JSON.stringify(input.content) !== JSON.stringify(todo.content)) {
+    changes.content = input.content;
+  }
+
+  return changes;
 }
 
 export function TodoItem({
@@ -227,9 +250,14 @@ export function TodoItem({
             onSubmit={
               canManage
                 ? (input) => {
+                    const changes = changedTodoFields(todo, input);
+                    if (Object.keys(changes).length === 0) {
+                      return;
+                    }
+
                     updateMutation.mutate({
                       todoId: todo.id,
-                      input,
+                      input: changes,
                     });
                   }
                 : undefined

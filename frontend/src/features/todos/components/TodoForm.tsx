@@ -1,7 +1,7 @@
 import { useId, useRef, useState, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { TodoUpdateInput } from "../../../api/todos";
+import type { TodoFieldsInput } from "../../../api/todos";
 import type { Todo, TodoRuleDetail } from "../../../api/types";
 import {
   JsonSchemaForm,
@@ -24,7 +24,7 @@ interface TodoFormProps {
   isPending?: boolean;
   errorMessage?: string | null;
   submitLabel?: string;
-  onSubmit?: (input: TodoUpdateInput) => void;
+  onSubmit?: (input: TodoFieldsInput) => void;
   onCancel?: () => void;
 }
 
@@ -58,8 +58,9 @@ export function TodoForm({
   const { t } = useTranslation();
   const idPrefix = `todo-${useId().replaceAll(":", "")}`;
   const schemaFormRef = useRef<JsonSchemaFormHandle>(null);
+  const originalDueAt = toDateTimeLocal(todo?.due_at);
   const [title, setTitle] = useState(todo?.title ?? "");
-  const [dueAt, setDueAt] = useState(toDateTimeLocal(todo?.due_at));
+  const [dueAt, setDueAt] = useState(originalDueAt);
   const [content, setContent] = useState<Record<string, unknown>>(
     () => todo?.content ?? {},
   );
@@ -73,7 +74,10 @@ export function TodoForm({
 
     onSubmit({
       title,
-      due_at: dueAt ? new Date(dueAt).toISOString() : null,
+      due_at:
+        todo && dueAt === originalDueAt
+          ? todo.due_at
+          : dueAt ? new Date(dueAt).toISOString() : null,
       content,
     });
   }

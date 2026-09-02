@@ -5,19 +5,18 @@ const jsonHeaders = {
   "Content-Type": "application/json",
 };
 
-export interface TodoCreateInput {
-  list_id: string;
-  rule_id?: number | null;
-  title: string;
-  due_at?: string | null;
-  content: Record<string, unknown>;
-}
-
-export interface TodoUpdateInput {
+export interface TodoFieldsInput {
   title: string;
   due_at: string | null;
   content: Record<string, unknown>;
 }
+
+export interface TodoCreateInput extends TodoFieldsInput {
+  list_id: string;
+  rule_id?: number | null;
+}
+
+export type TodoUpdateInput = Partial<TodoFieldsInput>;
 
 export function getTodosByOwner(
   ownerId: number,

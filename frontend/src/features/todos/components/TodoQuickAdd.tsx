@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { TodoUpdateInput } from "../../../api/todos";
+import type { TodoFieldsInput } from "../../../api/todos";
 import type { TodoRule } from "../../../api/types";
 import { getErrorMessage } from "../../../lib/apiError";
 import { Button } from "#components/ui/button";
@@ -46,7 +46,7 @@ export function TodoQuickAdd({
     onOpenChange(nextOpen);
   }
 
-  function handleCreate(input: TodoUpdateInput) {
+  function handleCreate(input: TodoFieldsInput) {
     if (selectedRuleId === null) {
       return;
     }
