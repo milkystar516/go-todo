@@ -65,14 +65,26 @@ export const appRouter = createBrowserRouter(
           </Route>
 
           <Route element={<RequireAdmin />}>
-            <Route
-              path="admin"
-              lazy={() => import("../features/admin/AdminPage")}
-            >
+            <Route path="admin">
               <Route
-                index
-                loader={() => redirect("/admin/todo-rules")}
-              />
+                lazy={() => import("../features/admin/AdminPage")}
+              >
+                <Route
+                  index
+                  loader={() => redirect("/admin/todo-rules")}
+                />
+
+                <Route
+                  path="users"
+                  lazy={async () => {
+                    const { UsersSection } = await import(
+                      "../features/admin/components/UsersSection"
+                    )
+
+                    return { Component: UsersSection }
+                  }}
+                />
+              </Route>
 
               <Route
                 path="todo-rules/new"
@@ -100,17 +112,6 @@ export const appRouter = createBrowserRouter(
                   )
 
                   return { Component: TodoRulePage }
-                }}
-              />
-
-              <Route
-                path="users"
-                lazy={async () => {
-                  const { UsersSection } = await import(
-                    "../features/admin/components/UsersSection"
-                  )
-
-                  return { Component: UsersSection }
                 }}
               />
             </Route>
