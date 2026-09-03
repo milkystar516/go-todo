@@ -26,5 +26,5 @@ export function clearSessionCache(queryClient: QueryClient) {
 export async function refreshSessionCache(queryClient: QueryClient) {
   removeUserQueries(queryClient)
 
-  return queryClient.query(currentUserQueryOptions)
+  return queryClient.fetchQuery(currentUserQueryOptions)
 }

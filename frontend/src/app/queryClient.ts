@@ -31,6 +31,7 @@ queryClient = new QueryClient({
   mutationCache,
   defaultOptions: {
     queries: {
+      refetchOnWindowFocus: false,
       retry: (failureCount, error) =>
         !isApiErrorOfType(
           error,

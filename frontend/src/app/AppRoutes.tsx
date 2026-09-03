@@ -20,7 +20,7 @@ import {
 } from "../features/admin/adminTabs";
 
 async function redirectAuthenticatedUser() {
-  const currentUser = await queryClient.query(
+  const currentUser = await queryClient.ensureQueryData(
     currentUserQueryOptions,
   );
 
