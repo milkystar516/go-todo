@@ -12,11 +12,8 @@ import { AuthLayout } from "./layouts/AuthLayout";
 import { RootLayout } from "./layouts/RootLayout";
 import { RequireAuth } from "../features/guards/RequireAuth";
 import { RequireAdmin } from "../features/guards/RequireAdmin";
-import { RequireListMember } from "../features/guards/ListAccessGuards";
 import { currentUserQueryOptions } from "../features/auth/queries";
-import {
-  adminTabs,
-} from "../features/admin/adminTabs";
+import { RequireListMember } from "../features/guards/ListAccessGuards";
 
 async function redirectAuthenticatedUser() {
   const currentUser = await queryClient.ensureQueryData(
@@ -55,7 +52,10 @@ export const appRouter = createBrowserRouter(
             }
           />
 
-          <Route path="lists/:listId" element={<RequireListMember />}>
+          <Route
+            path="lists/:listId"
+            element={<RequireListMember />}
+          >
             <Route
               index
               lazy={() =>
@@ -65,23 +65,14 @@ export const appRouter = createBrowserRouter(
           </Route>
 
           <Route element={<RequireAdmin />}>
-            <Route path="admin">
+            <Route
+              path="admin"
+              lazy={() => import("../features/admin/AdminPage")}
+            >
               <Route
-                lazy={() => import("../features/admin/AdminPage")}
-              >
-                <Route
-                  index
-                  loader={() => redirect("/admin/todo-rules")}
-                />
-
-                {adminTabs.map((tab) => (
-                  <Route
-                    key={tab.value}
-                    path={tab.path}
-                    lazy={tab.lazy}
-                  />
-                ))}
-              </Route>
+                index
+                loader={() => redirect("/admin/todo-rules")}
+              />
 
               <Route
                 path="todo-rules/new"
@@ -91,14 +82,7 @@ export const appRouter = createBrowserRouter(
                   )
                 }
               />
-              <Route
-                path="todo-rules/:ruleId"
-                lazy={() =>
-                  import(
-                    "../features/todoRules/TodoRuleDetailPage"
-                  )
-                }
-              />
+
               <Route
                 path="todo-rules/:ruleId/edit"
                 lazy={() =>
@@ -107,10 +91,32 @@ export const appRouter = createBrowserRouter(
                   )
                 }
               />
+
+              <Route
+                path="todo-rules/:ruleId?"
+                lazy={async () => {
+                  const { TodoRulePage } = await import(
+                    "../features/todoRules/TodoRulePage"
+                  )
+
+                  return { Component: TodoRulePage }
+                }}
+              />
+
+              <Route
+                path="users"
+                lazy={async () => {
+                  const { UsersSection } = await import(
+                    "../features/admin/components/UsersSection"
+                  )
+
+                  return { Component: UsersSection }
+                }}
+              />
             </Route>
           </Route>
         </Route>
       </Route>
-    </Route>,
+    </Route>
   ),
 );
