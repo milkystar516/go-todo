@@ -15,7 +15,6 @@ import { RequireAdmin } from "../features/guards/RequireAdmin";
 import { RequireListMember } from "../features/guards/ListAccessGuards";
 import { currentUserQueryOptions } from "../features/auth/queries";
 import {
-  AdminTabRoute,
   adminTabs,
 } from "../features/admin/adminTabs";
 
@@ -79,9 +78,7 @@ export const appRouter = createBrowserRouter(
                   <Route
                     key={tab.value}
                     path={tab.path}
-                    element={
-                      <AdminTabRoute component={tab.component} />
-                    }
+                    lazy={tab.lazy}
                   />
                 ))}
               </Route>
