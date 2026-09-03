@@ -1,5 +1,6 @@
-import { useState } from "react"
+import { useCallback, useRef, useState } from "react"
 
+import { useClickOutside } from "#hooks/use-click-outside"
 import { cn } from "#lib/utils"
 
 import { TodoRuleDetailPanel } from "./components/TodoRuleDetailPanel"
@@ -9,7 +10,27 @@ export function TodoRulePage() {
   const [selectedRuleId, setSelectedRuleId] =
     useState<number | null>(null)
 
+  const detailPanelRef = useRef<HTMLDivElement>(null)
+
   const detailOpen = selectedRuleId !== null
+
+  const handleClickOutside = useCallback(
+    (event: PointerEvent) => {
+      const target = event.target
+
+      if (
+        target instanceof Element &&
+        target.closest("[data-keep-rule-detail-open]")
+      ) {
+        return
+      }
+
+      setSelectedRuleId(null)
+    },
+    [],
+  )
+
+  useClickOutside(detailPanelRef, handleClickOutside)
 
   return (
     <div
@@ -39,10 +60,12 @@ export function TodoRulePage() {
         )}
       >
         {selectedRuleId !== null && (
-          <TodoRuleDetailPanel
-            ruleId={selectedRuleId}
-            onClose={() => setSelectedRuleId(null)}
-          />
+          <div ref={detailPanelRef}>
+            <TodoRuleDetailPanel
+              ruleId={selectedRuleId}
+              onClose={() => setSelectedRuleId(null)}
+            />
+          </div>
         )}
       </div>
     </div>

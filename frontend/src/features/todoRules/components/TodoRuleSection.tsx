@@ -117,12 +117,13 @@ function TodoRuleTable({
 
           return (
             <TableRow
-              key={todoRule.id}
-              className="cursor-pointer"
-              data-state={
-                isSelected ? "selected" : undefined
-              }
-              onClick={() => onSelectRule(todoRule.id)}
+                key={todoRule.id}
+                className="cursor-pointer"
+                data-state={
+                    isSelected ? "selected" : undefined
+                }
+                data-keep-rule-detail-open
+                onClick={() => onSelectRule(todoRule.id)}
             >
               <TableCell>
                 <button
