@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "#components/ui/table"
 
-import { TodoRulesEmpty } from "./TodoRulesEmpty"
+import { TodoRuleEmpty } from "./TodoRuleEmpty"
 
 interface TodoRulesSectionProps {
   selectedRuleId: number | null
@@ -70,7 +70,7 @@ export function TodoRulesSection({
       </div>
 
       {todoRulesQuery.data.length === 0 ? (
-        <TodoRulesEmpty />
+        <TodoRuleEmpty />
       ) : (
         <div className="overflow-hidden rounded-lg border">
           <TodoRulesTable

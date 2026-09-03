@@ -1,35 +1,27 @@
 import { lazy, Suspense, type ComponentType } from "react"
-import { useOutletContext } from "react-router"
-
-export interface AdminTabComponentProps {
-  selectedRuleId: number | null
-  onSelectRule: (ruleId: number) => void
-}
 
 interface AdminTabDefinition {
   value: string
   path: string
   to: string
   labelKey: string
-  component: ComponentType<AdminTabComponentProps>
+  component: ComponentType
 }
 
 const TodoRulesTab = lazy(async () => {
-  const { TodoRulesSection } = await import(
-    "./components/TodoRulesSection"
+  const { TodoRulePage } = await import(
+    "../todoRules/TodoRulePage"
   )
 
-  return { default: TodoRulesSection }
+  return { default: TodoRulePage }
 })
 
 const UsersTab = lazy(async () => {
-  const { UsersSection } = await import("./components/UsersSection")
+  const { UsersSection } = await import(
+    "./components/UsersSection"
+  )
 
-  return {
-    default: function UsersAdminTab(_props: AdminTabComponentProps) {
-      return <UsersSection />
-    },
-  }
+  return { default: UsersSection }
 })
 
 export const adminTabs = [
@@ -52,11 +44,9 @@ export const adminTabs = [
 export function AdminTabRoute({
   component: Component,
 }: Pick<AdminTabDefinition, "component">) {
-  const props = useOutletContext<AdminTabComponentProps>()
-
   return (
     <Suspense fallback={null}>
-      <Component {...props} />
+      <Component />
     </Suspense>
   )
 }

@@ -12,7 +12,7 @@ import {
   EmptyTitle,
 } from "#components/ui/empty"
 
-export function TodoRulesEmpty() {
+export function TodoRuleEmpty() {
   const { t } = useTranslation()
 
   return (
