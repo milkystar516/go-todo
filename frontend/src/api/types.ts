@@ -16,15 +16,24 @@ export interface ListColumn {
   label: string;
 }
 
+export type UserSummary = Pick<
+  User,
+  "id" | "username" | "nickname"
+>;
+
 export interface TodoRule {
   id: number;
   rule_name: string;
+  updated_at: string;
+  updated_by: UserSummary | null;
 }
 
 export interface TodoRuleDetail extends TodoRule {
   content_schema: RJSFSchema;
   ui_schema: UiSchema;
   list_columns: ListColumn[];
+  created_at: string;
+  created_by: UserSummary | null;
 }
 
 export interface TodoList {

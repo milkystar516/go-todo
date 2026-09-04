@@ -15,7 +15,7 @@ import { useClickOutside } from "#hooks/use-click-outside"
 import { cn } from "#lib/utils"
 
 import { TodoRuleDetail } from "./components/TodoRuleDetail"
-import { TodoRuleSection } from "./components/TodoRuleSection"
+import { TodoRuleTable} from "./components/TodoRuleTable"
 
 export function TodoRulePage() {
   const { ruleId: ruleIdParam } = useParams()
@@ -93,7 +93,7 @@ export function TodoRulePage() {
               : undefined
           }
         >
-          <TodoRuleSection
+          <TodoRuleTable
             selectedRuleId={selectedRuleId}
             onSelectRule={setSelectedRuleId}
           />

@@ -205,7 +205,9 @@
           "textList": "Text list",
           "numberList": "Number list",
           "custom": "Custom field"
-        }
+        },
+        "updatedAt": "Last updated",
+        "updatedBy": "Last edited by"
       }
     },
     "users": {

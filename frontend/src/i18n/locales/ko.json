@@ -202,7 +202,9 @@
           "textList": "텍스트 목록",
           "numberList": "숫자 목록",
           "custom": "사용자 정의 필드"
-        }
+        },
+        "updatedAt": "최근 수정",
+        "updatedBy": "마지막 수정자"
       }
     },
     "users": {
