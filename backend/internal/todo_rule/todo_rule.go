@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/milkystar516/go-todo/backend/internal/auth"
 	"github.com/milkystar516/go-todo/backend/internal/httpx"
@@ -27,17 +28,29 @@ type ruleTitleRequest struct {
 	RuleName string `json:"rule_name" validate:"required,max=50"`
 }
 
+type ruleUserSummary struct {
+	ID       int64   `json:"id"`
+	Username string  `json:"username"`
+	Nickname *string `json:"nickname"`
+}
+
 type ruleResponse struct {
-	ID       int64  `json:"id" db:"id"`
-	RuleName string `json:"rule_name" db:"rule_name"`
+	ID        int64            `json:"id" db:"id"`
+	RuleName  string           `json:"rule_name" db:"rule_name"`
+	UpdatedAt time.Time        `json:"updated_at" db:"updated_at"`
+	UpdatedBy *ruleUserSummary `json:"updated_by" db:"updated_by"`
 }
 
 type ruleDetailResponse struct {
-	ID            int64           `json:"id" db:"id"`
-	RuleName      string          `json:"rule_name" db:"rule_name"`
-	ContentSchema json.RawMessage `json:"content_schema" db:"content_schema"`
-	UISchema      json.RawMessage `json:"ui_schema" db:"ui_schema"`
-	ListColumns   []ListColumn    `json:"list_columns" db:"list_columns"`
+	ID            int64            `json:"id" db:"id"`
+	RuleName      string           `json:"rule_name" db:"rule_name"`
+	ContentSchema json.RawMessage  `json:"content_schema" db:"content_schema"`
+	UISchema      json.RawMessage  `json:"ui_schema" db:"ui_schema"`
+	ListColumns   []ListColumn     `json:"list_columns" db:"list_columns"`
+	CreatedAt     time.Time        `json:"created_at" db:"created_at"`
+	CreatedBy     *ruleUserSummary `json:"created_by" db:"created_by"`
+	UpdatedAt     time.Time        `json:"updated_at" db:"updated_at"`
+	UpdatedBy     *ruleUserSummary `json:"updated_by" db:"updated_by"`
 }
 
 func (r ruleDetailResponse) definition() RuleDefinition {
@@ -50,7 +63,17 @@ func (r ruleDetailResponse) definition() RuleDefinition {
 
 const ruleResponseColumns = `
 	id,
-	rule_name
+	rule_name,
+	updated_at,
+	(
+		SELECT jsonb_build_object(
+			'id', users.id,
+			'username', users.username,
+			'nickname', users.nickname
+		)
+		FROM users
+		WHERE users.id = todo_rule.updated_by
+	) AS updated_by
 `
 
 const ruleDetailResponseColumns = `
@@ -58,7 +81,27 @@ const ruleDetailResponseColumns = `
 	rule_name,
 	content_schema,
 	ui_schema,
-	list_columns
+	list_columns,
+	created_at,
+	(
+		SELECT jsonb_build_object(
+			'id', users.id,
+			'username', users.username,
+			'nickname', users.nickname
+		)
+		FROM users
+		WHERE users.id = todo_rule.created_by
+	) AS created_by,
+	updated_at,
+	(
+		SELECT jsonb_build_object(
+			'id', users.id,
+			'username', users.username,
+			'nickname', users.nickname
+		)
+		FROM users
+		WHERE users.id = todo_rule.updated_by
+	) AS updated_by
 `
 
 func NewHandler(rules *Service) *Handler {
@@ -69,7 +112,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth, requireAdmin f
 	mux.Handle("POST /todo-rules", requireAuth(requireAdmin(http.HandlerFunc(h.createRule))))
 	mux.Handle("GET /todo-rules", requireAuth(http.HandlerFunc(h.todosRulesList)))
 	mux.Handle("GET /todo-rules/{rule_id}", requireAuth(http.HandlerFunc(h.getTodoRule)))
-	mux.Handle("PATCH /todo-rules/{rule_id}", requireAuth(requireAdmin(http.HandlerFunc(h.updateRule))))
+	mux.Handle("PUT /todo-rules/{rule_id}", requireAuth(requireAdmin(http.HandlerFunc(h.updateRule))))
+	mux.Handle("PATCH /todo-rules/{rule_id}", requireAuth(requireAdmin(http.HandlerFunc(h.updateRuleTitle))))
 	mux.Handle("DELETE /todo-rules/{rule_id}", requireAuth(requireAdmin(http.HandlerFunc(h.deleteRule))))
 }
 
@@ -159,6 +203,41 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, validationErr.Error())
 		return
 	}
+	if errors.Is(err, ErrRuleNotFound) {
+		httpx.WriteProblem(w, http.StatusNotFound, "todo rule not found")
+		return
+	}
+	if err != nil {
+		httpx.ServerError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rule)
+}
+
+func (h *Handler) updateRuleTitle(w http.ResponseWriter, r *http.Request) {
+	ruleID, err := strconv.ParseInt(r.PathValue("rule_id"), 10, 64)
+	if err != nil {
+		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
+		return
+	}
+
+	var req ruleTitleRequest
+
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		httpx.WriteDecodeProblem(w, err)
+		return
+	}
+
+	req.RuleName = strings.TrimSpace(req.RuleName)
+
+	if err := validation.Validate(req); err != nil {
+		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "invalid rule request")
+		return
+	}
+
+	rule, err := h.rules.UpdateTodoRuleTitle(r.Context(), auth.UserID(r.Context()), ruleID, req.RuleName)
 	if errors.Is(err, ErrRuleNotFound) {
 		httpx.WriteProblem(w, http.StatusNotFound, "todo rule not found")
 		return

@@ -17,19 +17,19 @@ CREATE TABLE todo_rule (
     rule_name           varchar(50) NOT NULL,
     content_schema      jsonb NOT NULL,
     ui_schema           jsonb NOT NULL DEFAULT '{}'::jsonb,
-    list_columns        jsonb NOT NULL DEFAULT '[]'::jsonb
+    list_columns        jsonb NOT NULL DEFAULT '[]'::jsonb,
+
+    created_by          bigint REFERENCES users(id) ON DELETE SET NULL,
+    updated_by          bigint REFERENCES users(id) ON DELETE SET NULL,
+
+    created_at          timestamptz NOT NULL DEFAULT now(),
+    updated_at          timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE todo_lists (
     id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     name                varchar(50) NOT NULL,
     default_rule_id     bigint NOT NULL DEFAULT 1 CONSTRAINT todo_lists_default_rule_id_fkey REFERENCES todo_rule(id),
-    created_by          bigint REFERENCES users(id) ON DELETE SET NULL,
-
-    updated_by          bigint REFERENCES users(id) ON DELETE SET NULL,
-
-    created_at          timestamptz NOT NULL DEFAULT now(),
-    updated_at          timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE todo_list_members (

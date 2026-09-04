@@ -73,21 +73,22 @@ func (s *Service) ValidatorTx(ctx context.Context, tx pgx.Tx, ruleID int64) (*Co
 	return validator, nil
 }
 
-func (s *Service) CreateTodoRule(ctx context.Context, ruleName string, definition RuleDefinition) (ruleResponse, error) {
+func (s *Service) CreateTodoRule(ctx context.Context, actorID int64, ruleName string, definition RuleDefinition) (ruleResponse, error) {
 	if _, err := Compile(definition); err != nil {
 		return ruleResponse{}, err
 	}
 
 	rows, err := s.db.Query(
 		ctx,
-		`INSERT INTO todo_rule(rule_name, content_schema, ui_schema, list_columns)
-		VALUES (@rule_name, @content_schema, @ui_schema, @list_columns)
+		`INSERT INTO todo_rule(rule_name, content_schema, ui_schema, list_columns, created_by, updated_by)
+		VALUES (@rule_name, @content_schema, @ui_schema, @list_columns, @actor_id, @actor_id)
 		RETURNING `+ruleResponseColumns,
 		pgx.StrictNamedArgs{
 			"rule_name":      ruleName,
 			"content_schema": definition.ContentSchema,
 			"ui_schema":      definition.UISchema,
 			"list_columns":   definition.ListColumns,
+			"actor_id":       actorID,
 		},
 	)
 	if err != nil {
@@ -149,7 +150,7 @@ func (s *Service) GetTodoRule(ctx context.Context, ruleID int64) (ruleDetailResp
 	return rule, nil
 }
 
-func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName string, definition RuleDefinition) (ruleResponse, error) {
+func (s *Service) UpdateTodoRule(ctx context.Context, actorID int64, ruleID int64, ruleName string, definition RuleDefinition) (ruleResponse, error) {
 	if _, err := Compile(definition); err != nil {
 		return ruleResponse{}, err
 	}
@@ -211,7 +212,9 @@ func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName str
 				 SET rule_name = @rule_name,
 				     content_schema = @content_schema,
 				     ui_schema = @ui_schema,
-				     list_columns = @list_columns
+				     list_columns = @list_columns,
+				     updated_by = @actor_id,
+				     updated_at = now()
 				 WHERE id = @rule_id
 				 RETURNING `+ruleResponseColumns,
 				pgx.StrictNamedArgs{
@@ -219,6 +222,7 @@ func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName str
 					"content_schema": definition.ContentSchema,
 					"ui_schema":      definition.UISchema,
 					"list_columns":   definition.ListColumns,
+					"actor_id":       actorID,
 					"rule_id":        ruleID,
 				},
 			)
@@ -245,15 +249,18 @@ func (s *Service) UpdateTodoRule(ctx context.Context, ruleID int64, ruleName str
 	return rule, nil
 }
 
-func (s *Service) UpdateTodoRuleTitle(ctx context.Context, ruleID int64, ruleName string) (ruleResponse, error) {
+func (s *Service) UpdateTodoRuleTitle(ctx context.Context, actorID int64, ruleID int64, ruleName string) (ruleResponse, error) {
 	rows, err := s.db.Query(
 		ctx,
 		`UPDATE todo_rule
-		SET rule_name = @rule_name
+		SET rule_name = @rule_name,
+		    updated_by = @actor_id,
+		    updated_at = now()
 		WHERE id = @rule_id
 		RETURNING `+ruleResponseColumns,
 		pgx.StrictNamedArgs{
 			"rule_name": ruleName,
+			"actor_id":  actorID,
 			"rule_id":   ruleID,
 		},
 	)
