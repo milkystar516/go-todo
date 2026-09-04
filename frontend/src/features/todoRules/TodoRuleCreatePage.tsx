@@ -36,7 +36,7 @@ function TodoRuleCreatePage() {
       <PageHeader
         leading={
           <Button asChild variant="ghost" size="sm" className="-ml-3">
-            <Link to="/admin/todo-rules" viewTransition>
+            <Link to="/admin/todo-rules">
               <ArrowLeft />
               {t("admin.todoRules.create.back")}
             </Link>

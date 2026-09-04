@@ -161,7 +161,7 @@ function BackButton({ to }: { to: string }) {
       size="sm"
       className="-ml-3"
     >
-      <Link to={to} viewTransition>
+      <Link to={to}>
         <ArrowLeft />
         {t("admin.todoRules.edit.back")}
       </Link>

@@ -33,7 +33,7 @@ export function TodoRuleEmpty() {
 
       <EmptyContent>
         <Button asChild>
-          <Link to="/admin/todo-rules/new" viewTransition>
+          <Link to="/admin/todo-rules/new">
             <Plus />
             {t("admin.todoRules.create.action")}
           </Link>

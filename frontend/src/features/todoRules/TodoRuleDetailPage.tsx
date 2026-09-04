@@ -106,14 +106,7 @@ function TodoRuleDetailContent({
     : null
 
   return (
-    <div
-      className="space-y-6 [view-transition-name:todo-rule-detail]"
-      data-todo-rule-transition-fallback={
-        typeof document.startViewTransition === "function"
-          ? undefined
-          : "page"
-      }
-    >
+    <div className="space-y-6">
       <PageHeader
         leading={<BackButton />}
         title={rule.rule_name}
