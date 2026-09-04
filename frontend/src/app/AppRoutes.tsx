@@ -37,6 +37,7 @@ export const appRouter = createBrowserRouter(
           path="login"
           lazy={() => import("../features/auth/LoginPage")}
         />
+
         <Route
           path="signup"
           lazy={() => import("../features/auth/SignupPage")}
@@ -67,24 +68,14 @@ export const appRouter = createBrowserRouter(
           <Route element={<RequireAdmin />}>
             <Route path="admin">
               <Route
-                lazy={() => import("../features/admin/AdminPage")}
-              >
-                <Route
-                  index
-                  loader={() => redirect("/admin/todo-rules")}
-                />
+                index
+                loader={() => redirect("/admin/todo-rules")}
+              />
 
-                <Route
-                  path="users"
-                  lazy={async () => {
-                    const { UsersSection } = await import(
-                      "../features/admin/components/UsersSection"
-                    )
-
-                    return { Component: UsersSection }
-                  }}
-                />
-              </Route>
+              <Route
+                path="users"
+                lazy={() => import("../features/admin/UsersPage")}
+              />
 
               <Route
                 path="todo-rules/new"
@@ -109,15 +100,15 @@ export const appRouter = createBrowserRouter(
                 lazy={async () => {
                   const { TodoRulePage } = await import(
                     "../features/todoRules/TodoRulePage"
-                  )
+                  );
 
-                  return { Component: TodoRulePage }
+                  return { Component: TodoRulePage };
                 }}
               />
             </Route>
           </Route>
         </Route>
       </Route>
-    </Route>
+    </Route>,
   ),
 );

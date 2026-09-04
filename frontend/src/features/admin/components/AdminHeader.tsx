@@ -5,9 +5,18 @@ import { PageHeader } from "../../../app/components/PageHeader"
 import { buttonVariants } from "#components/ui/button"
 import { cn } from "#lib/utils"
 
-import { adminTabs } from "../adminTabs"
+const adminTabs = [
+  {
+    to: "/admin/todo-rules",
+    labelKey: "admin.todoRulesTab",
+  },
+  {
+    to: "/admin/users",
+    labelKey: "admin.usersTab",
+  },
+] as const
 
-export function AdminNavigation() {
+export function AdminHeader() {
   const { t } = useTranslation()
 
   return (
@@ -23,7 +32,7 @@ export function AdminNavigation() {
       >
         {adminTabs.map((tab) => (
           <NavLink
-            key={tab.value}
+            key={tab.to}
             to={tab.to}
             className={({ isActive }) =>
               cn(
