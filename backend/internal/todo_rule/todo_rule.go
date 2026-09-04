@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/milkystar516/go-todo/backend/internal/auth"
 	"github.com/milkystar516/go-todo/backend/internal/httpx"
 	"github.com/milkystar516/go-todo/backend/internal/validation"
 )
@@ -68,8 +69,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth, requireAdmin f
 	mux.Handle("POST /todo-rules", requireAuth(requireAdmin(http.HandlerFunc(h.createRule))))
 	mux.Handle("GET /todo-rules", requireAuth(http.HandlerFunc(h.todosRulesList)))
 	mux.Handle("GET /todo-rules/{rule_id}", requireAuth(http.HandlerFunc(h.getTodoRule)))
-	mux.Handle("PUT /todo-rules/{rule_id}", requireAuth(requireAdmin(http.HandlerFunc(h.updateRule))))
-	mux.Handle("PATCH /todo-rules/{rule_id}", requireAuth(requireAdmin(http.HandlerFunc(h.updateRuleTitle))))
+	mux.Handle("PATCH /todo-rules/{rule_id}", requireAuth(requireAdmin(http.HandlerFunc(h.updateRule))))
 	mux.Handle("DELETE /todo-rules/{rule_id}", requireAuth(requireAdmin(http.HandlerFunc(h.deleteRule))))
 }
 
@@ -85,7 +85,7 @@ func (h *Handler) createRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rule, err := h.rules.CreateTodoRule(r.Context(), req.RuleName, req.definition())
+	rule, err := h.rules.CreateTodoRule(r.Context(), auth.UserID(r.Context()), req.RuleName, req.definition())
 
 	if validationErr, ok := errors.AsType[*validationError](err); ok {
 		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, validationErr.Error())
@@ -153,47 +153,12 @@ func (h *Handler) updateRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rule, err := h.rules.UpdateTodoRule(r.Context(), ruleID, req.RuleName, req.definition())
+	rule, err := h.rules.UpdateTodoRule(r.Context(), auth.UserID(r.Context()), ruleID, req.RuleName, req.definition())
 
 	if validationErr, ok := errors.AsType[*validationError](err); ok {
 		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, validationErr.Error())
 		return
 	}
-	if errors.Is(err, ErrRuleNotFound) {
-		httpx.WriteProblem(w, http.StatusNotFound, "todo rule not found")
-		return
-	}
-	if err != nil {
-		httpx.ServerError(w, r, err)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(rule)
-}
-
-func (h *Handler) updateRuleTitle(w http.ResponseWriter, r *http.Request) {
-	ruleID, err := strconv.ParseInt(r.PathValue("rule_id"), 10, 64)
-	if err != nil {
-		httpx.WriteProblem(w, http.StatusBadRequest, "bad request")
-		return
-	}
-
-	var req ruleTitleRequest
-
-	if err := httpx.DecodeJSON(r, &req); err != nil {
-		httpx.WriteDecodeProblem(w, err)
-		return
-	}
-
-	req.RuleName = strings.TrimSpace(req.RuleName)
-
-	if err := validation.Validate(req); err != nil {
-		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "invalid rule request")
-		return
-	}
-
-	rule, err := h.rules.UpdateTodoRuleTitle(r.Context(), ruleID, req.RuleName)
 	if errors.Is(err, ErrRuleNotFound) {
 		httpx.WriteProblem(w, http.StatusNotFound, "todo rule not found")
 		return
