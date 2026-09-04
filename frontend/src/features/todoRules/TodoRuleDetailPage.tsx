@@ -6,11 +6,10 @@ import {
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Link, useNavigate, useParams } from "react-router"
+import { Link, useNavigate } from "react-router"
 
 import { isApiErrorOfType } from "../../api/client"
 import { PROBLEM_TYPE, type TodoRuleDetail } from "../../api/types"
-import { AppPage } from "../../app/components/AppPage"
 import { PageHeader } from "../../app/components/PageHeader"
 import { getErrorMessage } from "../../lib/apiError"
 import { ConfirmActionDialog } from "#components/common/ConfirmActionDialog"
@@ -28,27 +27,15 @@ import {
   todoRuleQueryOptions,
 } from "./queries"
 
-function TodoRuleDetailPage() {
+function TodoRuleDetailPage({
+  ruleId,
+  onDeleted,
+}: {
+  ruleId: number
+  onDeleted: () => void
+}) {
   const { t } = useTranslation()
-  const { ruleId: ruleIdParam } = useParams()
-  const ruleId = Number(ruleIdParam)
-  const hasValidRuleId = Number.isSafeInteger(ruleId) && ruleId > 0
-  const todoRuleQuery = useQuery({
-    ...todoRuleQueryOptions(ruleId),
-    enabled: hasValidRuleId,
-  })
-
-  if (!hasValidRuleId) {
-    return (
-      <AppPage>
-        <PageHeader
-          leading={<BackButton />}
-          title={t("admin.todoRules.detail.invalidTitle")}
-          description={t("admin.todoRules.detail.invalidDescription")}
-        />
-      </AppPage>
-    )
-  }
+  const todoRuleQuery = useQuery(todoRuleQueryOptions(ruleId))
 
   if (todoRuleQuery.isPending) {
     return <TodoRuleDetailSkeleton />
@@ -56,25 +43,34 @@ function TodoRuleDetailPage() {
 
   if (todoRuleQuery.isError) {
     return (
-      <AppPage>
-        <PageHeader
-          leading={<BackButton />}
-          title={t("admin.todoRules.detail.loadFailed")}
-          description={getErrorMessage(
-            todoRuleQuery.error,
-            t("common.requestFailed"),
-          )}
-        />
-      </AppPage>
+      <PageHeader
+        leading={<BackButton />}
+        title={t("admin.todoRules.detail.loadFailed")}
+        description={getErrorMessage(
+          todoRuleQuery.error,
+          t("common.requestFailed"),
+        )}
+      />
     )
   }
 
-  return <TodoRuleDetailContent rule={todoRuleQuery.data} />
+  return (
+    <TodoRuleDetailContent
+      rule={todoRuleQuery.data}
+      onDeleted={onDeleted}
+    />
+  )
 }
 
-export { TodoRuleDetailPage as Component }
+export { TodoRuleDetailPage }
 
-function TodoRuleDetailContent({ rule }: { rule: TodoRuleDetail }) {
+function TodoRuleDetailContent({
+  rule,
+  onDeleted,
+}: {
+  rule: TodoRuleDetail
+  onDeleted: () => void
+}) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -86,6 +82,7 @@ function TodoRuleDetailContent({ rule }: { rule: TodoRuleDetail }) {
   function handleDelete() {
     deleteMutation.mutate(rule.id, {
       onSuccess: () => {
+        onDeleted()
         navigate("/admin/todo-rules", { replace: true })
       },
     })
@@ -109,9 +106,8 @@ function TodoRuleDetailContent({ rule }: { rule: TodoRuleDetail }) {
     : null
 
   return (
-    <AppPage
-      size="wide"
-      className="[view-transition-name:todo-rule-detail]"
+    <div
+      className="space-y-6 [view-transition-name:todo-rule-detail]"
       data-todo-rule-transition-fallback={
         typeof document.startViewTransition === "function"
           ? undefined
@@ -131,10 +127,7 @@ function TodoRuleDetailContent({ rule }: { rule: TodoRuleDetail }) {
               </Button>
             ) : (
               <Button asChild variant="outline">
-                <Link
-                  to={`/admin/todo-rules/${rule.id}/edit`}
-                  viewTransition
-                >
+                <Link to={`/admin/todo-rules/${rule.id}/edit`}>
                   <Pencil />
                   {t("common.edit")}
                 </Link>
@@ -171,7 +164,7 @@ function TodoRuleDetailContent({ rule }: { rule: TodoRuleDetail }) {
         errorMessage={deleteErrorMessage}
         onConfirm={handleDelete}
       />
-    </AppPage>
+    </div>
   )
 }
 
@@ -185,7 +178,7 @@ function BackButton() {
       size="sm"
       className="-ml-3"
     >
-      <Link to="/admin/todo-rules" viewTransition>
+      <Link to="/admin/todo-rules">
         <ArrowLeft />
         {t("admin.todoRules.detail.back")}
       </Link>
@@ -195,7 +188,7 @@ function BackButton() {
 
 function TodoRuleDetailSkeleton() {
   return (
-    <AppPage size="wide">
+    <div className="space-y-6">
       <PageHeader
         leading={<BackButton />}
         title={<Skeleton className="h-8 w-48" />}
@@ -217,6 +210,6 @@ function TodoRuleDetailSkeleton() {
           </Card>
         ))}
       </div>
-    </AppPage>
+    </div>
   )
 }

@@ -1,7 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
-
-import { todoRuleQueryOptions } from "../queries"
-import { TodoRuleDetailFull } from "./TodoRuleDetailFull"
+import { TodoRuleDetailPage } from "../TodoRuleDetailPage"
 import { TodoRuleDetailPanel } from "./TodoRuleDetailPanel"
 
 interface TodoRuleDetailProps {
@@ -17,17 +14,14 @@ export function TodoRuleDetail({
   onClose,
   onDeleted,
 }: TodoRuleDetailProps) {
-  const todoRuleQuery = useQuery(todoRuleQueryOptions(ruleId))
-
   return mode === "split" ? (
     <TodoRuleDetailPanel
       ruleId={ruleId}
-      todoRuleQuery={todoRuleQuery}
       onClose={onClose}
     />
   ) : (
-    <TodoRuleDetailFull
-      todoRuleQuery={todoRuleQuery}
+    <TodoRuleDetailPage
+      ruleId={ruleId}
       onDeleted={onDeleted}
     />
   )
