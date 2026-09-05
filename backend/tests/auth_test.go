@@ -26,6 +26,61 @@ func TestAuthRoutePrefixAndAuthentication(t *testing.T) {
 	)
 }
 
+func TestListUsersRequiresAuthentication(t *testing.T) {
+	api := newTestAPI(t)
+	client := newClient(t)
+	member := api.newAuthenticatedUser(t)
+	adminClient, adminUser := api.newAdminClient(t)
+
+	unauthorizedResp := request(
+		t,
+		client,
+		http.MethodGet,
+		api.apiURL+"/users",
+	)
+	expectProblem(
+		t,
+		unauthorizedResp,
+		http.StatusUnauthorized,
+		"/problems/authentication-required",
+		"Authentication required",
+	)
+
+	memberListResp := request(
+		t,
+		member.client,
+		http.MethodGet,
+		api.apiURL+"/users",
+	)
+	expectStatus(t, memberListResp, http.StatusOK)
+
+	var memberVisibleUsers []publicUserResponse
+	decodeJSON(t, memberListResp, &memberVisibleUsers)
+
+	foundMember := false
+	foundAdmin := false
+	for _, user := range memberVisibleUsers {
+		foundMember = foundMember || user.ID == member.user.ID
+		foundAdmin = foundAdmin || user.ID == adminUser.ID
+	}
+	if !foundMember || !foundAdmin {
+		t.Fatalf(
+			"listed users missing created member or admin: member=%t admin=%t",
+			foundMember,
+			foundAdmin,
+		)
+	}
+
+	adminListResp := request(
+		t,
+		adminClient,
+		http.MethodGet,
+		api.apiURL+"/users",
+	)
+	expectStatus(t, adminListResp, http.StatusOK)
+	adminListResp.Body.Close()
+}
+
 func TestAPIProtocolErrorsUseProblemDetails(t *testing.T) {
 	api := newTestAPI(t)
 	client := newClient(t)
