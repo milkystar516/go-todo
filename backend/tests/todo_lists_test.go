@@ -16,34 +16,159 @@ type todoListMemberResponse struct {
 	Role     todolist.MemberRole `json:"role"`
 }
 
+func TestCreateTodoListWithInitialMembersAndRollback(t *testing.T) {
+	api := newTestAPI(t)
+	creator := api.newAuthenticatedUser(t)
+	member := api.newAuthenticatedUser(t)
+	adminClient, _ := api.newAdminClient(t)
+	rule := createTodoListRule(t, api, adminClient)
+
+	createResp := requestJSON(t, creator.client, http.MethodPost, api.apiURL+"/lists", map[string]any{
+		"name":            uniqueValue("shared list"),
+		"default_rule_id": rule.ID,
+		"member_ids":      []int64{creator.user.ID, member.user.ID},
+	})
+	expectStatus(t, createResp, http.StatusCreated)
+
+	var list todoListResponse
+	decodeJSON(t, createResp, &list)
+	api.registerTodoListCleanup(t, list.ID)
+
+	membersURL := fmt.Sprintf("%s/lists/%s/members", api.apiURL, list.ID)
+	membersResp := request(t, creator.client, http.MethodGet, membersURL)
+	expectStatus(t, membersResp, http.StatusOK)
+
+	var members []todoListMemberResponse
+	decodeJSON(t, membersResp, &members)
+	if len(members) != 2 {
+		t.Fatalf("members = %+v, want creator and selected member", members)
+	}
+
+	roles := make(map[int64]todolist.MemberRole, len(members))
+	for _, listMember := range members {
+		roles[listMember.ID] = listMember.Role
+	}
+	if roles[creator.user.ID] != todolist.MemberRoleOwner {
+		t.Fatalf("creator role = %q, want %q", roles[creator.user.ID], todolist.MemberRoleOwner)
+	}
+	if roles[member.user.ID] != todolist.MemberRoleMember {
+		t.Fatalf("selected member role = %q, want %q", roles[member.user.ID], todolist.MemberRoleMember)
+	}
+
+	memberGetResp := request(t, member.client, http.MethodGet, fmt.Sprintf("%s/lists/%s", api.apiURL, list.ID))
+	expectStatus(t, memberGetResp, http.StatusOK)
+	memberGetResp.Body.Close()
+
+	invalidName := uniqueValue("invalid members")
+	unknownMemberResp := requestJSON(t, creator.client, http.MethodPost, api.apiURL+"/lists", map[string]any{
+		"name":            invalidName,
+		"default_rule_id": rule.ID,
+		"member_ids":      []int64{9223372036854775807},
+	})
+	expectProblem(
+		t,
+		unknownMemberResp,
+		http.StatusUnprocessableEntity,
+		"/problems/validation-failed",
+		"Request validation failed",
+	)
+
+	var count int
+	if err := api.db.QueryRow(t.Context(), "SELECT count(*) FROM todo_lists WHERE name = $1", invalidName).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("lists named %q = %d, want 0 after rolled back create", invalidName, count)
+	}
+}
+
+func TestTodoListPatch(t *testing.T) {
+	api := newTestAPI(t)
+	owner := api.newAuthenticatedUser(t)
+	adminClient, _ := api.newAdminClient(t)
+	firstRule := createTodoListRule(t, api, adminClient)
+	secondRule := createTodoListRule(t, api, adminClient)
+	list := api.createTodoList(t, owner, firstRule.ID)
+	listURL := fmt.Sprintf("%s/lists/%s", api.apiURL, list.ID)
+
+	updatedName := uniqueValue("renamed list")
+	renameResp := requestJSON(
+		t,
+		owner.client,
+		http.MethodPatch,
+		listURL,
+		map[string]any{"name": "  " + updatedName + "  "},
+	)
+	expectStatus(t, renameResp, http.StatusOK)
+
+	var renamed todoListResponse
+	decodeJSON(t, renameResp, &renamed)
+	if renamed.Name != updatedName {
+		t.Fatalf("renamed list name = %q, want %q", renamed.Name, updatedName)
+	}
+	if renamed.DefaultRuleID != firstRule.ID {
+		t.Fatalf("renamed list default_rule_id = %d, want %d", renamed.DefaultRuleID, firstRule.ID)
+	}
+
+	ruleResp := requestJSON(
+		t,
+		owner.client,
+		http.MethodPatch,
+		listURL,
+		map[string]any{"default_rule_id": secondRule.ID},
+	)
+	expectStatus(t, ruleResp, http.StatusOK)
+
+	var updatedRule todoListResponse
+	decodeJSON(t, ruleResp, &updatedRule)
+	if updatedRule.Name != updatedName {
+		t.Fatalf("template update name = %q, want %q", updatedRule.Name, updatedName)
+	}
+	if updatedRule.DefaultRuleID != secondRule.ID {
+		t.Fatalf("template update default_rule_id = %d, want %d", updatedRule.DefaultRuleID, secondRule.ID)
+	}
+
+	emptyResp := requestJSON(t, owner.client, http.MethodPatch, listURL, map[string]any{})
+	expectProblem(
+		t,
+		emptyResp,
+		http.StatusUnprocessableEntity,
+		"/problems/validation-failed",
+		"Request validation failed",
+	)
+
+	unknownRuleResp := requestJSON(
+		t,
+		owner.client,
+		http.MethodPatch,
+		listURL,
+		map[string]any{"default_rule_id": int64(9223372036854775807)},
+	)
+	expectProblem(
+		t,
+		unknownRuleResp,
+		http.StatusUnprocessableEntity,
+		"/problems/validation-failed",
+		"Request validation failed",
+	)
+
+	getResp := request(t, owner.client, http.MethodGet, listURL)
+	expectStatus(t, getResp, http.StatusOK)
+
+	var current todoListResponse
+	decodeJSON(t, getResp, &current)
+	if current.Name != updatedName || current.DefaultRuleID != secondRule.ID {
+		t.Fatalf("list after failed patch = %+v, want name %q and rule %d", current, updatedName, secondRule.ID)
+	}
+}
+
 func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 	api := newTestAPI(t)
 	creator := api.newAuthenticatedUser(t)
 	member := api.newAuthenticatedUser(t)
 	leaver := api.newAuthenticatedUser(t)
 	adminClient, _ := api.newAdminClient(t)
-
-	contentSchema := map[string]any{
-		"$schema": "https://json-schema.org/draft/2020-12/schema",
-		"type":    "object",
-		"properties": map[string]any{
-			"title": map[string]any{"type": "string"},
-		},
-		"required":             []string{"title"},
-		"additionalProperties": false,
-	}
-
-	createRuleResp := requestJSON(t, adminClient, http.MethodPost, api.apiURL+"/todo-rules", map[string]any{
-		"rule_name":      uniqueValue("list rule"),
-		"content_schema": contentSchema,
-		"ui_schema":      map[string]any{},
-		"list_columns":   []map[string]any{{"pointer": "/title", "label": "Title"}},
-	})
-	expectStatus(t, createRuleResp, http.StatusCreated)
-
-	var rule todoRuleResponse
-	decodeJSON(t, createRuleResp, &rule)
-	api.registerTodoRuleCleanup(t, rule.ID)
+	rule := createTodoListRule(t, api, adminClient)
 
 	unknownRuleResp := requestJSON(t, creator.client, http.MethodPost, api.apiURL+"/lists", map[string]any{
 		"name":            "Unknown rule",
@@ -66,7 +191,7 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 	unknownRuleUpdateResp := requestJSON(
 		t,
 		creator.client,
-		http.MethodPut,
+		http.MethodPatch,
 		listURL,
 		map[string]any{"name": "Unknown rule", "default_rule_id": int64(9223372036854775807)},
 	)
@@ -93,7 +218,7 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 	outsiderUpdateResp := requestJSON(
 		t,
 		member.client,
-		http.MethodPut,
+		http.MethodPatch,
 		listURL,
 		map[string]any{"name": "Forbidden", "default_rule_id": rule.ID},
 	)
@@ -154,7 +279,7 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 	memberUpdateResp := requestJSON(
 		t,
 		member.client,
-		http.MethodPut,
+		http.MethodPatch,
 		listURL,
 		map[string]any{"name": "Forbidden", "default_rule_id": rule.ID},
 	)
@@ -362,7 +487,7 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 	newOwnerUpdateResp := requestJSON(
 		t,
 		member.client,
-		http.MethodPut,
+		http.MethodPatch,
 		listURL,
 		map[string]any{"name": "  " + updatedName + "  ", "default_rule_id": rule.ID},
 	)
@@ -389,4 +514,31 @@ func TestTodoListLifecycleAndOwnerAccess(t *testing.T) {
 	deletedTodoResp := request(t, member.client, http.MethodGet, fmt.Sprintf("%s/todos/%d", api.apiURL, createdTodo.ID))
 	expectStatus(t, deletedTodoResp, http.StatusNotFound)
 	deletedTodoResp.Body.Close()
+}
+
+func createTodoListRule(t *testing.T, api *testAPI, adminClient *http.Client) todoRuleResponse {
+	t.Helper()
+
+	contentSchema := map[string]any{
+		"$schema": "https://json-schema.org/draft/2020-12/schema",
+		"type":    "object",
+		"properties": map[string]any{
+			"title": map[string]any{"type": "string"},
+		},
+		"required":             []string{"title"},
+		"additionalProperties": false,
+	}
+
+	response := requestJSON(t, adminClient, http.MethodPost, api.apiURL+"/todo-rules", map[string]any{
+		"rule_name":      uniqueValue("list rule"),
+		"content_schema": contentSchema,
+		"ui_schema":      map[string]any{},
+		"list_columns":   []map[string]any{{"pointer": "/title", "label": "Title"}},
+	})
+	expectStatus(t, response, http.StatusCreated)
+
+	var rule todoRuleResponse
+	decodeJSON(t, response, &rule)
+	api.registerTodoRuleCleanup(t, rule.ID)
+	return rule
 }

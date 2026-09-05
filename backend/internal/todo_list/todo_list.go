@@ -54,9 +54,15 @@ type Member struct {
 	Role     MemberRole `json:"role" db:"role"`
 }
 
-type listRequest struct {
-	Name          string `json:"name" validate:"required,max=50"`
-	DefaultRuleID *int64 `json:"default_rule_id" validate:"omitempty,gt=0"`
+type createListRequest struct {
+	Name          string  `json:"name" validate:"required,max=50"`
+	DefaultRuleID *int64  `json:"default_rule_id" validate:"omitempty,gt=0"`
+	MemberIDs     []int64 `json:"member_ids" validate:"dive,gt=0"`
+}
+
+type updateListRequest struct {
+	Name          *string `json:"name" validate:"required_without=DefaultRuleID,omitempty,min=1,max=50"`
+	DefaultRuleID *int64  `json:"default_rule_id" validate:"required_without=Name,omitempty,gt=0"`
 }
 
 type memberRoleRequest struct {
@@ -87,7 +93,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth func(http.Handl
 	mux.Handle("POST /lists", requireAuth(http.HandlerFunc(h.createList)))
 	mux.Handle("GET /lists", requireAuth(http.HandlerFunc(h.listLists)))
 	mux.Handle("GET /lists/{list_id}", requireAuth(http.HandlerFunc(h.getList)))
-	mux.Handle("PUT /lists/{list_id}", requireAuth(http.HandlerFunc(h.updateList)))
+	mux.Handle("PATCH /lists/{list_id}", requireAuth(http.HandlerFunc(h.updateList)))
 	mux.Handle("DELETE /lists/{list_id}", requireAuth(http.HandlerFunc(h.deleteList)))
 	mux.Handle("GET /lists/{list_id}/members", requireAuth(http.HandlerFunc(h.listMembers)))
 	mux.Handle("PUT /lists/{list_id}/members/{user_id}", requireAuth(http.HandlerFunc(h.addMember)))
@@ -135,11 +141,12 @@ func (s *Service) RequireMember(ctx context.Context, listID string, userID int64
 }
 
 func (h *Handler) createList(w http.ResponseWriter, r *http.Request) {
-	req, err := readListRequest(r)
+	req, err := readCreateListRequest(r)
 	if err != nil {
 		httpx.WriteDecodeProblem(w, err)
 		return
 	}
+
 	if err := validation.Validate(req); err != nil {
 		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "invalid list request")
 		return
@@ -147,11 +154,13 @@ func (h *Handler) createList(w http.ResponseWriter, r *http.Request) {
 
 	userID := auth.UserID(r.Context())
 	var list TodoList
+
 	err = pgx.BeginFunc(r.Context(), h.lists.db, func(tx pgx.Tx) error {
 		defaultRuleID := todorule.DefaultRuleID
 		if req.DefaultRuleID != nil {
 			defaultRuleID = *req.DefaultRuleID
 		}
+
 		rows, err := tx.Query(
 			r.Context(),
 			`INSERT INTO todo_lists (name, default_rule_id)
@@ -165,22 +174,61 @@ func (h *Handler) createList(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		list, err = pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[TodoList])
+
+		list, err = pgx.CollectExactlyOneRow(
+			rows,
+			pgx.RowToStructByName[TodoList],
+		)
 		if err != nil {
 			return err
 		}
+
 		_, err = tx.Exec(
 			r.Context(),
 			`INSERT INTO todo_list_members (list_id, user_id, role)
 			VALUES (@list_id, @user_id, @role)`,
-			pgx.StrictNamedArgs{"list_id": list.ID, "user_id": userID, "role": MemberRoleOwner},
+			pgx.StrictNamedArgs{
+				"list_id": list.ID,
+				"user_id": userID,
+				"role":    MemberRoleOwner,
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.Exec(
+			r.Context(),
+			`INSERT INTO todo_list_members (list_id, user_id)
+			SELECT @list_id, selected.user_id
+			FROM unnest(@member_ids::bigint[]) AS selected(user_id)
+			ON CONFLICT (list_id, user_id) DO NOTHING`,
+			pgx.StrictNamedArgs{
+				"list_id":    list.ID,
+				"member_ids": req.MemberIDs,
+			},
 		)
 		return err
 	})
+
 	if isForeignKeyViolation(err, defaultRuleForeignKey) {
-		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "unknown default_rule_id")
+		httpx.WriteTypedProblem(
+			w,
+			httpx.ProblemValidationFailed,
+			"unknown default_rule_id",
+		)
 		return
 	}
+
+	if isForeignKeyViolation(err, memberUserForeignKey) {
+		httpx.WriteTypedProblem(
+			w,
+			httpx.ProblemValidationFailed,
+			"unknown member_ids",
+		)
+		return
+	}
+
 	if err != nil {
 		httpx.ServerError(w, r, err)
 		return
@@ -238,50 +286,76 @@ func (h *Handler) updateList(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	req, err := readListRequest(r)
+
+	req, err := readUpdateListRequest(r)
 	if err != nil {
 		httpx.WriteDecodeProblem(w, err)
 		return
 	}
+
 	if err := validation.Validate(req); err != nil {
-		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "invalid list request")
+		httpx.WriteTypedProblem(
+			w,
+			httpx.ProblemValidationFailed,
+			"invalid list request",
+		)
 		return
 	}
 
 	var list TodoList
+
 	err = pgx.BeginFunc(r.Context(), h.lists.db, func(tx pgx.Tx) error {
-		if err := lockOwnerList(r.Context(), tx, listID, auth.UserID(r.Context())); err != nil {
+		if err := lockOwnerList(
+			r.Context(),
+			tx,
+			listID,
+			auth.UserID(r.Context()),
+		); err != nil {
 			return err
 		}
-		defaultRuleID := todorule.DefaultRuleID
-		if req.DefaultRuleID != nil {
-			defaultRuleID = *req.DefaultRuleID
-		}
+
 		rows, err := tx.Query(
 			r.Context(),
 			`UPDATE todo_lists
-			SET name = @name, default_rule_id = @default_rule_id
+			SET name = COALESCE(@name, name),
+			    default_rule_id = COALESCE(@default_rule_id, default_rule_id)
 			WHERE id = @list_id
 			RETURNING `+listColumns,
-			pgx.StrictNamedArgs{"name": req.Name, "default_rule_id": defaultRuleID, "list_id": listID},
+			pgx.StrictNamedArgs{
+				"name":            req.Name,
+				"default_rule_id": req.DefaultRuleID,
+				"list_id":         listID,
+			},
 		)
 		if err != nil {
 			return err
 		}
-		list, err = pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[TodoList])
+
+		list, err = pgx.CollectExactlyOneRow(
+			rows,
+			pgx.RowToStructByName[TodoList],
+		)
 		return err
 	})
+
 	if writeMutationError(w, err) {
 		return
 	}
+
 	if isForeignKeyViolation(err, defaultRuleForeignKey) {
-		httpx.WriteTypedProblem(w, httpx.ProblemValidationFailed, "unknown default_rule_id")
+		httpx.WriteTypedProblem(
+			w,
+			httpx.ProblemValidationFailed,
+			"unknown default_rule_id",
+		)
 		return
 	}
+
 	if err != nil {
 		httpx.ServerError(w, r, err)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(list)
 }
@@ -601,12 +675,27 @@ func isForeignKeyViolation(err error, constraint string) bool {
 		pgErr.ConstraintName == constraint
 }
 
-func readListRequest(r *http.Request) (listRequest, error) {
-	var req listRequest
+func readCreateListRequest(r *http.Request) (createListRequest, error) {
+	var req createListRequest
 	if err := httpx.DecodeJSON(r, &req); err != nil {
-		return listRequest{}, err
+		return createListRequest{}, err
 	}
+
 	req.Name = strings.TrimSpace(req.Name)
+	return req, nil
+}
+
+func readUpdateListRequest(r *http.Request) (updateListRequest, error) {
+	var req updateListRequest
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		return updateListRequest{}, err
+	}
+
+	if req.Name != nil {
+		name := strings.TrimSpace(*req.Name)
+		req.Name = &name
+	}
+
 	return req, nil
 }
 

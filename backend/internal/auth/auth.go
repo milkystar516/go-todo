@@ -87,7 +87,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /login", h.login)
 	mux.HandleFunc("DELETE /logout", h.logout)
 	mux.Handle("GET /me", h.RequireAuth(http.HandlerFunc(h.me)))
-	mux.Handle("GET /users", h.RequireAuth(h.RequireAdmin(http.HandlerFunc(h.listUsers))))
+	mux.Handle("GET /users", h.RequireAuth(http.HandlerFunc(h.listUsers)))
 	mux.Handle("GET /users/{user_id}", h.RequireAuth(http.HandlerFunc(h.getUser)))
 	mux.Handle("PATCH /users/{user_id}", h.RequireAuth(h.RequireAdmin(http.HandlerFunc(h.updateUser))))
 }

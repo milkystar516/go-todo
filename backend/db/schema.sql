@@ -29,7 +29,7 @@ CREATE TABLE todo_rule (
 CREATE TABLE todo_lists (
     id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     name                varchar(50) NOT NULL,
-    default_rule_id     bigint NOT NULL DEFAULT 1 CONSTRAINT todo_lists_default_rule_id_fkey REFERENCES todo_rule(id),
+    default_rule_id     bigint NOT NULL DEFAULT 1 CONSTRAINT todo_lists_default_rule_id_fkey REFERENCES todo_rule(id)
 );
 
 CREATE TABLE todo_list_members (
