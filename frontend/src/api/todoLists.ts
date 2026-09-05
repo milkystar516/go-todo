@@ -9,9 +9,15 @@ const jsonHeaders = {
   "Content-Type": "application/json",
 };
 
-export interface TodoListWriteInput {
+export interface CreateTodoListInput {
   name: string;
-  default_rule_id?: number | null;
+  member_ids: number[];
+  default_rule_id: number;
+}
+
+export interface UpdateTodoListInput {
+  name: string;
+  default_rule_id: number;
 }
 
 export function listTodoLists(
@@ -28,7 +34,7 @@ export function getTodoList(
 }
 
 export function createTodoList(
-  input: TodoListWriteInput,
+  input: CreateTodoListInput,
 ): Promise<TodoList> {
   return apiJson<TodoList>("/lists", {
     method: "POST",
@@ -39,7 +45,7 @@ export function createTodoList(
 
 export function updateTodoList(
   listId: string,
-  input: TodoListWriteInput,
+  input: UpdateTodoListInput,
 ): Promise<TodoList> {
   return apiJson<TodoList>(`/lists/${listId}`, {
     method: "PUT",

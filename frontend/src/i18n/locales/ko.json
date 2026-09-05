@@ -105,6 +105,8 @@
       "description": "할 일 생성에 사용할 맞춤 양식을 관리합니다.",
       "id": "ID",
       "name": "양식 이름",
+      "updatedAt": "최근 수정",
+      "updatedBy": "마지막 수정자",
       "empty": {
         "title": "아직 할 일 양식이 없습니다",
         "description": "필요한 항목을 추가해 첫 번째 할 일 양식을 만들어보세요."
@@ -202,9 +204,7 @@
           "textList": "텍스트 목록",
           "numberList": "숫자 목록",
           "custom": "사용자 정의 필드"
-        },
-        "updatedAt": "최근 수정",
-        "updatedBy": "마지막 수정자"
+        }
       }
     },
     "users": {

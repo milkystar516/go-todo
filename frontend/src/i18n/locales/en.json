@@ -106,6 +106,8 @@
       "description": "Manage the custom forms used to create tasks.",
       "id": "ID",
       "name": "Template name",
+      "updatedAt": "Last updated",
+      "updatedBy": "Last edited by",
       "empty": {
         "title": "No templates yet",
         "description": "Add the fields you need to create your first task template."
@@ -205,9 +207,7 @@
           "textList": "Text list",
           "numberList": "Number list",
           "custom": "Custom field"
-        },
-        "updatedAt": "Last updated",
-        "updatedBy": "Last edited by"
+        }
       }
     },
     "users": {

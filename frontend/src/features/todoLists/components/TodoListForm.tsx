@@ -2,13 +2,11 @@ import {
   useMemo,
   useState,
   type SubmitEvent,
-} from "react";
-import { useTranslation } from "react-i18next";
+} from "react"
+import { useTranslation } from "react-i18next"
 
-import type { TodoListWriteInput } from "../../../api/todoLists";
-import type { TodoRule, User } from "../../../api/types";
-
-import { Button } from "#components/ui/button";
+import type { TodoRule, UserSummary } from "../../../api/types"
+import { Button } from "#components/ui/button"
 import {
   Combobox,
   ComboboxChip,
@@ -19,185 +17,131 @@ import {
   ComboboxItem,
   ComboboxList,
   ComboboxValue,
-} from "#components/ui/combobox";
+} from "#components/ui/combobox"
 import {
   Field,
   FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
-} from "#components/ui/field";
-import { Input } from "#components/ui/input";
+} from "#components/ui/field"
+import { Input } from "#components/ui/input"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "#components/ui/select";
-import { Spinner } from "#components/ui/spinner";
-
-type TodoListFormUser = Pick<
-  User,
-  "id" | "username" | "nickname"
->;
-
-export interface TodoListFormInitialValue {
-  name: string;
-  defaultRuleId: number;
-  members: TodoListFormUser[];
-}
+} from "#components/ui/select"
+import { Spinner } from "#components/ui/spinner"
 
 export interface TodoListFormValue {
-  list: TodoListWriteInput;
-  memberIds: number[];
+  name: string
+  memberIds: number[]
+  defaultRuleId: number
 }
 
 interface TodoListFormProps {
-  initialValue?: TodoListFormInitialValue;
-  rules: TodoRule[];
-  users: TodoListFormUser[];
-  isPending?: boolean;
-  errorMessage?: string | null;
-  submitLabel?: string;
+  rules: TodoRule[]
+  users: UserSummary[]
+  isPending?: boolean
+  errorMessage?: string | null
   onSubmit: (
     value: TodoListFormValue,
-  ) => void | Promise<void>;
-  onCancel?: () => void;
+  ) => void | Promise<void>
+  onCancel?: () => void
 }
 
-function getUserLabel(user: TodoListFormUser) {
+function getUserLabel(user: UserSummary) {
   if (user.nickname?.trim()) {
-    return `${user.nickname} (@${user.username})`;
+    return `${user.nickname} (@${user.username})`
   }
 
-  return `@${user.username}`;
+  return `@${user.username}`
 }
 
-function getUserSearchValue(user: TodoListFormUser) {
+function getUserSearchValue(user: UserSummary) {
   return user.nickname
     ? `${user.nickname} ${user.username}`
-    : user.username;
+    : user.username
 }
 
 export function TodoListForm({
-  initialValue,
   rules,
   users,
   isPending = false,
   errorMessage,
-  submitLabel,
   onSubmit,
   onCancel,
 }: TodoListFormProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
 
-  const [name, setName] = useState(initialValue?.name ?? "");
-  const [defaultRuleId, setDefaultRuleId] = useState<number | null>(
-    initialValue?.defaultRuleId ?? null,
-  );
-  const [memberIds, setMemberIds] = useState<number[]>(
-    () => initialValue?.members.map((member) => member.id) ?? [],
-  );
-  const [formError, setFormError] = useState<string | null>(null);
+  const [name, setName] = useState("")
+  const [memberIds, setMemberIds] = useState<number[]>([])
+  const [defaultRuleId, setDefaultRuleId] =
+    useState<number | null>(null)
+  const [formError, setFormError] =
+    useState<string | null>(null)
 
   const selectedMembers = useMemo(
-    () => users.filter((user) => memberIds.includes(user.id)),
+    () =>
+      users.filter((user) =>
+        memberIds.includes(user.id),
+      ),
     [memberIds, users],
-  );
+  )
 
   async function handleSubmit(
     event: SubmitEvent<HTMLFormElement>,
   ) {
-    event.preventDefault();
-    setFormError(null);
+    event.preventDefault()
+    setFormError(null)
 
-    const normalizedName = name.trim();
+    const normalizedName = name.trim()
 
     if (!normalizedName) {
-      setFormError(t("todoLists.form.nameRequired"));
-      return;
+      setFormError(
+        t("todoLists.form.nameRequired"),
+      )
+      return
     }
 
     if (defaultRuleId === null) {
       setFormError(
         t("todoLists.form.defaultRuleRequired"),
-      );
-      return;
+      )
+      return
     }
 
-    try {
-      await onSubmit({
-        list: {
-          name: normalizedName,
-          default_rule_id: defaultRuleId,
-        },
-        memberIds,
-      });
-    } catch {
-    }
+    await onSubmit({
+      name: normalizedName,
+      memberIds,
+      defaultRuleId,
+    })
   }
 
   return (
-    <form className="space-y-5" onSubmit={handleSubmit}>
+    <form
+      className="space-y-6"
+      onSubmit={handleSubmit}
+    >
       <FieldGroup className="gap-5">
         <Field>
           <FieldLabel htmlFor="todo-list-name">
-            {t("todoLists.form.title")}
+            {t("todoLists.form.name")}
           </FieldLabel>
 
           <Input
             id="todo-list-name"
             value={name}
             onChange={(event) => {
-              setName(event.target.value);
-              setFormError(null);
+              setName(event.target.value)
+              setFormError(null)
             }}
             maxLength={50}
             disabled={isPending}
             required
           />
-        </Field>
-
-        <Field>
-          <FieldLabel htmlFor="todo-list-default-rule">
-            {t("todoLists.form.defaultRule")}
-          </FieldLabel>
-
-          <Select
-            value={
-              defaultRuleId === null
-                ? undefined
-                : String(defaultRuleId)
-            }
-            onValueChange={(value) => {
-              setDefaultRuleId(Number(value));
-              setFormError(null);
-            }}
-            disabled={isPending}
-          >
-            <SelectTrigger
-              id="todo-list-default-rule"
-              className="w-full"
-            >
-              <SelectValue
-                placeholder={t(
-                  "todoLists.form.defaultRulePlaceholder",
-                )}
-              />
-            </SelectTrigger>
-
-            <SelectContent>
-              {rules.map((rule) => (
-                <SelectItem
-                  key={rule.id}
-                  value={String(rule.id)}
-                >
-                  {rule.rule_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </Field>
 
         <Field>
@@ -212,15 +156,15 @@ export function TodoListForm({
             onValueChange={(members) => {
               setMemberIds(
                 members.map((member) => member.id),
-              );
-              setFormError(null);
+              )
+              setFormError(null)
             }}
             itemToStringValue={getUserSearchValue}
             disabled={isPending}
           >
             <ComboboxChips className="w-full">
               <ComboboxValue>
-                {(members: TodoListFormUser[]) => (
+                {(members: UserSummary[]) => (
                   <>
                     {members.map((member) => (
                       <ComboboxChip
@@ -252,14 +196,15 @@ export function TodoListForm({
               </ComboboxEmpty>
 
               <ComboboxList>
-                {(user: TodoListFormUser) => (
+                {(user: UserSummary) => (
                   <ComboboxItem
                     key={user.id}
                     value={user}
                   >
                     <div className="min-w-0">
                       <div className="truncate">
-                        {user.nickname ?? user.username}
+                        {user.nickname ??
+                          user.username}
                       </div>
 
                       {user.nickname && (
@@ -275,8 +220,51 @@ export function TodoListForm({
           </Combobox>
 
           <FieldDescription>
-            {t("todoLists.form.membersDescription")}
+            {t(
+              "todoLists.form.membersDescription",
+            )}
           </FieldDescription>
+        </Field>
+
+        <Field>
+          <FieldLabel htmlFor="todo-list-default-rule">
+            {t("todoLists.form.defaultRule")}
+          </FieldLabel>
+
+          <Select
+            value={
+              defaultRuleId === null
+                ? undefined
+                : String(defaultRuleId)
+            }
+            onValueChange={(value) => {
+              setDefaultRuleId(Number(value))
+              setFormError(null)
+            }}
+            disabled={isPending}
+          >
+            <SelectTrigger
+              id="todo-list-default-rule"
+              className="w-full"
+            >
+              <SelectValue
+                placeholder={t(
+                  "todoLists.form.defaultRulePlaceholder",
+                )}
+              />
+            </SelectTrigger>
+
+            <SelectContent>
+              {rules.map((rule) => (
+                <SelectItem
+                  key={rule.id}
+                  value={String(rule.id)}
+                >
+                  {rule.rule_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
       </FieldGroup>
 
@@ -298,11 +286,16 @@ export function TodoListForm({
           </Button>
         )}
 
-        <Button type="submit" disabled={isPending}>
-          {isPending && <Spinner aria-hidden="true" />}
-          {submitLabel ?? t("common.save")}
+        <Button
+          type="submit"
+          disabled={isPending}
+        >
+          {isPending && (
+            <Spinner aria-hidden="true" />
+          )}
+          {t("todoLists.create.submit")}
         </Button>
       </div>
     </form>
-  );
+  )
 }
