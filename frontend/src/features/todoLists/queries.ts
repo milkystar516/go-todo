@@ -9,6 +9,7 @@ import {
   listTodoListMembers,
   listTodoLists,
   removeTodoListMember,
+  createTodoList,
 } from "../../api/todoLists";
 import { ApiError } from "../../api/client";
 import { todoQueryKeys } from "../todos/queries";
@@ -59,6 +60,24 @@ export function leaveTodoListMutationOptions(
         queryKey: todoQueryKeys.list(listId),
         exact: true,
       });
+      return queryClient.invalidateQueries({
+        queryKey: todoListQueryKeys.list(),
+      });
+    },
+  });
+}
+
+export function createTodoListMutationOptions(
+  queryClient: QueryClient,
+) {
+  return mutationOptions({
+    mutationFn: createTodoList,
+    onSuccess: (list) => {
+      queryClient.setQueryData(
+        todoListQueryKeys.detail(list.id),
+        list,
+      );
+
       return queryClient.invalidateQueries({
         queryKey: todoListQueryKeys.list(),
       });

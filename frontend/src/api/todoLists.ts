@@ -16,8 +16,8 @@ export interface CreateTodoListInput {
 }
 
 export interface UpdateTodoListInput {
-  name: string;
-  default_rule_id: number;
+  name?: string;
+  default_rule_id?: number;
 }
 
 export function listTodoLists(
@@ -48,7 +48,7 @@ export function updateTodoList(
   input: UpdateTodoListInput,
 ): Promise<TodoList> {
   return apiJson<TodoList>(`/lists/${listId}`, {
-    method: "PUT",
+    method: "PATCH",
     headers: jsonHeaders,
     body: JSON.stringify(input),
   });

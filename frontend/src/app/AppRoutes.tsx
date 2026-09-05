@@ -54,6 +54,13 @@ export const appRouter = createBrowserRouter(
           />
 
           <Route
+            path="lists/new"
+            lazy={() =>
+              import("../features/todoLists/TodoListCreatePage")
+            }
+          />
+
+          <Route
             path="lists/:listId"
             element={<RequireListMember />}
           >

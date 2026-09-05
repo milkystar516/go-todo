@@ -232,6 +232,26 @@
     }
   },
 
+  "todoLists": {
+    "create": {
+      "title": "Create a todo list",
+      "description": "Choose a name, members, and default template.",
+      "back": "Back",
+      "submit": "Create list"
+    },
+    "form": {
+      "name": "List name",
+      "nameRequired": "Enter a list name.",
+      "members": "Members",
+      "membersPlaceholder": "Search users",
+      "membersDescription": "Select users who can access this list.",
+      "noUsers": "No users found.",
+      "defaultRule": "Default template",
+      "defaultRulePlaceholder": "Select a template",
+      "defaultRuleRequired": "Select a default template."
+    }
+  },
+
   "language": {
     "label": "Language",
     "english": "English",

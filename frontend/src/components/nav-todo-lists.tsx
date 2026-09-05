@@ -82,15 +82,14 @@ export function NavTodoLists() {
     <>
       <SidebarGroup>
         <SidebarGroupLabel>{t("sidebar.todoLists.title")}</SidebarGroupLabel>
-        <SidebarGroupAction
-          type="button"
-          aria-label={t("sidebar.todoLists.add")}
-          title={t("sidebar.todoLists.addUnavailable")}
-          disabled
-          className="disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <PlusIcon />
-        </SidebarGroupAction>
+          <SidebarGroupAction
+            asChild
+            aria-label={t("sidebar.todoLists.add")}
+          >
+            <Link to="/lists/new">
+              <PlusIcon />
+            </Link>
+          </SidebarGroupAction>
 
         <SidebarGroupContent>
           <SidebarMenu>
