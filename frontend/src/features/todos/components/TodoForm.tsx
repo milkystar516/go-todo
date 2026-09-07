@@ -11,17 +11,20 @@ import {
   FieldLabel,
 } from "#components/ui/field";
 import { Input } from "#components/ui/input";
+import { Skeleton } from "#components/ui/skeleton";
 import {
   TodoSchemaForm,
   type TodoSchemaFormHandle,
 } from "./schema/TodoSchemaForm";
 
 interface TodoFormProps {
-  rule: TodoRuleDetail;
+  rule: TodoRuleDetail | null;
   todo?: Todo;
   readOnly?: boolean;
   showTitleInput?: boolean;
   isPending?: boolean;
+  isRulePending?: boolean;
+  ruleErrorMessage?: string | null;
   errorMessage?: string | null;
   submitLabel?: string;
   onSubmit?: (input: TodoFieldsInput) => void;
@@ -50,6 +53,8 @@ export function TodoForm({
   readOnly = false,
   showTitleInput = true,
   isPending = false,
+  isRulePending = false,
+  ruleErrorMessage,
   errorMessage,
   submitLabel,
   onSubmit,
@@ -65,7 +70,13 @@ export function TodoForm({
   function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!onSubmit || readOnly) {
+    if (
+      !onSubmit ||
+      readOnly ||
+      !rule ||
+      isRulePending ||
+      ruleErrorMessage
+    ) {
       return;
     }
 
@@ -119,14 +130,23 @@ export function TodoForm({
         </Field>
       </FieldGroup>
 
-      <TodoSchemaForm
-        ref={schemaFormRef}
-        idPrefix={`${idPrefix}-content`}
-        rule={rule}
-        initialContent={todo?.content}
-        readOnly={readOnly}
-        disabled={isPending}
-      />
+      {isRulePending ? (
+        <Skeleton className="h-48 w-full" />
+      ) : ruleErrorMessage ? (
+        <p className="text-sm text-destructive" role="alert">
+          {ruleErrorMessage}
+        </p>
+      ) : rule ? (
+        <TodoSchemaForm
+          key={rule.id}
+          ref={schemaFormRef}
+          idPrefix={`${idPrefix}-content`}
+          rule={rule}
+          initialContent={todo?.content}
+          readOnly={readOnly}
+          disabled={isPending}
+        />
+      ) : null}
 
       {errorMessage && <FieldError>{errorMessage}</FieldError>}
 
@@ -142,7 +162,15 @@ export function TodoForm({
               {t("common.cancel")}
             </Button>
           )}
-          <Button type="submit" disabled={isPending}>
+          <Button
+            type="submit"
+            disabled={
+              isPending ||
+              isRulePending ||
+              !rule ||
+              Boolean(ruleErrorMessage)
+            }
+          >
             {submitLabel ?? t("common.save")}
           </Button>
         </div>

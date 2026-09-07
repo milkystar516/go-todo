@@ -7,7 +7,6 @@ import type { TodoFieldsInput } from "../../../api/todos";
 import type { TodoRule } from "../../../api/types";
 import { getErrorMessage } from "../../../lib/apiError";
 import { Button } from "#components/ui/button";
-import { Skeleton } from "#components/ui/skeleton";
 import { todoRuleQueryOptions } from "../../todoRules/queries";
 import { createTodoMutationOptions } from "../queries";
 import { TodoForm } from "./TodoForm";
@@ -87,29 +86,24 @@ export function TodoQuickAdd({
           </select>
         </label>
 
-        {selectedRuleQuery.isPending && <Skeleton className="h-48 w-full" />}
-
-        {selectedRuleQuery.isError && (
-          <p className="text-sm text-destructive" role="alert">
-            {getErrorMessage(selectedRuleQuery.error, fallbackError)}
-          </p>
-        )}
-
-        {selectedRuleQuery.isSuccess && (
-          <TodoForm
-            key={selectedRuleQuery.data.id}
-            rule={selectedRuleQuery.data}
-            isPending={createMutation.isPending}
-            errorMessage={
-              createMutation.isError
-                ? getErrorMessage(createMutation.error, fallbackError)
-                : null
-            }
-            submitLabel={t("todos.form.create")}
-            onSubmit={handleCreate}
-            onCancel={() => handleOpenChange(false)}
-          />
-        )}
+        <TodoForm
+          rule={selectedRuleQuery.data ?? null}
+          isRulePending={selectedRuleQuery.isPending}
+          ruleErrorMessage={
+            selectedRuleQuery.isError
+              ? getErrorMessage(selectedRuleQuery.error, fallbackError)
+              : null
+          }
+          isPending={createMutation.isPending}
+          errorMessage={
+            createMutation.isError
+              ? getErrorMessage(createMutation.error, fallbackError)
+              : null
+          }
+          submitLabel={t("todos.form.create")}
+          onSubmit={handleCreate}
+          onCancel={() => handleOpenChange(false)}
+        />
       </section>
     );
   }
