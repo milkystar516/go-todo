@@ -240,7 +240,6 @@ export function TodoItem({
       <CollapsibleContent>
         <div className="mt-2 rounded-xl border bg-card p-4">
           <TodoForm
-            key={`${todo.id}:${rule.id}`}
             rule={rule}
             todo={todo}
             readOnly={!canManage}

@@ -22,10 +22,6 @@ export function TodoRulePreview({
   className,
 }: TodoRulePreviewProps) {
   const { t } = useTranslation()
-  const previewKey = useMemo(
-    () => JSON.stringify([rule.content_schema, rule.ui_schema]),
-    [rule.content_schema, rule.ui_schema],
-  )
   const todo = useMemo<Todo>(
     () => ({
       id: 0,
@@ -55,7 +51,6 @@ export function TodoRulePreview({
 
       <CardContent>
         <TodoItem
-          key={previewKey}
           todo={todo}
           rule={rule}
           metadata={[]}
