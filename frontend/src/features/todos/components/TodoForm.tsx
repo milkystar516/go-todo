@@ -5,14 +5,9 @@ import { useTranslation } from "react-i18next";
 import type { TodoFieldsInput } from "../../../api/todos";
 import type { Todo, TodoRuleDetail } from "../../../api/types";
 import { Button } from "#components/ui/button";
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "#components/ui/field";
-import { Input } from "#components/ui/input";
+import { FieldError } from "#components/ui/field";
 import { Skeleton } from "#components/ui/skeleton";
+import { TodoDetailsFields } from "./TodoDetailsFields";
 import { TodoTitleField } from "./TodoTitleField";
 import {
   TodoSchemaForm,
@@ -109,29 +104,14 @@ export function TodoForm({
 
   return (
     <form className="space-y-5" onSubmit={handleSubmit}>
-      <FieldGroup className="gap-4">
-        {showTitleInput && (
-          <TodoTitleField
-            id={`${idPrefix}-title`}
-            value={title}
-            onChange={setTitle}
-            disabled={readOnly || isPending}
-          />
-        )}
-
-        <Field>
-          <FieldLabel htmlFor={`${idPrefix}-due-at`}>
-            {t("todos.form.dueAt")}
-          </FieldLabel>
-          <Input
-            id={`${idPrefix}-due-at`}
-            type="datetime-local"
-            value={dueAt}
-            onChange={(event) => setDueAt(event.target.value)}
-            disabled={readOnly || isPending}
-          />
-        </Field>
-      </FieldGroup>
+      {showTitleInput && (
+        <TodoTitleField
+          id={`${idPrefix}-title`}
+          value={title}
+          onChange={setTitle}
+          disabled={readOnly || isPending}
+        />
+      )}
 
       {isRulePending ? (
         <Skeleton className="h-48 w-full" />
@@ -150,6 +130,13 @@ export function TodoForm({
           disabled={isPending}
         />
       ) : null}
+
+      <TodoDetailsFields
+        dueAtId={`${idPrefix}-due-at`}
+        dueAt={dueAt}
+        onDueAtChange={setDueAt}
+        disabled={readOnly || isPending}
+      />
 
       {errorMessage && <FieldError>{errorMessage}</FieldError>}
 

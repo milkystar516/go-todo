@@ -54,6 +54,7 @@
     "form": {
       "title": "제목",
       "titlePlaceholder": "무엇을 해야 하나요?",
+      "details": "세부 정보",
       "dueAt": "마감 일시",
       "rule": "양식",
       "create": "할 일 만들기"
