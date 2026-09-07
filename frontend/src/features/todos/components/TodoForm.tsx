@@ -13,6 +13,7 @@ import {
 } from "#components/ui/field";
 import { Input } from "#components/ui/input";
 import { Skeleton } from "#components/ui/skeleton";
+import { TodoTitleField } from "./TodoTitleField";
 import {
   TodoSchemaForm,
   type TodoSchemaFormHandle,
@@ -110,19 +111,12 @@ export function TodoForm({
     <form className="space-y-5" onSubmit={handleSubmit}>
       <FieldGroup className="gap-4">
         {showTitleInput && (
-          <Field>
-            <FieldLabel htmlFor={`${idPrefix}-title`}>
-              {t("todos.form.title")}
-            </FieldLabel>
-            <Input
-              id={`${idPrefix}-title`}
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              maxLength={200}
-              disabled={readOnly || isPending}
-              required
-            />
-          </Field>
+          <TodoTitleField
+            id={`${idPrefix}-title`}
+            value={title}
+            onChange={setTitle}
+            disabled={readOnly || isPending}
+          />
         )}
 
         <Field>

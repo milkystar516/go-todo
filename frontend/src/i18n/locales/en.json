@@ -53,6 +53,7 @@
     },
     "form": {
       "title": "Title",
+      "titlePlaceholder": "What needs to be done?",
       "dueAt": "Due date",
       "rule": "Form",
       "create": "Create task"
