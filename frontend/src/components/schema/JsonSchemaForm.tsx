@@ -1,6 +1,10 @@
 import CoreForm from "@rjsf/core"
 import RjsfForm from "@rjsf/shadcn"
-import type { RJSFSchema, UiSchema } from "@rjsf/utils"
+import type {
+  RJSFSchema,
+  TemplatesType,
+  UiSchema,
+} from "@rjsf/utils"
 import { forwardRef, useImperativeHandle, useRef } from "react"
 
 import { rjsfValidator } from "../../lib/schema/rjsfValidator"
@@ -14,6 +18,7 @@ interface JsonSchemaFormProps {
   schema: RJSFSchema
   uiSchema?: UiSchema
   formData: Record<string, unknown>
+  templates?: Partial<TemplatesType<Record<string, unknown>>>
   readOnly?: boolean
   disabled?: boolean
   onChange: (formData: Record<string, unknown>) => void
@@ -28,6 +33,7 @@ export const JsonSchemaForm = forwardRef<
     schema,
     uiSchema,
     formData,
+    templates,
     readOnly = false,
     disabled = false,
     onChange,
@@ -53,7 +59,7 @@ export const JsonSchemaForm = forwardRef<
       uiSchema={uiSchema}
       formData={formData}
       validator={rjsfValidator}
-      templates={todoFormTemplates}
+      templates={templates}
       onChange={({ formData: nextFormData }) =>
         onChange(nextFormData ?? {})
       }

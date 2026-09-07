@@ -3,10 +3,6 @@ import { useTranslation } from "react-i18next";
 
 import type { TodoFieldsInput } from "../../../api/todos";
 import type { Todo, TodoRuleDetail } from "../../../api/types";
-import {
-  JsonSchemaForm,
-  type JsonSchemaFormHandle,
-} from "#components/schema/JsonSchemaForm";
 import { Button } from "#components/ui/button";
 import {
   Field,
@@ -15,6 +11,10 @@ import {
   FieldLabel,
 } from "#components/ui/field";
 import { Input } from "#components/ui/input";
+import {
+  TodoSchemaForm,
+  type TodoSchemaFormHandle,
+} from "./schema/TodoSchemaForm";
 
 interface TodoFormProps {
   rule: TodoRuleDetail;
@@ -57,21 +57,20 @@ export function TodoForm({
 }: TodoFormProps) {
   const { t } = useTranslation();
   const idPrefix = `todo-${useId().replaceAll(":", "")}`;
-  const schemaFormRef = useRef<JsonSchemaFormHandle>(null);
+  const schemaFormRef = useRef<TodoSchemaFormHandle>(null);
   const originalDueAt = toDateTimeLocal(todo?.due_at);
   const [title, setTitle] = useState(todo?.title ?? "");
   const [dueAt, setDueAt] = useState(originalDueAt);
-  const content =
-  schemaFormRef.current?.validateAndGetData()
-
-  if (!content) {
-    return
-  }
 
   function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!onSubmit || readOnly || !schemaFormRef.current?.validateForm()) {
+    if (!onSubmit || readOnly) {
+      return;
+    }
+
+    const content = schemaFormRef.current?.validateAndGetData();
+    if (!content) {
       return;
     }
 
@@ -80,7 +79,9 @@ export function TodoForm({
       due_at:
         todo && dueAt === originalDueAt
           ? todo.due_at
-          : dueAt ? new Date(dueAt).toISOString() : null,
+          : dueAt
+            ? new Date(dueAt).toISOString()
+            : null,
       content,
     });
   }
@@ -118,13 +119,11 @@ export function TodoForm({
         </Field>
       </FieldGroup>
 
-      <JsonSchemaForm
+      <TodoSchemaForm
         ref={schemaFormRef}
         idPrefix={`${idPrefix}-content`}
-        schema={rule.content_schema}
-        uiSchema={rule.ui_schema}
-        formData={content}
-        onChange={setContent}
+        rule={rule}
+        initialContent={todo?.content}
         readOnly={readOnly}
         disabled={isPending}
       />
