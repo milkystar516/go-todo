@@ -1,3 +1,4 @@
+import { hashObject } from "@rjsf/utils";
 import { useId, useRef, useState, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -66,6 +67,14 @@ export function TodoForm({
   const originalDueAt = toDateTimeLocal(todo?.due_at);
   const [title, setTitle] = useState(todo?.title ?? "");
   const [dueAt, setDueAt] = useState(originalDueAt);
+
+  const schemaRevisionKey = rule
+    ? hashObject({
+        ruleId: rule.id,
+        contentSchema: rule.content_schema,
+        uiSchema: rule.ui_schema,
+      })
+    : null;
 
   function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -138,7 +147,7 @@ export function TodoForm({
         </p>
       ) : rule ? (
         <TodoSchemaForm
-          key={rule.id}
+          key={schemaRevisionKey}
           ref={schemaFormRef}
           idPrefix={`${idPrefix}-content`}
           rule={rule}
