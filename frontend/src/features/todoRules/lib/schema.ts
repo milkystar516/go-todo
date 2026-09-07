@@ -1,5 +1,4 @@
-import { orderProperties, type RJSFSchema, type UiSchema } from "@rjsf/utils"
-
+import { optionsList, type RJSFSchema, type UiSchema } from "@rjsf/utils"
 import {
   isSchemaObject,
   getPropertySchemas,
@@ -29,14 +28,15 @@ function exampleValue(
 ): unknown {
   if (schema.default !== undefined) return schema.default
 
-  const choices = orderProperties(schema)
+  const choices = optionsList(schema)?.map(({ value }) => value) ?? []
   if (choices.length > 0) return choices[0]
 
   if (schema.type === "array") {
     const items = getItemSchema(schema)
     if (!items) return []
 
-    const itemChoices = orderProperties(items)
+    const itemChoices =
+      optionsList(items)?.map(({ value }) => value) ?? []
     if (itemChoices.length > 0) return itemChoices.slice(0, 2)
 
     const itemValue = exampleValue(items, exampleText)

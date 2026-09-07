@@ -228,11 +228,12 @@ export function createTodoRuleFormInitialValue(
       : [],
   )
   const fields: TodoRuleFormField[] = []
+  const orderedPropertyNames = orderProperties(
+    Object.keys(properties),
+    getUiOptions(rule.ui_schema).order,
+  )
 
-  for (const propertyName of getOrderedPropertyNames(
-    rule.content_schema,
-    rule.ui_schema,
-  )) {
+  for (const propertyName of orderedPropertyNames) {
     const schema = properties[propertyName]
     const type = getTodoRuleFieldType(
       schema,
@@ -590,9 +591,9 @@ export function summarizeTodoRuleFields(
   rule: TodoRuleDetail,
 ): TodoRuleFieldSummary[] {
   const properties = getPropertySchemas(rule.content_schema)
-  const orderedNames = getOrderedPropertyNames(
-    rule.content_schema,
-    rule.ui_schema,
+  const orderedNames = orderProperties(
+    Object.keys(properties),
+    getUiOptions(rule.ui_schema).order,
   )
   const required = new Set(
     Array.isArray(rule.content_schema.required)
@@ -603,10 +604,9 @@ export function summarizeTodoRuleFields(
   return orderedNames.map((name) => {
     const schema = properties[name]
     const items = getItemSchema(schema)
-    const choices =
-      schema.type === "array" && items
-        ? getChoiceValues(items)
-        : getChoiceValues(schema)
+    const choiceSchema =
+      schema.type === "array" && items ? items : schema
+    const choices = optionsList(choiceSchema) ?? []
 
     return {
       name,
