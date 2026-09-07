@@ -57,7 +57,15 @@
       "details": "Details",
       "dueAt": "Due date",
       "rule": "Form",
-      "create": "Create task"
+      "create": "Create task",
+      "checklist": {
+        "addItem": "Add",
+        "item": "Checklist {{number}}",
+        "completed": "Toggle checklist {{number}}",
+        "moveUp": "Move {{number}} up",
+        "moveDown": "Move {{number}} down",
+        "remove": "Remove {{number}}"
+      }
     },
     "actions": {
       "menu": "Task menu",

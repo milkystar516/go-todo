@@ -104,7 +104,7 @@ export function TodoFieldTemplate({
         orientation={horizontal ? "horizontal" : "vertical"}
         data-invalid={rawErrors.length > 0}
         className={
-          isCheckbox && required
+          isCheckbox && required && displayLabel
             ? "[&_[data-slot=label]]:after:ml-0.5 [&_[data-slot=label]]:after:text-destructive [&_[data-slot=label]]:after:content-['*']"
             : undefined
         }

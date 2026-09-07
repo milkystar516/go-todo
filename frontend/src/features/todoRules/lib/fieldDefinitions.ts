@@ -315,17 +315,31 @@ function preservedDefinitionForField(
   if (!original || original.type !== field.type) return null
 
   const schema = structuredClone(original.schema)
+  const uiSchema = original.uiSchema
+    ? structuredClone(original.uiSchema)
+    : undefined
+
   schema.title = field.label.trim()
 
   if (isChoiceField(field.type)) {
     applyChoices(schema, field)
   }
 
+  if (field.type === "checklist" && uiSchema) {
+    const uiOptions = uiSchema["ui:options"]
+
+    if (
+      typeof uiOptions === "object" &&
+      uiOptions !== null &&
+      !Array.isArray(uiOptions)
+    ) {
+      delete (uiOptions as Record<string, unknown>).copyable
+    }
+  }
+
   return {
     schema,
-    uiSchema: original.uiSchema
-      ? structuredClone(original.uiSchema)
-      : undefined,
+    uiSchema,
   }
 }
 
@@ -483,7 +497,6 @@ function definitionForField(
         uiSchema: {
           "ui:options": {
             addable: true,
-            copyable: true,
             orderable: true,
             removable: true,
           },

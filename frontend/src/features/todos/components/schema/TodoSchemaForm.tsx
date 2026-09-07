@@ -1,6 +1,7 @@
 import {
   forwardRef,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from "react"
@@ -11,6 +12,8 @@ import {
   type JsonSchemaFormHandle,
 } from "#components/schema/JsonSchemaForm"
 import { TodoFieldTemplate } from "#components/schema/TodoFieldTemplate"
+import { buildTodoFormUiSchema } from "../../lib/todoFormPresentation"
+import { TodoChecklistField } from "./TodoChecklistField"
 
 export interface TodoSchemaFormHandle {
   validateAndGetData: () => Record<string, unknown> | null
@@ -26,6 +29,10 @@ interface TodoSchemaFormProps {
 
 const todoFormTemplates = {
   FieldTemplate: TodoFieldTemplate,
+}
+
+const todoFormFields = {
+  TodoChecklistField,
 }
 
 export const TodoSchemaForm = forwardRef<
@@ -45,6 +52,14 @@ export const TodoSchemaForm = forwardRef<
   const [content, setContent] = useState<Record<string, unknown>>(
     () => structuredClone(initialContent),
   )
+  const effectiveUiSchema = useMemo(
+    () =>
+        buildTodoFormUiSchema(
+        rule.content_schema,
+        rule.ui_schema,
+        ),
+    [rule.content_schema, rule.ui_schema],
+  )
 
   useImperativeHandle(
     ref,
@@ -62,15 +77,16 @@ export const TodoSchemaForm = forwardRef<
 
   return (
     <JsonSchemaForm
-      ref={formRef}
-      idPrefix={idPrefix}
-      schema={rule.content_schema}
-      uiSchema={rule.ui_schema}
-      formData={content}
-      templates={todoFormTemplates}
-      onChange={setContent}
-      readOnly={readOnly}
-      disabled={disabled}
+        ref={formRef}
+        idPrefix={idPrefix}
+        schema={rule.content_schema}
+        uiSchema={effectiveUiSchema}
+        formData={content}
+        templates={todoFormTemplates}
+        fields={todoFormFields}
+        onChange={setContent}
+        readOnly={readOnly}
+        disabled={disabled}
     />
   )
 })

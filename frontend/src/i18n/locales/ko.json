@@ -57,7 +57,15 @@
       "details": "세부 정보",
       "dueAt": "마감 일시",
       "rule": "양식",
-      "create": "할 일 만들기"
+      "create": "할 일 만들기",
+      "checklist": {
+        "addItem": "항목 추가",
+        "item": "체크리스트 항목 {{number}}",
+        "completed": "체크리스트 항목 {{number}} 완료 여부",
+        "moveUp": "항목 {{number}} 위로 이동",
+        "moveDown": "항목 {{number}} 아래로 이동",
+        "remove": "항목 {{number}} 제거"
+      }
     },
     "actions": {
       "menu": "할 일 메뉴",
