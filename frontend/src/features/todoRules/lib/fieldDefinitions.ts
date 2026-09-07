@@ -1,16 +1,22 @@
-import type { RJSFSchema, UiSchema } from "@rjsf/utils"
+import {
+  getUiOptions,
+  optionsList,
+  orderProperties,
+  type RJSFSchema,
+  type UiSchema,
+} from "@rjsf/utils"
 
 import type { TodoRuleDetail } from "../../../api/types"
 import {
-  getChoiceValues,
-  getItemSchema,
-  getOrderedPropertyNames,
-  getPropertySchemas,
   getPropertyUiSchema,
   getPropertyWidget,
-  isChecklistSchema,
-  isSchemaObject,
 } from "./schema"
+import {
+  isSchemaObject,
+  getPropertySchemas,
+  getItemSchema,
+  isChecklistSchema,
+} from "../../../lib/schema/todoContentSchema"
 
 export const todoRuleFieldTypes = [
   "text",

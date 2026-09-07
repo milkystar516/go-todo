@@ -61,9 +61,12 @@ export function TodoForm({
   const originalDueAt = toDateTimeLocal(todo?.due_at);
   const [title, setTitle] = useState(todo?.title ?? "");
   const [dueAt, setDueAt] = useState(originalDueAt);
-  const [content, setContent] = useState<Record<string, unknown>>(
-    () => todo?.content ?? {},
-  );
+  const content =
+  schemaFormRef.current?.validateAndGetData()
+
+  if (!content) {
+    return
+  }
 
   function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
