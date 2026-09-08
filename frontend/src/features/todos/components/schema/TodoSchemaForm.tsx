@@ -16,7 +16,8 @@ import { buildTodoFormUiSchema } from "../../lib/todoFormPresentation"
 import { TodoChecklistField } from "./TodoChecklistField"
 
 export interface TodoSchemaFormHandle {
-  validateAndGetData: () => Record<string, unknown> | null
+  validateAndGetData:
+    () => Record<string, unknown> | null
 }
 
 interface TodoSchemaFormProps {
@@ -48,24 +49,32 @@ export const TodoSchemaForm = forwardRef<
   },
   ref,
 ) {
-  const formRef = useRef<JsonSchemaFormHandle>(null)
-  const [content, setContent] = useState<Record<string, unknown>>(
-    () => structuredClone(initialContent),
-  )
+  const formRef =
+    useRef<JsonSchemaFormHandle>(null)
+
+  const [content, setContent] = useState<
+    Record<string, unknown>
+  >(() => structuredClone(initialContent))
+
   const effectiveUiSchema = useMemo(
     () =>
-        buildTodoFormUiSchema(
+      buildTodoFormUiSchema(
         rule.content_schema,
         rule.ui_schema,
-        ),
-    [rule.content_schema, rule.ui_schema],
+      ),
+    [
+      rule.content_schema,
+      rule.ui_schema,
+    ],
   )
 
   useImperativeHandle(
     ref,
     () => ({
       validateAndGetData() {
-        if (!formRef.current?.validateForm()) {
+        if (
+          !formRef.current?.validateForm()
+        ) {
           return null
         }
 
@@ -77,16 +86,16 @@ export const TodoSchemaForm = forwardRef<
 
   return (
     <JsonSchemaForm
-        ref={formRef}
-        idPrefix={idPrefix}
-        schema={rule.content_schema}
-        uiSchema={effectiveUiSchema}
-        formData={content}
-        templates={todoFormTemplates}
-        fields={todoFormFields}
-        onChange={setContent}
-        readOnly={readOnly}
-        disabled={disabled}
+      ref={formRef}
+      idPrefix={idPrefix}
+      schema={rule.content_schema}
+      uiSchema={effectiveUiSchema}
+      formData={content}
+      templates={todoFormTemplates}
+      fields={todoFormFields}
+      onChange={setContent}
+      readOnly={readOnly}
+      disabled={disabled}
     />
   )
 })

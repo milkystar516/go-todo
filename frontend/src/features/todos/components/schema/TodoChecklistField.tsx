@@ -1,27 +1,18 @@
-import { useRef } from "react"
 import {
-  ChevronDown,
-  ChevronUp,
-  Plus,
-  X,
-} from "lucide-react"
-import {
+  buttonId,
   getUiOptions,
+  toFieldPathId,
+  TranslatableString,
+  type ArrayFieldItemTemplateProps,
   type FieldProps,
   type UiSchema,
 } from "@rjsf/utils"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "#components/ui/button"
 import { Checkbox } from "#components/ui/checkbox"
-import {
-  Field,
-  FieldError,
-} from "#components/ui/field"
+import { FieldError } from "#components/ui/field"
 import { Input } from "#components/ui/input"
 import { cn } from "#lib/utils"
-
-import { getItemSchema } from "../../../../lib/schema/todoContentSchema"
 
 interface ChecklistItem {
   text: string
@@ -48,329 +39,277 @@ function normalizeChecklistItem(value: unknown): ChecklistItem {
   }
 }
 
-function getChecklistItemUiSchema(
-  uiSchema?: UiSchema,
-): UiSchema | undefined {
-  const items = uiSchema?.items
+export function TodoChecklistItemTemplate({
+  children,
+  buttonsProps,
+  displayLabel,
+  hasDescription,
+  hasToolbar,
+  index,
+}: ArrayFieldItemTemplateProps) {
+  const { t } = useTranslation()
 
-  if (
-    typeof items !== "object" ||
-    items === null ||
-    Array.isArray(items)
-  ) {
-    return undefined
-  }
+  const {
+    disabled = false,
+    fieldPathId,
+    hasCopy,
+    hasMoveDown,
+    hasMoveUp,
+    hasRemove,
+    onCopyItem,
+    onMoveDownItem,
+    onMoveUpItem,
+    onRemoveItem,
+    readonly = false,
+    registry,
+    uiSchema,
+  } = buttonsProps
 
-  return items as UiSchema
+  const {
+    ClearButton,
+    CopyButton,
+    MoveDownButton,
+    MoveUpButton,
+  } = registry.templates.ButtonTemplates
+
+  const margin = hasDescription ? -6 : 22
+  const removeLabel = registry.translateString(
+    TranslatableString.RemoveButton,
+  )
+
+  return (
+    <div>
+      <div className="mb-2 flex flex-row flex-wrap items-start">
+        <div className="grow shrink">
+          {children}
+        </div>
+
+        {!disabled && !readonly && hasToolbar && (
+          <div className="flex items-start justify-end p-0.5">
+            <div
+              className="flex gap-2"
+              style={{
+                marginLeft: "5px",
+                marginTop: displayLabel
+                  ? `${margin}px`
+                  : undefined,
+              }}
+            >
+              {(hasMoveUp || hasMoveDown) && (
+                <MoveUpButton
+                  id={buttonId(fieldPathId, "moveUp")}
+                  className="rjsf-array-item-move-up"
+                  disabled={!hasMoveUp}
+                  aria-label={t(
+                    "todos.form.checklist.moveUp",
+                    { number: index + 1 },
+                  )}
+                  onClick={onMoveUpItem}
+                  uiSchema={uiSchema}
+                  registry={registry}
+                />
+              )}
+
+              {(hasMoveUp || hasMoveDown) && (
+                <MoveDownButton
+                  id={buttonId(fieldPathId, "moveDown")}
+                  className="rjsf-array-item-move-down"
+                  disabled={!hasMoveDown}
+                  aria-label={t(
+                    "todos.form.checklist.moveDown",
+                    { number: index + 1 },
+                  )}
+                  onClick={onMoveDownItem}
+                  uiSchema={uiSchema}
+                  registry={registry}
+                />
+              )}
+
+              {hasCopy && (
+                <CopyButton
+                  id={buttonId(fieldPathId, "copy")}
+                  className="rjsf-array-item-copy"
+                  aria-label="Copy"
+                  onClick={onCopyItem}
+                  uiSchema={uiSchema}
+                  registry={registry}
+                />
+              )}
+
+              {hasRemove && (
+                <ClearButton
+                  id={buttonId(fieldPathId, "remove")}
+                  className="rjsf-array-item-remove"
+                  title={removeLabel}
+                  aria-label={t(
+                    "todos.form.checklist.remove",
+                    { number: index + 1 },
+                  )}
+                  onClick={onRemoveItem}
+                  uiSchema={uiSchema}
+                  registry={registry}
+                />
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 export function TodoChecklistField({
-  schema,
   uiSchema,
   formData,
   errorSchema,
+  rawErrors = [],
   fieldPathId,
   disabled = false,
   readonly = false,
   registry,
   onChange,
   onBlur,
+  onFocus,
 }: FieldProps) {
   const { t } = useTranslation()
 
-  const items = Array.isArray(formData)
-  ? formData.map(normalizeChecklistItem)
-  : []
+  const item = normalizeChecklistItem(formData)
 
-  const nextRowKeyRef = useRef(items.length)
-  const rowKeysRef = useRef<string[] | null>(null)
-
-  if (rowKeysRef.current === null) {
-    rowKeysRef.current = items.map(
-      (_, index) => `${fieldPathId.$id}-row-${index}`,
-    )
-  }
-
-  const rowKeys = rowKeysRef.current
-
-  const itemSchema = getItemSchema(schema)
-  const itemUiSchema = getChecklistItemUiSchema(uiSchema)
-  const textUiSchema = itemUiSchema?.text as
+  const textUiSchema = uiSchema?.text as
     | UiSchema
     | undefined
 
-  const { placeholder } = getUiOptions(textUiSchema)
-  const {
-    addable = true,
-    orderable = true,
-    removable = true,
-  } = getUiOptions(
-    uiSchema,
+  const { placeholder } = getUiOptions(
+    textUiSchema,
     registry.globalUiOptions,
   )
 
-  const locked = disabled || readonly
+  const pathPart =
+    fieldPathId.path[fieldPathId.path.length - 1]
 
-  const canAdd =
-    !locked &&
-    addable !== false &&
-    (schema.maxItems === undefined ||
-      items.length < schema.maxItems)
+  const itemNumber =
+    typeof pathPart === "number"
+      ? pathPart + 1
+      : 1
 
-  const canRemove =
-    !locked &&
-    removable !== false &&
-    (schema.minItems === undefined ||
-      items.length > schema.minItems)
+  const textFieldPathId = toFieldPathId(
+    "text",
+    registry.globalFormOptions,
+    fieldPathId,
+  )
 
-  const canReorder =
-    !locked &&
-    orderable !== false &&
-    items.length > 1
-    
-  function createRowKey() {
-    const key =
-      `${fieldPathId.$id}-row-${nextRowKeyRef.current}`
+  const completedFieldPathId = toFieldPathId(
+    "completed",
+    registry.globalFormOptions,
+    fieldPathId,
+  )
 
-    nextRowKeyRef.current += 1
+  const textErrors =
+    errorSchema?.text?.__errors ?? []
 
-    return key
-  }
+  const completedErrors =
+    errorSchema?.completed?.__errors ?? []
 
-  function updateItems(nextItems: ChecklistItem[]) {
-    onChange(nextItems, fieldPathId.path)
-  }
+  const childErrorMessages = [
+    ...textErrors,
+    ...completedErrors,
+  ]
+
+  const invalid =
+    rawErrors.length > 0 ||
+    childErrorMessages.length > 0
 
   function updateItem(
-    index: number,
     patch: Partial<ChecklistItem>,
   ) {
-    updateItems(
-      items.map((item, itemIndex) =>
-        itemIndex === index
-          ? {
-              ...item,
-              ...patch,
-            }
-          : item,
-      ),
+    onChange(
+      {
+        ...item,
+        ...patch,
+      },
+      fieldPathId.path,
     )
-  }
-
-  function addItem() {
-    const defaultItem = itemSchema
-      ? registry.schemaUtils.getDefaultFormState(
-          itemSchema,
-        )
-      : undefined
-    
-    rowKeysRef.current = [
-      ...rowKeys,
-      createRowKey(),
-    ]
-
-    updateItems([
-      ...items,
-      normalizeChecklistItem(defaultItem),
-    ])
-  }
-
-  function removeItem(index: number) {
-    if (!canRemove) {
-        return
-    }
-
-    rowKeysRef.current = rowKeys.filter(
-        (_, itemIndex) => itemIndex !== index,
-    )
-
-    updateItems(
-        items.filter((_, itemIndex) => itemIndex !== index),
-    )
-  }
-
-  function moveItem(
-    index: number,
-    direction: -1 | 1,
-  ) {
-    const targetIndex = index + direction
-
-    if (
-      !canReorder ||
-      targetIndex < 0 ||
-      targetIndex >= items.length
-    ) {
-      return
-    }
-
-    const nextItems = [...items]
-    const [item] = nextItems.splice(index, 1)
-
-    nextItems.splice(targetIndex, 0, item)
-
-    const nextRowKeys = [...rowKeys]
-    const [rowKey] = nextRowKeys.splice(index, 1)
-
-    nextRowKeys.splice(targetIndex, 0, rowKey)
-    rowKeysRef.current = nextRowKeys
-
-    updateItems(nextItems)
   }
 
   return (
-    <div className="space-y-2">
-      {items.map((item, index) => {
-        const itemErrors = errorSchema?.[index]
-        const errorMessages = [
-          ...(itemErrors?.__errors ?? []),
-          ...(itemErrors?.text?.__errors ?? []),
-          ...(itemErrors?.completed?.__errors ?? []),
-        ]
+    <div className="space-y-1">
+      <div className="flex min-w-0 items-center gap-2">
+        <Checkbox
+          id={completedFieldPathId.$id}
+          checked={item.completed}
+          disabled={disabled || readonly}
+          aria-label={t(
+            "todos.form.checklist.completed",
+            { number: itemNumber },
+          )}
+          aria-invalid={
+            completedErrors.length > 0 ||
+            undefined
+          }
+          onCheckedChange={(checked) =>
+            updateItem({
+              completed: checked === true,
+            })
+          }
+          onBlur={() =>
+            onBlur(
+              completedFieldPathId.$id,
+              item.completed,
+            )
+          }
+          onFocus={() =>
+            onFocus(
+              completedFieldPathId.$id,
+              item.completed,
+            )
+          }
+        />
 
-        const invalid = errorMessages.length > 0
+        <Input
+          id={textFieldPathId.$id}
+          value={item.text}
+          disabled={disabled}
+          readOnly={readonly}
+          placeholder={
+            typeof placeholder === "string"
+              ? placeholder
+              : undefined
+          }
+          aria-label={t(
+            "todos.form.checklist.item",
+            { number: itemNumber },
+          )}
+          aria-invalid={invalid || undefined}
+          className={cn(
+            "h-8 flex-1 border-0 bg-transparent px-1 shadow-none",
+            "focus-visible:border-transparent focus-visible:ring-0",
+            item.completed &&
+              "text-muted-foreground line-through",
+          )}
+          onChange={(event) =>
+            updateItem({
+              text: event.target.value,
+            })
+          }
+          onBlur={() =>
+            onBlur(
+              textFieldPathId.$id,
+              item.text,
+            )
+          }
+          onFocus={() =>
+            onFocus(
+              textFieldPathId.$id,
+              item.text,
+            )
+          }
+        />
+      </div>
 
-        return (
-          <Field
-            key={rowKeys[index]}
-            data-invalid={invalid}
-            className="gap-1"
-          >
-            <div className="flex min-w-0 items-center gap-2">
-              <Checkbox
-                checked={item.completed}
-                disabled={disabled || readonly}
-                aria-label={t(
-                  "todos.form.checklist.completed",
-                  { number: index + 1 },
-                )}
-                onCheckedChange={(checked) =>
-                  updateItem(index, {
-                    completed: checked === true,
-                  })
-                }
-                onBlur={() =>
-                  onBlur(
-                    `${fieldPathId.$id}_${index}_completed`,
-                    item.completed,
-                  )
-                }
-              />
-
-              <Input
-                value={item.text}
-                disabled={disabled}
-                readOnly={readonly}
-                placeholder={
-                  typeof placeholder === "string"
-                    ? placeholder
-                    : undefined
-                }
-                aria-label={t(
-                  "todos.form.checklist.item",
-                  { number: index + 1 },
-                )}
-                aria-invalid={invalid || undefined}
-                className={cn(
-                  "h-8 flex-1 rounded-none border-0 bg-transparent px-1 shadow-none",
-                  "focus-visible:border-transparent focus-visible:ring-0",
-                  item.completed &&
-                    "text-muted-foreground line-through",
-                )}
-                onChange={(event) =>
-                  updateItem(index, {
-                    text: event.target.value,
-                  })
-                }
-                onBlur={() =>
-                  onBlur(
-                    `${fieldPathId.$id}_${index}_text`,
-                    item.text,
-                  )
-                }
-              />
-
-              {!locked && (
-                <div className="flex shrink-0 items-center gap-0.5">
-                  {orderable !== false && (
-                    <>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-xs"
-                        disabled={!canReorder || index === 0}
-                        aria-label={t(
-                          "todos.form.checklist.moveUp",
-                          { number: index + 1 },
-                        )}
-                        onClick={() =>
-                          moveItem(index, -1)
-                        }
-                      >
-                        <ChevronUp />
-                      </Button>
-
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-xs"
-                        disabled={
-                          !canReorder ||
-                          index === items.length - 1
-                        }
-                        aria-label={t(
-                          "todos.form.checklist.moveDown",
-                          { number: index + 1 },
-                        )}
-                        onClick={() =>
-                          moveItem(index, 1)
-                        }
-                      >
-                        <ChevronDown />
-                      </Button>
-                    </>
-                  )}
-
-                  {removable !== false && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      disabled={!canRemove}
-                      aria-label={t(
-                        "todos.form.checklist.remove",
-                        { number: index + 1 },
-                      )}
-                      onClick={() =>
-                        removeItem(index)
-                      }
-                    >
-                      <X />
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {invalid && (
-              <FieldError>
-                {errorMessages.join(" ")}
-              </FieldError>
-            )}
-          </Field>
-        )
-      })}
-
-      {canAdd && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-8 px-2 text-muted-foreground"
-          onClick={addItem}
-        >
-          <Plus />
-          {t("todos.form.checklist.addItem")}
-        </Button>
+      {childErrorMessages.length > 0 && (
+        <FieldError>
+          {childErrorMessages.join(" ")}
+        </FieldError>
       )}
     </div>
   )
