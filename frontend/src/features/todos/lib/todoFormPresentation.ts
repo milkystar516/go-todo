@@ -10,7 +10,9 @@ import {
   getPropertySchemas,
   isChecklistSchema,
 } from "../../../lib/schema/todoContentSchema"
-import { TodoChecklistItemTemplate } from "../components/schema/TodoChecklistField"
+import {
+  buildChecklistUi,
+} from "../components/schema/TodoChecklist"
 
 export type TodoFieldPresentation =
   | "compact"
@@ -36,127 +38,151 @@ export function getTodoFieldPresentation(
   schema: RJSFSchema,
   uiSchema?: UiSchema,
 ): TodoFieldPresentation {
-  const schemaType = getSchemaType(schema)
-  const type = Array.isArray(schemaType)
+  const schemaType =
+    getSchemaType(schema)
+
+  const type = Array.isArray(
+    schemaType,
+  )
     ? schemaType[0]
     : schemaType
 
-  const { widget } = getUiOptions(uiSchema)
+  const { widget } =
+    getUiOptions(uiSchema)
 
-  if (schema.format === "data-url") {
+  if (
+    fullWidthWidgets.has(
+      String(widget),
+    )
+  ) {
     return "full"
   }
 
-  if (fullWidthWidgets.has(String(widget))) {
-    return "full"
-  }
-
-  if (type === "array" || type === "object") {
+  if (
+    type === "array" ||
+    type === "object"
+  ) {
     return "full"
   }
 
   return "compact"
 }
 
-export function buildTodoFormUiSchema(
+export function buildTodoGridUiSchema(
   schema: RJSFSchema,
   storedUiSchema?: UiSchema,
 ): UiSchema {
-  const uiSchema: UiSchema = storedUiSchema
-    ? structuredClone(storedUiSchema)
-    : {}
+  const uiSchema: UiSchema =
+    storedUiSchema
+      ? structuredClone(
+          storedUiSchema,
+        )
+      : {}
 
-  const properties = getPropertySchemas(schema)
-  const propertyNames = Object.keys(properties)
+  const properties =
+    getPropertySchemas(schema)
+
+  const propertyNames =
+    Object.keys(properties)
 
   if (propertyNames.length === 0) {
     return uiSchema
   }
 
-  const { order } = getUiOptions(uiSchema)
+  const { order } =
+    getUiOptions(uiSchema)
 
-  const orderedPropertyNames = orderProperties(
-    propertyNames,
-    order,
-  )
+  const orderedPropertyNames =
+    orderProperties(
+      propertyNames,
+      order,
+    )
 
-  uiSchema["ui:field"] = "LayoutGridField"
+  uiSchema["ui:field"] =
+    "LayoutGridField"
 
   uiSchema["ui:layoutGrid"] = {
     "ui:row": {
       className:
         "grid grid-cols-1 gap-4 md:grid-cols-2",
-      children: orderedPropertyNames.map(
-        (propertyName) => {
-          const propertySchema =
-            properties[propertyName]
 
-          let propertyUiSchema =
-            uiSchema[propertyName] as
-              | UiSchema
-              | undefined
+      children:
+        orderedPropertyNames.map(
+          (propertyName) => {
+            const propertySchema =
+              properties[propertyName]
 
-          if (isChecklistSchema(propertySchema)) {
-            const checklistUiSchema: UiSchema = {
-              ...(isUiSchemaObject(propertyUiSchema)
-                ? propertyUiSchema
-                : {}),
-            }
-
-            const itemUiSchema: UiSchema =
+            const propertyUiSchema =
               isUiSchemaObject(
-                checklistUiSchema.items,
+                uiSchema[propertyName],
               )
-                ? {
-                    ...checklistUiSchema.items,
-                  }
-                : {}
+                ? uiSchema[
+                    propertyName
+                  ]
+                : undefined
 
-            itemUiSchema["ui:field"] =
-              "TodoChecklistField"
+            const presentation =
+              getTodoFieldPresentation(
+                propertySchema,
+                propertyUiSchema,
+              )
 
-            checklistUiSchema.items =
-              itemUiSchema
+            return {
+              "ui:col": {
+                className:
+                  presentation ===
+                  "full"
+                    ? "md:col-span-2"
+                    : "md:col-span-1",
 
-            checklistUiSchema[
-              "ui:ArrayFieldItemTemplate"
-            ] = TodoChecklistItemTemplate
-
-            const storedOptions =
-              checklistUiSchema["ui:options"]
-
-            checklistUiSchema["ui:options"] = {
-              ...(isUiSchemaObject(storedOptions)
-                ? storedOptions
-                : {}),
-              copyable: false,
+                children: [
+                  propertyName,
+                ],
+              },
             }
-
-            propertyUiSchema =
-              checklistUiSchema
-
-            uiSchema[propertyName] =
-              checklistUiSchema
-          }
-
-          const presentation =
-            getTodoFieldPresentation(
-              propertySchema,
-              propertyUiSchema,
-            )
-
-          return {
-            "ui:col": {
-              className:
-                presentation === "full"
-                  ? "md:col-span-2"
-                  : "md:col-span-1",
-              children: [propertyName],
-            },
-          }
-        },
-      ),
+          },
+        ),
     },
+  }
+
+  return uiSchema
+}
+
+export function buildTodoFormUiSchema(
+  schema: RJSFSchema,
+  storedUiSchema?: UiSchema,
+): UiSchema {
+  const uiSchema =
+    buildTodoGridUiSchema(
+      schema,
+      storedUiSchema,
+    )
+
+  const properties =
+    getPropertySchemas(schema)
+
+  for (
+    const [
+      propertyName,
+      propertySchema,
+    ] of Object.entries(properties)
+  ) {
+    if (
+      !isChecklistSchema(
+        propertySchema,
+      )
+    ) {
+      continue
+    }
+
+    uiSchema[propertyName] =
+      buildChecklistUi(
+        isUiSchemaObject(
+          uiSchema[propertyName],
+        )
+          ? uiSchema[propertyName]
+          : undefined,
+      )
   }
 
   return uiSchema

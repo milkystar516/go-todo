@@ -1,4 +1,9 @@
 import {
+  deepEquals,
+  omitExtraData,
+  type RJSFSchema,
+} from "@rjsf/utils"
+import {
   forwardRef,
   useImperativeHandle,
   useMemo,
@@ -6,96 +11,160 @@ import {
   useState,
 } from "react"
 
-import type { TodoRuleDetail } from "../../../../api/types"
+import type {
+  TodoRuleSchema,
+} from "../../../../api/types"
 import {
   JsonSchemaForm,
   type JsonSchemaFormHandle,
 } from "#components/schema/JsonSchemaForm"
-import { TodoFieldTemplate } from "#components/schema/TodoFieldTemplate"
-import { buildTodoFormUiSchema } from "../../lib/todoFormPresentation"
-import { TodoChecklistField } from "./TodoChecklistField"
+import {
+  TodoFieldTemplate,
+} from "#components/schema/TodoFieldTemplate"
+import {
+  rjsfValidator,
+} from "#lib/schema/rjsfValidator"
+import {
+  buildTodoFormUiSchema,
+} from "../../lib/todoFormPresentation"
+
+type Content =
+  Record<string, unknown>
+
+interface ContentDraft {
+  schema: RJSFSchema
+  value: Content
+}
 
 export interface TodoSchemaFormHandle {
   validateAndGetData:
-    () => Record<string, unknown> | null
+    () => Content | null
 }
 
 interface TodoSchemaFormProps {
   idPrefix: string
-  rule: TodoRuleDetail
-  initialContent?: Record<string, unknown>
-  readOnly?: boolean
+  rule: TodoRuleSchema
+  initialContent?: Content
   disabled?: boolean
 }
 
 const todoFormTemplates = {
-  FieldTemplate: TodoFieldTemplate,
+  FieldTemplate:
+    TodoFieldTemplate,
 }
 
-const todoFormFields = {
-  TodoChecklistField,
-}
-
-export const TodoSchemaForm = forwardRef<
-  TodoSchemaFormHandle,
-  TodoSchemaFormProps
->(function TodoSchemaForm(
-  {
-    idPrefix,
-    rule,
-    initialContent = {},
-    readOnly = false,
-    disabled = false,
-  },
-  ref,
-) {
-  const formRef =
-    useRef<JsonSchemaFormHandle>(null)
-
-  const [content, setContent] = useState<
-    Record<string, unknown>
-  >(() => structuredClone(initialContent))
-
-  const effectiveUiSchema = useMemo(
-    () =>
-      buildTodoFormUiSchema(
-        rule.content_schema,
-        rule.ui_schema,
-      ),
-    [
-      rule.content_schema,
-      rule.ui_schema,
-    ],
-  )
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      validateAndGetData() {
-        if (
-          !formRef.current?.validateForm()
-        ) {
-          return null
-        }
-
-        return content
-      },
-    }),
-    [content],
-  )
-
+function pruneContent(
+  schema: RJSFSchema,
+  content: Content,
+): Content {
   return (
-    <JsonSchemaForm
-      ref={formRef}
-      idPrefix={idPrefix}
-      schema={rule.content_schema}
-      uiSchema={effectiveUiSchema}
-      formData={content}
-      templates={todoFormTemplates}
-      fields={todoFormFields}
-      onChange={setContent}
-      readOnly={readOnly}
-      disabled={disabled}
-    />
+    omitExtraData<Content>(
+      rjsfValidator,
+      schema,
+      schema,
+      content,
+    ) ?? {}
   )
-})
+}
+
+export const TodoSchemaForm =
+  forwardRef<
+    TodoSchemaFormHandle,
+    TodoSchemaFormProps
+  >(function TodoSchemaForm(
+    {
+      idPrefix,
+      rule,
+      initialContent = {},
+      disabled = false,
+    },
+    ref,
+  ) {
+    const formRef =
+      useRef<
+        JsonSchemaFormHandle
+      >(null)
+
+    const [
+      contentDraft,
+      setContentDraft,
+    ] = useState<ContentDraft>(
+      () => ({
+        schema: structuredClone(rule.content_schema),
+        value: structuredClone(initialContent),
+      })
+    )
+
+    let formData =
+      contentDraft.value
+
+    if (!deepEquals(contentDraft.schema, rule.content_schema)) {
+      formData = pruneContent(
+        rule.content_schema,
+        contentDraft.value,
+      )
+
+      setContentDraft({
+        schema: structuredClone(rule.content_schema),
+        value: formData,
+      })
+    }
+
+    const effectiveUiSchema =
+      useMemo(
+        () =>
+          buildTodoFormUiSchema(
+            rule.content_schema,
+            rule.ui_schema,
+          ),
+        [
+          rule.content_schema,
+          rule.ui_schema,
+        ],
+      )
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        validateAndGetData() {
+          if (
+            !formRef.current
+              ?.validateForm()
+          ) {
+            return null
+          }
+
+          return formData
+        },
+      }),
+      [formData],
+    )
+
+    return (
+      <JsonSchemaForm
+        ref={formRef}
+        idPrefix={idPrefix}
+        schema={
+          rule.content_schema
+        }
+        uiSchema={
+          effectiveUiSchema
+        }
+        formData={formData}
+        templates={
+          todoFormTemplates
+        }
+        onChange={(
+          nextContent,
+        ) =>
+          setContentDraft({
+            schema:
+              structuredClone(rule.content_schema),
+            value:
+              nextContent,
+          })
+        }
+        disabled={disabled}
+      />
+    )
+  })

@@ -1,8 +1,15 @@
 import { useMemo } from "react"
-import { useTranslation } from "react-i18next"
+import {
+  useTranslation,
+} from "react-i18next"
 
-import type { Todo, TodoRuleDetail } from "../../../api/types"
-import { TodoItem } from "../../todos/components/TodoItem"
+import type {
+  Todo,
+  TodoRuleSchema,
+} from "../../../api/types"
+import {
+  TodoItem,
+} from "../../todos/components/TodoItem"
 import {
   Card,
   CardContent,
@@ -10,10 +17,12 @@ import {
   CardHeader,
   CardTitle,
 } from "#components/ui/card"
-import { createExampleContent } from "../lib/schema"
+import {
+  createExampleContent,
+} from "../lib/schema"
 
 interface TodoRulePreviewProps {
-  rule: TodoRuleDetail
+  rule: TodoRuleSchema
   className?: string
 }
 
@@ -21,31 +30,47 @@ export function TodoRulePreview({
   rule,
   className,
 }: TodoRulePreviewProps) {
-  const { t } = useTranslation()
-  const todo = useMemo<Todo>(
-    () => ({
-      id: 0,
-      owner_id: 0,
-      list_id: "preview",
-      rule_id: rule.id,
-      title: t("admin.todoRules.form.todoExampleTitle"),
-      due_at: null,
-      content: createExampleContent(
-        rule.content_schema,
-        t("admin.todoRules.form.exampleText"),
-      ),
-      created_at: "2026-08-27T00:00:00.000Z",
-      completed_at: null,
-    }),
-    [rule, t],
-  )
+  const { t } =
+    useTranslation()
+
+  const todo =
+    useMemo<Todo>(
+      () => ({
+        id: 0,
+        owner_id: 0,
+        list_id: "preview",
+        rule_id: rule.id,
+        title: t(
+          "admin.todoRules.form.todoExampleTitle",
+        ),
+        due_at: null,
+        content:
+          createExampleContent(
+            rule.content_schema,
+            t(
+              "admin.todoRules.form.exampleText",
+            ),
+          ),
+        created_at:
+          "2026-08-27T00:00:00.000Z",
+        completed_at: null,
+      }),
+      [rule, t],
+    )
 
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle>{t("admin.todoRules.form.todoExample")}</CardTitle>
+        <CardTitle>
+          {t(
+            "admin.todoRules.form.todoExample",
+          )}
+        </CardTitle>
+
         <CardDescription>
-          {t("admin.todoRules.form.todoExampleDescription")}
+          {t(
+            "admin.todoRules.form.todoExampleDescription",
+          )}
         </CardDescription>
       </CardHeader>
 
