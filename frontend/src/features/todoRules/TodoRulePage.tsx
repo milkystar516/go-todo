@@ -7,8 +7,8 @@ import {
 import { useTranslation } from "react-i18next"
 import { Link, useParams } from "react-router"
 
-import { AppPage } from "../../app/components/AppPage"
-import { PageHeader } from "../../app/components/PageHeader"
+import { AppPage } from "../../app/components/page/AppPage"
+import { PageHeader } from "../../app/components/page/PageHeader"
 import { AdminHeader } from "../admin/components/AdminHeader"
 import { Button } from "#components/ui/button"
 import { useClickOutside } from "#hooks/use-click-outside"

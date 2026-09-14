@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { NavLink } from "react-router"
 
-import { PageHeader } from "../../../app/components/PageHeader"
+import { PageHeader } from "../../../app/components/page/PageHeader"
 import { buttonVariants } from "#components/ui/button"
 import { cn } from "#lib/utils"
 

@@ -7,8 +7,8 @@ import { useTranslation } from "react-i18next";
 import { useParams } from "react-router";
 
 import type { Todo } from "../../api/types";
-import { AppPage } from "../../app/components/AppPage";
-import { PageHeader } from "../../app/components/PageHeader";
+import { AppPage } from "../../app/components/page/AppPage";
+import { PageHeader } from "../../app/components/page/PageHeader";
 import { getErrorMessage } from "../../lib/apiError";
 import { currentUserQueryOptions } from "../auth/queries";
 import { useOptionalListAccess } from "../guards/ListAccessGuards";

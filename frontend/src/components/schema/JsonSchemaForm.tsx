@@ -181,7 +181,7 @@ export const JsonSchemaForm =
               return {
                 ...error,
                 message: t(
-                  "common.validation.required",
+                  "admin.todoRules.form.required",
                 ),
               }
             }

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { AppPage } from "../../app/components/AppPage"
+import { AppPage } from "../../app/components/page/AppPage"
 import { getErrorMessage } from "../../lib/apiError"
 import { usersQueryOptions } from "../auth/queries"
 

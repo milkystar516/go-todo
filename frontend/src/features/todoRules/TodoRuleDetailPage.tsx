@@ -10,7 +10,7 @@ import { Link, useNavigate } from "react-router"
 
 import { isApiErrorOfType } from "../../api/client"
 import { PROBLEM_TYPE, type TodoRuleDetail } from "../../api/types"
-import { PageHeader } from "../../app/components/PageHeader"
+import { PageHeader } from "../../app/components/page/PageHeader"
 import { getErrorMessage } from "../../lib/apiError"
 import { ConfirmActionDialog } from "#components/common/ConfirmActionDialog"
 import { Button } from "#components/ui/button"
