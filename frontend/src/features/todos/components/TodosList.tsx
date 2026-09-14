@@ -106,7 +106,7 @@ function CompletedTodos(props: TodoItemsProps) {
   );
 }
 
-export function TodoList({
+export function TodosList({
   activeTodos,
   completedTodos,
   rulesById,

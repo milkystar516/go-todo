@@ -7,9 +7,7 @@ import {
 import { useTranslation } from "react-i18next"
 import { Link, useParams } from "react-router"
 
-import { AppPage } from "../../app/components/page/AppPage"
-import { PageHeader } from "../../app/components/page/PageHeader"
-import { AdminHeader } from "../admin/components/AdminHeader"
+import { PageHeader } from "../../app/components/PageHeader"
 import { Button } from "#components/ui/button"
 import { useClickOutside } from "#hooks/use-click-outside"
 import { cn } from "#lib/utils"
@@ -66,76 +64,72 @@ export function TodoRulePage() {
   )
 
   return (
-    <AppPage size="wide">
-      {!fullDetailOpen && <AdminHeader />}
-
-      <div className="flex min-w-0 flex-col items-start md:flex-row">
-        <div
-          className={cn(
-            "w-full min-w-0 overflow-hidden",
-            "md:basis-0",
-            "md:transition-[flex-grow]",
-            "md:duration-200",
-            "md:ease-out",
-            "motion-reduce:transition-none",
-            fullDetailOpen
-              ? "hidden md:block md:grow-0"
-              : "md:grow",
-          )}
-          inert={
-            fullDetailOpen
-              ? true
-              : undefined
-          }
-          aria-hidden={
-            fullDetailOpen
-              ? true
-              : undefined
-          }
-        >
-          <TodoRuleTable
-            selectedRuleId={selectedRuleId}
-            onSelectRule={setSelectedRuleId}
-          />
-        </div>
-
-        <div
-          ref={detailRef}
-          className={cn(
-            "w-full min-w-0 overflow-hidden",
-            "md:transition-[flex-grow,flex-basis,padding-left]",
-            "md:duration-200",
-            "md:ease-out",
-            "motion-reduce:transition-none",
-            fullDetailOpen
-              ? "md:basis-0 md:grow md:pl-0"
-              : splitDetailOpen
-                ? "md:basis-[29rem] md:grow-0 md:shrink-0 md:pl-4"
-                : "md:basis-0 md:grow-0 md:pl-0",
-          )}
-        >
-          {fullDetailOpen &&
-          fullRuleId === null ? (
-            <InvalidTodoRuleDetail />
-          ) : activeRuleId !== null ? (
-            <TodoRuleDetail
-              ruleId={activeRuleId}
-              mode={
-                fullDetailOpen
-                  ? "full"
-                  : "split"
-              }
-              onClose={() =>
-                setSelectedRuleId(null)
-              }
-              onDeleted={() =>
-                setSelectedRuleId(null)
-              }
-            />
-          ) : null}
-        </div>
+    <div className="flex min-w-0 flex-col items-start md:flex-row">
+      <div
+        className={cn(
+          "w-full min-w-0 overflow-hidden",
+          "md:basis-0",
+          "md:transition-[flex-grow]",
+          "md:duration-200",
+          "md:ease-out",
+          "motion-reduce:transition-none",
+          fullDetailOpen
+            ? "hidden md:block md:grow-0"
+            : "md:grow",
+        )}
+        inert={
+          fullDetailOpen
+            ? true
+            : undefined
+        }
+        aria-hidden={
+          fullDetailOpen
+            ? true
+            : undefined
+        }
+      >
+        <TodoRuleTable
+          selectedRuleId={selectedRuleId}
+          onSelectRule={setSelectedRuleId}
+        />
       </div>
-    </AppPage>
+
+      <div
+        ref={detailRef}
+        className={cn(
+          "w-full min-w-0 overflow-hidden",
+          "md:transition-[flex-grow,flex-basis,padding-left]",
+          "md:duration-200",
+          "md:ease-out",
+          "motion-reduce:transition-none",
+          fullDetailOpen
+            ? "md:basis-0 md:grow md:pl-0"
+            : splitDetailOpen
+              ? "md:basis-[29rem] md:grow-0 md:shrink-0 md:pl-4"
+              : "md:basis-0 md:grow-0 md:pl-0",
+        )}
+      >
+        {fullDetailOpen &&
+        fullRuleId === null ? (
+          <InvalidTodoRuleDetail />
+        ) : activeRuleId !== null ? (
+          <TodoRuleDetail
+            ruleId={activeRuleId}
+            mode={
+              fullDetailOpen
+                ? "full"
+                : "split"
+            }
+            onClose={() =>
+              setSelectedRuleId(null)
+            }
+            onDeleted={() =>
+              setSelectedRuleId(null)
+            }
+          />
+        ) : null}
+      </div>
+    </div>
   )
 }
 

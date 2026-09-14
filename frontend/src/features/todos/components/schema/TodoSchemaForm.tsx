@@ -20,7 +20,7 @@ import {
 } from "#components/schema/JsonSchemaForm"
 import {
   TodoFieldTemplate,
-} from "#components/schema/TodoFieldTemplate"
+} from "./TodoFieldTemplate"
 import {
   rjsfValidator,
 } from "#lib/schema/rjsfValidator"

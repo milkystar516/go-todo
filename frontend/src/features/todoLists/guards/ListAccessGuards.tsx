@@ -6,10 +6,10 @@ import {
   useParams,
 } from "react-router";
 
-import { ApiError } from "../../api/client";
-import type { TodoListMember } from "../../api/types";
-import { currentUserQueryOptions } from "../auth/queries";
-import { todoListMembersQueryOptions } from "../todoLists/queries";
+import { ApiError } from "../../../api/client";
+import type { TodoListMember } from "../../../api/types";
+import { currentUserQueryOptions } from "../../auth/queries";
+import { todoListMembersQueryOptions } from "../queries";
 
 export interface ListAccessContext {
   listId: string;

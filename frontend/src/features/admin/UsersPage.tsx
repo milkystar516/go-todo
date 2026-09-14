@@ -2,11 +2,9 @@ import { useQuery } from "@tanstack/react-query"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { AppPage } from "../../app/components/page/AppPage"
 import { getErrorMessage } from "../../lib/apiError"
 import { usersQueryOptions } from "../auth/queries"
 
-import { AdminHeader } from "./components/AdminHeader"
 import { UserDetailDialog } from "./components/UserDetailDialog"
 import { UsersTable } from "./components/UserTable"
 
@@ -18,9 +16,7 @@ function UsersPage() {
   const usersQuery = useQuery(usersQueryOptions)
 
   return (
-    <AppPage size="wide">
-      <AdminHeader />
-
+    <>
       <section className="space-y-4">
         <div className="space-y-1">
           <h2 className="text-lg font-medium">
@@ -58,7 +54,7 @@ function UsersPage() {
           onClose={() => setSelectedUserId(null)}
         />
       )}
-    </AppPage>
+    </>
   )
 }
 

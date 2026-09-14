@@ -3,6 +3,7 @@ import {
   createRoutesFromElements,
   redirect,
   Route,
+  type UIMatch,
 } from "react-router";
 
 import { queryClient } from "./queryClient";
@@ -10,10 +11,11 @@ import { RootRouteErrorBoundary } from "./components/RootRouteErrorBoundary";
 import { AppLayout } from "./layouts/AppLayout";
 import { AuthLayout } from "./layouts/AuthLayout";
 import { RootLayout } from "./layouts/RootLayout";
-import { RequireAuth } from "../features/guards/RequireAuth";
-import { RequireAdmin } from "../features/guards/RequireAdmin";
+import { RequireAuth } from "../features/auth/guards/RequireAuth";
+import { RequireAdmin } from "../features/auth/guards/RequireAdmin";
 import { currentUserQueryOptions } from "../features/auth/queries";
-import { RequireListMember } from "../features/guards/ListAccessGuards";
+import { RequireListMember } from "../features/todoLists/guards/ListAccessGuards";
+import { AdminLayout } from "../features/admin/AdminLayout";
 
 async function redirectAuthenticatedUser() {
   const currentUser = await queryClient.ensureQueryData(
@@ -21,6 +23,12 @@ async function redirectAuthenticatedUser() {
   );
 
   return currentUser ? redirect("/") : null;
+}
+
+const todoRuleAdminHandle = {
+  showAdminHeader: (
+    match: UIMatch,
+  ) => match.params.ruleId === undefined,
 }
 
 export const appRouter = createBrowserRouter(
@@ -49,7 +57,7 @@ export const appRouter = createBrowserRouter(
           <Route
             index
             lazy={() =>
-              import("../features/todoLists/TodosListPage")
+              import("../features/todoLists/TodoListPage")
             }
           />
 
@@ -67,7 +75,7 @@ export const appRouter = createBrowserRouter(
             <Route
               index
               lazy={() =>
-                import("../features/todoLists/TodosListPage")
+                import("../features/todoLists/TodoListPage")
               }
             />
           </Route>
@@ -76,12 +84,9 @@ export const appRouter = createBrowserRouter(
             <Route path="admin">
               <Route
                 index
-                loader={() => redirect("/admin/todo-rules")}
-              />
-
-              <Route
-                path="users"
-                lazy={() => import("../features/admin/UsersPage")}
+                loader={() =>
+                  redirect("/admin/todo-rules")
+                }
               />
 
               <Route
@@ -102,16 +107,31 @@ export const appRouter = createBrowserRouter(
                 }
               />
 
-              <Route
-                path="todo-rules/:ruleId?"
-                lazy={async () => {
-                  const { TodoRulePage } = await import(
-                    "../features/todoRules/TodoRulePage"
-                  );
+              <Route element={<AdminLayout />}>
+                <Route
+                  path="users"
+                  lazy={() =>
+                    import(
+                      "../features/admin/UsersPage"
+                    )
+                  }
+                />
 
-                  return { Component: TodoRulePage };
-                }}
-              />
+                <Route
+                  path="todo-rules/:ruleId?"
+                  handle={todoRuleAdminHandle}
+                  lazy={async () => {
+                    const { TodoRulePage } =
+                      await import(
+                        "../features/todoRules/TodoRulePage"
+                      )
+
+                    return {
+                      Component: TodoRulePage,
+                    }
+                  }}
+                />
+              </Route>
             </Route>
           </Route>
         </Route>

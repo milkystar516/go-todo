@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Navigate, Outlet } from "react-router";
 
-import { currentUserQueryOptions } from "../auth/queries";
+import { currentUserQueryOptions } from "../../auth/queries";
 
 export function RequireAuth() {
   const { data: currentUser, isPending, isError } =

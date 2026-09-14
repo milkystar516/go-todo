@@ -38,7 +38,7 @@ import {
 } from "../../../lib/schema/rjsfValidator"
 import {
   TodoFieldTemplate,
-} from "#components/schema/TodoFieldTemplate"
+} from "./schema/TodoFieldTemplate"
 import { cn } from "#lib/utils"
 import {
   buildTodoGridUiSchema,

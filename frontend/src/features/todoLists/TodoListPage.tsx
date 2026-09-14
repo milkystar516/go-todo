@@ -7,24 +7,24 @@ import { useTranslation } from "react-i18next";
 import { useParams } from "react-router";
 
 import type { Todo } from "../../api/types";
-import { AppPage } from "../../app/components/page/AppPage";
-import { PageHeader } from "../../app/components/page/PageHeader";
+import { AppPage } from "../../app/components/AppPage";
+import { PageHeader } from "../../app/components/PageHeader";
 import { getErrorMessage } from "../../lib/apiError";
 import { currentUserQueryOptions } from "../auth/queries";
-import { useOptionalListAccess } from "../guards/ListAccessGuards";
+import { useOptionalListAccess } from "./guards/ListAccessGuards";
 import { todoListQueryOptions } from "./queries";
 import {
   todoRuleQueryOptions,
   todoRulesQueryOptions,
 } from "../todoRules/queries";
-import { TodoList } from "../todos/components/TodoList";
+import { TodosList } from "../todos/components/TodosList";
 import { TodoQuickAdd } from "../todos/components/TodoQuickAdd";
 import {
   listTodosQueryOptions,
   ownerTodosQueryOptions,
 } from "../todos/queries";
 
-function TodosPage() {
+function TodoListPage() {
   const { t } = useTranslation();
   const { listId } = useParams<{ listId: string }>();
   const listAccess = useOptionalListAccess();
@@ -132,7 +132,7 @@ function TodosPage() {
         </p>
       )}
 
-      <TodoList
+      <TodosList
         activeTodos={activeTodos}
         completedTodos={completedTodos}
         rulesById={ruleQueryState.rulesById}
@@ -144,4 +144,4 @@ function TodosPage() {
   );
 }
 
-export { TodosPage as Component }
+export { TodoListPage as Component }
