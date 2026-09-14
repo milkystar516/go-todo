@@ -1,4 +1,5 @@
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { UserDropdown } from "./UserDropdown";
 
 export function SiteHeader() {
   return (
@@ -10,6 +11,7 @@ export function SiteHeader() {
 
         <div className="flex items-center gap-2">
           <LanguageSwitcher />
+          <UserDropdown />
         </div>
       </div>
     </header>

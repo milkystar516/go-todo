@@ -1,6 +1,7 @@
 {
   "header": {
-    "search": "Search"
+    "search": "Search",
+    "logout": "Logout"
   },
 
   "common": {
