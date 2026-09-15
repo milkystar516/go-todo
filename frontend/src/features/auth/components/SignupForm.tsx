@@ -116,7 +116,7 @@ export function SignupForm({
                   type="text"
                   autoComplete="username"
                   maxLength={50}
-                  pattern="[a-z][a-z0-9._-]*"
+                  pattern={"[a-z][a-z0-9._\\-]*"}
                   placeholder={t("auth.username")}
                   aria-invalid={usernameExists}
                   onChange={handleUsernameChange}

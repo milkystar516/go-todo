@@ -30,8 +30,7 @@ export function TodoRulePreview({
   rule,
   className,
 }: TodoRulePreviewProps) {
-  const { t } =
-    useTranslation()
+  const { t } = useTranslation()
 
   const todo =
     useMemo<Todo>(

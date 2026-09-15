@@ -1,13 +1,19 @@
 import {
-  getTemplate,
-  getUiOptions,
+  TranslatableString,
+  type ArrayFieldItemButtonsTemplateProps,
   type ArrayFieldItemTemplateProps,
   type BaseInputTemplateProps,
   type FieldTemplateProps,
   type ObjectFieldTemplateProps,
   type UiSchema,
 } from "@rjsf/utils"
+import {
+  ChevronDown,
+  ChevronUp,
+  X,
+} from "lucide-react"
 
+import { Button } from "#components/ui/button"
 import {
   Item,
   ItemActions,
@@ -24,19 +30,89 @@ function isUiSchemaObject(
   )
 }
 
+function ChecklistButtons({
+  disabled,
+  hasMoveDown,
+  hasMoveUp,
+  hasRemove,
+  onMoveDownItem,
+  onMoveUpItem,
+  onRemoveItem,
+  readonly,
+  registry,
+}: ArrayFieldItemButtonsTemplateProps) {
+  const { translateString } = registry
+
+  const unavailable =
+    disabled || readonly
+
+  const canMove =
+    hasMoveUp || hasMoveDown
+
+  return (
+    <>
+      {canMove && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="rounded-full"
+          disabled={
+            unavailable ||
+            !hasMoveUp
+          }
+          onClick={onMoveUpItem}
+          aria-label={translateString(
+            TranslatableString.MoveUpButton,
+          )}
+        >
+          <ChevronUp />
+        </Button>
+      )}
+
+      {canMove && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="rounded-full"
+          disabled={
+            unavailable ||
+            !hasMoveDown
+          }
+          onClick={onMoveDownItem}
+          aria-label={translateString(
+            TranslatableString.MoveDownButton,
+          )}
+        >
+          <ChevronDown />
+        </Button>
+      )}
+
+      {hasRemove && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="rounded-full"
+          disabled={unavailable}
+          onClick={onRemoveItem}
+          aria-label={translateString(
+            TranslatableString.RemoveButton,
+          )}
+        >
+          <X />
+        </Button>
+      )}
+    </>
+  )
+}
+
 function ChecklistRow({
   children,
   buttonsProps,
   hasToolbar,
-  registry,
-  uiSchema,
 }: ArrayFieldItemTemplateProps) {
-  const Buttons = getTemplate(
-    "ArrayFieldItemButtonsTemplate",
-    registry,
-    getUiOptions(uiSchema),
-  )
-
   return (
     <Item
       size="xs"
@@ -47,8 +123,17 @@ function ChecklistRow({
       </div>
 
       {hasToolbar && (
-        <ItemActions className="h-9 shrink-0">
-          <Buttons {...buttonsProps} />
+        <ItemActions
+          className={cn(
+            "h-9 shrink-0",
+            "pointer-events-none opacity-0 transition-opacity",
+            "group-hover/checklist:pointer-events-auto group-hover/checklist:opacity-100",
+            "group-focus-within/checklist:pointer-events-auto group-focus-within/checklist:opacity-100",
+          )}
+        >
+          <ChecklistButtons
+            {...buttonsProps}
+          />
         </ItemActions>
       )}
     </Item>
@@ -266,12 +351,14 @@ export function buildChecklistUi(
       itemData,
     )
 
-  uiSchema["ui:ArrayFieldItemTemplate"] = ChecklistRow
+  uiSchema[
+    "ui:ArrayFieldItemTemplate"
+  ] = ChecklistRow
 
   uiSchema["ui:options"] = {
     ...storedOptions,
     copyable: false,
   }
-    
+
   return uiSchema
 }
