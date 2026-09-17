@@ -327,6 +327,13 @@ export function TodoRuleForm({
       return
     }
 
+    const propertyNames = fields.map((field) => field.propertyName.trim())
+
+    if (new Set(propertyNames).size !== propertyNames.length) {
+      setFormError(t("admin.todoRules.form.fieldLabelDuplicate"))
+      return
+    }
+
     const choiceFields = fields.filter((field) => isChoiceField(field.type))
 
     if (

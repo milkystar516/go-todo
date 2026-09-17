@@ -178,6 +178,7 @@
         "fieldLabel": "Label",
         "fieldLabelPlaceholder": "For example, Priority",
         "fieldLabelRequired": "Enter a label for every field.",
+        "fieldLabelDuplicate": "Field labels must be unique.",
         "fieldType": "Input type",
         "selectFieldType": "Search input types",
         "noFieldType": "No matching input type.",

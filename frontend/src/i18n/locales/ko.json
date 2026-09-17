@@ -175,6 +175,7 @@
         "fieldLabel": "레이블",
         "fieldLabelPlaceholder": "예: 우선순위",
         "fieldLabelRequired": "모든 필드의 레이블을 입력해주세요.",
+        "fieldLabelDuplicate": "필드 레이블을 중복해서 사용할 수 없습니다.",
         "fieldType": "입력 유형",
         "selectFieldType": "입력 유형 검색",
         "noFieldType": "일치하는 입력 유형이 없습니다.",
