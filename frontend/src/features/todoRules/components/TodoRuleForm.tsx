@@ -111,7 +111,6 @@ function createInitialFields(
     initialValue?.fields.map((field) => ({
       ...field,
       id: createEditorId(),
-      propertyName: field.label.trim(),
       choices: field.choices.map((choice) => ({
         ...choice,
         id: createEditorId(),
@@ -153,7 +152,7 @@ export function TodoRuleForm({
 
       return {
         ...field,
-        propertyName: label,
+        propertyName: field.propertyName.trim(),
         label,
         choices: field.choices.map((choice, choiceIndex) => {
           const choiceLabel =
@@ -356,7 +355,7 @@ export function TodoRuleForm({
 
       return {
         ...field,
-        propertyName: label,
+        propertyName: field.propertyName.trim(),
         label,
         choices: field.choices.map((choice) => {
           const choiceLabel = choice.label.trim()
