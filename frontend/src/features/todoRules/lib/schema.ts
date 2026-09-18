@@ -14,14 +14,6 @@ export function getPropertyUiSchema(uiSchema: UiSchema, name: string) {
   return structuredClone(propertyUiSchema) as UiSchema
 }
 
-export function getPropertyWidget(uiSchema: UiSchema, name: string) {
-  const propertyUiSchema = getPropertyUiSchema(uiSchema, name)
-  if (!propertyUiSchema) return undefined
-
-  const widget = propertyUiSchema["ui:widget"]
-  return typeof widget === "string" ? widget : undefined
-}
-
 function exampleValue(
   schema: RJSFSchema,
   exampleText: string,

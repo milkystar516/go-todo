@@ -11,7 +11,6 @@ import {
 import type { TodoRuleDetail } from "../../../api/types"
 import {
   getPropertyUiSchema,
-  getPropertyWidget,
 } from "./schema"
 import { rjsfValidator } from "../../../lib/schema/rjsfValidator"
 import {
@@ -234,9 +233,14 @@ export function createTodoRuleFormInitialValue(
 
   for (const fieldId of orderedPropertyNames) {
     const schema = properties[fieldId]
+    const propertyUiSchema = getPropertyUiSchema(
+      rule.ui_schema,
+      fieldId,
+    )
+    const widget = getUiOptions(propertyUiSchema).widget
     const type = getTodoRuleFieldType(
       schema,
-      getPropertyWidget(rule.ui_schema, fieldId),
+      typeof widget === "string" ? widget : undefined,
     )
 
     const choiceSchema =
@@ -269,7 +273,7 @@ export function createTodoRuleFormInitialValue(
       originalDefinition: {
         type,
         schema: structuredClone(schema),
-        uiSchema: getPropertyUiSchema(rule.ui_schema, fieldId),
+        uiSchema: propertyUiSchema,
         required: required.has(fieldId),
       },
     })
@@ -641,6 +645,11 @@ export function summarizeTodoRuleFields(
   return orderedNames.map((name) => {
     const schema = properties[name]
     const items = getItemSchema(schema)
+    const propertyUiSchema = getPropertyUiSchema(
+      rule.ui_schema,
+      name,
+    )
+    const widget = getUiOptions(propertyUiSchema).widget
     const choiceSchema =
       schema.type === "array" && items ? items : schema
     const choices = optionsList(choiceSchema) ?? []
@@ -653,7 +662,7 @@ export function summarizeTodoRuleFields(
           : name,
       type: getTodoRuleFieldType(
         schema,
-        getPropertyWidget(rule.ui_schema, name),
+        typeof widget === "string" ? widget : undefined,
       ),
       required: required.has(name),
       choiceCount: choices.length,
