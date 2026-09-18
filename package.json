@@ -10,5 +10,8 @@
     "prod:down": "docker compose --env-file .env.production -f compose.yaml -f compose.production.yaml down",
     "prod:logs": "docker compose --env-file .env.production -f compose.yaml -f compose.production.yaml logs -f",
     "prod:status": "docker compose --env-file .env.production -f compose.yaml -f compose.production.yaml ps"
+  },
+  "dependencies": {
+    "@rjsf/core": "^6.10.1"
   }
 }
