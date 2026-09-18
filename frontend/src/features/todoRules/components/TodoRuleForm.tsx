@@ -44,7 +44,6 @@ import {
   createTodoRuleDefinition,
   isChoiceField,
   todoRuleFieldTypes,
-  type TodoRuleChoice,
   type TodoRuleFieldType,
   type TodoRuleFormField,
   type TodoRuleFormInitialValue,
@@ -60,21 +59,28 @@ interface TodoRuleFormProps {
   onCancel?: () => void
 }
 
+interface TodoRuleEditorChoice {
+  id: string
+  value: string
+  canChangeValue: boolean
+}
+
+type TodoRuleEditorField = Omit<TodoRuleFormField, "choices"> & {
+  choices: TodoRuleEditorChoice[]
+  canChangeType: boolean
+}
+
 interface TodoRuleFieldEditorProps {
-  field: TodoRuleFormField
+  field: TodoRuleEditorField
   disabled: boolean
   onChange: (
     update: Partial<Pick<TodoRuleFormField, "label" | "required">>,
   ) => void
   onTypeChange?: (type: TodoRuleFieldType) => void
   onAddChoice: () => void
-  onChoiceChange: (choiceId: string, label: string) => void
+  onChoiceChange: (choiceId: string, value: string) => void
   onRemoveChoice: (choiceId: string) => void
   onRemove: () => void
-}
-
-type TodoRuleEditorField = TodoRuleFormField & {
-  canChangeType: boolean
 }
 
 let nextEditorId = 0
@@ -84,11 +90,11 @@ function createEditorId() {
   return `editor-${nextEditorId}`
 }
 
-function createChoice(): TodoRuleChoice {
+function createChoice(): TodoRuleEditorChoice {
   return {
     id: createEditorId(),
     value: "",
-    label: "",
+    canChangeValue: true,
   }
 }
 
@@ -111,10 +117,10 @@ function createInitialFields(
     initialValue?.fields.map((field) => ({
       ...field,
       id: createEditorId(),
-      choices: field.choices.map((choice) => ({
-        ...choice,
+      choices: field.choices.map((value) => ({
         id: createEditorId(),
-        value: choice.label.trim(),
+        value,
+        canChangeValue: false,
       })),
       canChangeType: false,
     })) ?? []
@@ -154,19 +160,13 @@ export function TodoRuleForm({
         ...field,
         propertyName: field.propertyName.trim(),
         label,
-        choices: field.choices.map((choice, choiceIndex) => {
-          const choiceLabel =
-            choice.label.trim() ||
+        choices: field.choices.map(
+          (choice, choiceIndex) =>
+            choice.value.trim() ||
             t("admin.todoRules.form.choicePlaceholder", {
               number: choiceIndex + 1,
-            })
-
-          return {
-            ...choice,
-            value: choiceLabel,
-            label: choiceLabel,
-          }
-        }),
+            }),
+        ),
       }
     })
 
@@ -254,18 +254,17 @@ export function TodoRuleForm({
     setFormError(null)
   }
 
-  function updateChoice(fieldId: string, choiceId: string, label: string) {
+  function updateChoice(fieldId: string, choiceId: string, value: string) {
     setFields((currentFields) =>
       currentFields.map((field) =>
         field.id === fieldId
           ? {
               ...field,
               choices: field.choices.map((choice) =>
-                choice.id === choiceId
+                choice.id === choiceId && choice.canChangeValue
                   ? {
                       ...choice,
-                      value: label,
-                      label,
+                      value,
                     }
                   : choice,
               ),
@@ -340,7 +339,7 @@ export function TodoRuleForm({
       choiceFields.some(
         (field) =>
           field.choices.length === 0 ||
-          field.choices.some((choice) => !choice.label.trim()),
+          field.choices.some((choice) => !choice.value.trim()),
       )
     ) {
       setFormError(t("admin.todoRules.form.choiceLabelRequired"))
@@ -349,8 +348,8 @@ export function TodoRuleForm({
 
     if (
       choiceFields.some((field) => {
-        const labels = field.choices.map((choice) => choice.label.trim())
-        return new Set(labels).size !== labels.length
+        const values = field.choices.map((choice) => choice.value.trim())
+        return new Set(values).size !== values.length
       })
     ) {
       setFormError(t("admin.todoRules.form.choiceLabelDuplicate"))
@@ -364,15 +363,7 @@ export function TodoRuleForm({
         ...field,
         propertyName: field.propertyName.trim(),
         label,
-        choices: field.choices.map((choice) => {
-          const choiceLabel = choice.label.trim()
-
-          return {
-            ...choice,
-            value: choiceLabel,
-            label: choiceLabel,
-          }
-        }),
+        choices: field.choices.map((choice) => choice.value.trim()),
       }
     })
 
@@ -448,8 +439,8 @@ export function TodoRuleForm({
                             : undefined
                         }
                         onAddChoice={() => addChoice(field.id)}
-                        onChoiceChange={(choiceId, label) =>
-                          updateChoice(field.id, choiceId, label)
+                        onChoiceChange={(choiceId, value) =>
+                          updateChoice(field.id, choiceId, value)
                         }
                         onRemoveChoice={(choiceId) =>
                           removeChoice(field.id, choiceId)
@@ -647,7 +638,7 @@ function TodoRuleFieldEditor({
                       })}
                     >
                       <Input
-                        value={choice.label}
+                        value={choice.value}
                         placeholder={t(
                           "admin.todoRules.form.choicePlaceholder",
                           {
@@ -660,7 +651,7 @@ function TodoRuleFieldEditor({
                         onChange={(event) =>
                           onChoiceChange(choice.id, event.target.value)
                         }
-                        disabled={disabled}
+                        disabled={disabled || !choice.canChangeValue}
                         required
                       />
 

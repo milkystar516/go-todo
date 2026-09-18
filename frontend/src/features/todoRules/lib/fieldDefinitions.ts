@@ -45,13 +45,6 @@ export type TodoRuleFieldType =
   | (typeof todoRuleFieldTypes)[number]
   | "custom"
 
-export interface TodoRuleChoice {
-  id: string
-  value: string
-  label: string
-  originalSchema?: RJSFSchema
-}
-
 interface TodoRuleOriginalFieldDefinition {
   type: TodoRuleFieldType
   schema: RJSFSchema
@@ -65,7 +58,7 @@ export interface TodoRuleFormField {
   label: string
   type: TodoRuleFieldType
   required: boolean
-  choices: TodoRuleChoice[]
+  choices: string[]
   originalDefinition?: TodoRuleOriginalFieldDefinition
 }
 
@@ -105,42 +98,39 @@ export function isChoiceField(type: TodoRuleFieldType) {
 
 function choicesForSchema(
   schema: RJSFSchema,
-): TodoRuleChoice[] | null {
-  if (Array.isArray(schema.oneOf)) {
-    const choices: TodoRuleChoice[] = []
-
-    for (const choice of schema.oneOf) {
-      if (
-        !isSchemaObject(choice) ||
-        typeof choice.const !== "string"
-      ) {
-        return null
-      }
-
-      choices.push({
-        id: `choice_${choices.length}`,
-        value: choice.const,
-        label:
-          typeof choice.title === "string"
-            ? choice.title
-            : choice.const,
-        originalSchema: structuredClone(choice),
-      })
-    }
-
-    return choices
-  }
-
+): string[] | null {
   if (Array.isArray(schema.enum)) {
     if (!schema.enum.every((value) => typeof value === "string")) {
       return null
     }
 
-    return schema.enum.map((value, index) => ({
-      id: `choice_${index}`,
-      value,
-      label: value,
-    }))
+    return [...schema.enum]
+  }
+
+  if (Array.isArray(schema.oneOf)) {
+    const options = optionsList(schema)
+
+    if (!options || options.length !== schema.oneOf.length) {
+      return null
+    }
+
+    for (let index = 0; index < schema.oneOf.length; index += 1) {
+      const choiceSchema = schema.oneOf[index]
+      const option = options[index]
+
+      if (
+        !isSchemaObject(choiceSchema) ||
+        Object.keys(choiceSchema).some(
+          (key) => key !== "const" && key !== "title",
+        ) ||
+        typeof option.value !== "string" ||
+        option.label !== option.value
+      ) {
+        return null
+      }
+    }
+
+    return options.map((option) => option.value as string)
   }
 
   return []
@@ -277,14 +267,8 @@ export function createTodoRuleFormInitialValue(
   }
 }
 
-function choiceSchemas(field: TodoRuleFormField) {
-  return field.choices.map((choice) => ({
-    ...(choice.originalSchema
-      ? structuredClone(choice.originalSchema)
-      : {}),
-    const: choice.value,
-    title: choice.label.trim(),
-  }))
+function choiceValues(field: TodoRuleFormField) {
+  return field.choices.map((choice) => choice.trim())
 }
 
 interface GeneratedFieldDefinition {
@@ -304,8 +288,8 @@ function applyChoices(
       ? schema.items
       : schema
 
-  delete choiceSchema.enum
-  choiceSchema.oneOf = choiceSchemas(field)
+  delete choiceSchema.oneOf
+  choiceSchema.enum = choiceValues(field)
 }
 
 function preservedDefinitionForField(
@@ -427,7 +411,7 @@ function definitionForField(
         schema: {
           type: "string",
           title,
-          oneOf: choiceSchemas(field),
+          enum: choiceValues(field),
         },
         uiSchema: { "ui:widget": "select" },
       }
@@ -437,7 +421,7 @@ function definitionForField(
         schema: {
           type: "string",
           title,
-          oneOf: choiceSchemas(field),
+          enum: choiceValues(field),
         },
         uiSchema: { "ui:widget": "radio" },
       }
@@ -450,7 +434,7 @@ function definitionForField(
           uniqueItems: true,
           items: {
             type: "string",
-            oneOf: choiceSchemas(field),
+            enum: choiceValues(field),
           },
         },
         uiSchema: { "ui:widget": "select" },
@@ -464,7 +448,7 @@ function definitionForField(
           uniqueItems: true,
           items: {
             type: "string",
-            oneOf: choiceSchemas(field),
+            enum: choiceValues(field),
           },
         },
         uiSchema: { "ui:widget": "checkboxes" },
