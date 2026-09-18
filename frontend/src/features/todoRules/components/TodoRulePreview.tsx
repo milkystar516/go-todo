@@ -1,15 +1,17 @@
-import { useMemo } from "react"
+import {
+  useMemo,
+} from "react"
 import {
   useTranslation,
 } from "react-i18next"
 
 import type {
-  Todo,
   TodoRuleSchema,
 } from "../../../api/types"
 import {
-  TodoItem,
-} from "../../todos/components/TodoItem"
+  TodoReadView,
+  type TodoViewData,
+} from "../../todos/components/TodoReadView"
 import {
   Card,
   CardContent,
@@ -32,17 +34,22 @@ export function TodoRulePreview({
 }: TodoRulePreviewProps) {
   const { t } = useTranslation()
 
-  const todo =
-    useMemo<Todo>(
+  const previewTodo =
+    useMemo<TodoViewData>(
       () => ({
-        id: 0,
-        owner_id: 0,
-        list_id: "preview",
-        rule_id: rule.id,
         title: t(
           "admin.todoRules.form.todoExampleTitle",
         ),
-        due_at: null,
+
+        due_at: new Date(
+          2099,
+          11,
+          31,
+          12,
+          0,
+          0,
+        ).toISOString(),
+
         content:
           createExampleContent(
             rule.content_schema,
@@ -50,11 +57,11 @@ export function TodoRulePreview({
               "admin.todoRules.form.exampleText",
             ),
           ),
-        created_at:
-          "2026-08-27T00:00:00.000Z",
-        completed_at: null,
       }),
-      [rule, t],
+      [
+        rule.content_schema,
+        t,
+      ],
     )
 
   return (
@@ -74,13 +81,9 @@ export function TodoRulePreview({
       </CardHeader>
 
       <CardContent>
-        <TodoItem
-          todo={todo}
+        <TodoReadView
+          todo={previewTodo}
           rule={rule}
-          metadata={[]}
-          canManage={false}
-          defaultOpen
-          showTitleInput={false}
         />
       </CardContent>
     </Card>

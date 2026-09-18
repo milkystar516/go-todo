@@ -1,5 +1,7 @@
 import {
   getUiOptions,
+  isMultiSelect,
+  isSelect,
   optionsList,
   orderProperties,
   type RJSFSchema,
@@ -11,6 +13,7 @@ import {
   getPropertyUiSchema,
   getPropertyWidget,
 } from "./schema"
+import { rjsfValidator } from "../../../lib/schema/rjsfValidator"
 import {
   isSchemaObject,
   getPropertySchemas,
@@ -54,7 +57,6 @@ interface TodoRuleOriginalFieldDefinition {
 
 export interface TodoRuleFormField {
   id: string
-  propertyName: string
   label: string
   type: TodoRuleFieldType
   required: boolean
@@ -96,108 +98,115 @@ export function isChoiceField(type: TodoRuleFieldType) {
   return choiceFieldTypes.has(type)
 }
 
-function choicesForSchema(
-  schema: RJSFSchema,
-): string[] | null {
-  if (Array.isArray(schema.enum)) {
-    if (!schema.enum.every((value) => typeof value === "string")) {
-      return null
-    }
-
-    return [...schema.enum]
-  }
-
-  if (Array.isArray(schema.oneOf)) {
-    const options = optionsList(schema)
-
-    if (!options || options.length !== schema.oneOf.length) {
-      return null
-    }
-
-    for (let index = 0; index < schema.oneOf.length; index += 1) {
-      const choiceSchema = schema.oneOf[index]
-      const option = options[index]
-
-      if (
-        !isSchemaObject(choiceSchema) ||
-        Object.keys(choiceSchema).some(
-          (key) => key !== "const" && key !== "title",
-        ) ||
-        typeof option.value !== "string" ||
-        option.label !== option.value
-      ) {
-        return null
-      }
-    }
-
-    return options.map((option) => option.value as string)
-  }
-
-  return []
-}
-
-function hasChoiceDefinition(schema: RJSFSchema) {
-  return Array.isArray(schema.oneOf) || Array.isArray(schema.enum)
-}
-
 function getTodoRuleFieldType(
   schema: RJSFSchema,
   widget?: string,
 ): TodoRuleFieldType {
-  if (widget === "RatingWidget") {
-    return schema.type === "integer" ? "rating" : "custom"
-  }
-  if (widget === "range") {
-    return schema.type === "number" ? "range" : "custom"
-  }
-  if (widget === "textarea") {
-    return schema.type === "string" ? "textarea" : "custom"
+  switch (widget) {
+    case "RatingWidget":
+      return schema.type === "integer" ? "rating" : "custom"
+    case "range":
+      return schema.type === "number" ? "range" : "custom"
+    case "textarea":
+      return schema.type === "string" ? "textarea" : "custom"
   }
 
-  if (schema.type === "array") {
-    if (isChecklistSchema(schema)) return "checklist"
+  switch (schema.type) {
+    case "array": {
+      if (isChecklistSchema(schema)) {
+        return "checklist"
+      }
 
-    const items = getItemSchema(schema)
-    if (!items) return "custom"
+      const items = getItemSchema(schema)
+      if (!items) {
+        return "custom"
+      }
 
-    const choices = choicesForSchema(items)
-    if (choices === null) return "custom"
-    if (hasChoiceDefinition(items)) {
-      if (widget === "checkboxes") return "checkboxes"
-      if (widget === "select") return "multiselect"
+      if (isMultiSelect(rjsfValidator, schema)) {
+        const options = optionsList(items)
+        if (
+          !options ||
+          options.some((option) => typeof option.value !== "string")
+        ) {
+          return "custom"
+        }
+
+        switch (widget) {
+          case "checkboxes":
+            return "checkboxes"
+          case "select":
+            return "multiselect"
+          default:
+            return "custom"
+        }
+      }
+
+      switch (items.type) {
+        case "string":
+          return "textList"
+        case "number":
+        case "integer":
+          return "numberList"
+        default:
+          return "custom"
+      }
+    }
+
+    default:
+      if (isSelect(rjsfValidator, schema)) {
+        const options = optionsList(schema)
+        if (
+          !options ||
+          options.some((option) => typeof option.value !== "string")
+        ) {
+          return "custom"
+        }
+
+        switch (widget) {
+          case "radio":
+            return "radio"
+          case undefined:
+          case "select":
+            return "select"
+          default:
+            return "custom"
+        }
+      }
+  }
+
+  switch (schema.type) {
+    case "boolean":
+      return "boolean"
+
+    case "number":
+      return "number"
+
+    case "integer":
+      return "integer"
+
+    case "string":
+      switch (schema.format) {
+        case "email":
+          return "email"
+        case "uri":
+          return "url"
+        case "color":
+          return "color"
+        case "date":
+          return "date"
+        case "time":
+          return "time"
+        case "date-time":
+          return "datetime"
+        case undefined:
+          return "text"
+        default:
+          return "custom"
+      }
+
+    default:
       return "custom"
-    }
-
-    if (items.type === "string") return "textList"
-    if (items.type === "number" || items.type === "integer") {
-      return "numberList"
-    }
-    return "custom"
   }
-
-  const choices = choicesForSchema(schema)
-  if (choices === null) return "custom"
-  if (hasChoiceDefinition(schema)) {
-    if (widget === "radio") return "radio"
-    if (!widget || widget === "select") return "select"
-    return "custom"
-  }
-
-  if (schema.type === "boolean") return "boolean"
-  if (schema.type === "number") return "number"
-  if (schema.type === "integer") return "integer"
-
-  if (schema.type === "string") {
-    if (schema.format === "email") return "email"
-    if (schema.format === "uri") return "url"
-    if (schema.format === "color") return "color"
-    if (schema.format === "date") return "date"
-    if (schema.format === "time") return "time"
-    if (schema.format === "date-time") return "datetime"
-    if (!schema.format) return "text"
-  }
-
-  return "custom"
 }
 
 export function createTodoRuleFormInitialValue(
@@ -223,36 +232,45 @@ export function createTodoRuleFormInitialValue(
     getUiOptions(rule.ui_schema).order,
   )
 
-  for (const propertyName of orderedPropertyNames) {
-    const schema = properties[propertyName]
+  for (const fieldId of orderedPropertyNames) {
+    const schema = properties[fieldId]
     const type = getTodoRuleFieldType(
       schema,
-      getPropertyWidget(rule.ui_schema, propertyName),
+      getPropertyWidget(rule.ui_schema, fieldId),
     )
+
     const choiceSchema =
       schema.type === "array" ? getItemSchema(schema) : schema
-    const choices =
-      type !== "custom" && choiceSchema
-        ? choicesForSchema(choiceSchema)
-        : []
+    const options =
+      isChoiceField(type) && choiceSchema
+        ? optionsList(choiceSchema)
+        : undefined
 
-    if (choices === null) return null
+    if (
+      isChoiceField(type) &&
+      (!options ||
+        options.some((option) => typeof option.value !== "string"))
+    ) {
+      return null
+    }
+
+    const choices =
+      options?.map((option) => option.value as string) ?? []
 
     fields.push({
-      id: propertyName,
-      propertyName,
+      id: fieldId,
       label:
         typeof schema.title === "string" && schema.title.trim()
           ? schema.title
-          : propertyName,
+          : fieldId,
       type,
-      required: required.has(propertyName),
+      required: required.has(fieldId),
       choices,
       originalDefinition: {
         type,
         schema: structuredClone(schema),
-        uiSchema: getPropertyUiSchema(rule.ui_schema, propertyName),
-        required: required.has(propertyName),
+        uiSchema: getPropertyUiSchema(rule.ui_schema, fieldId),
+        required: required.has(fieldId),
       },
     })
   }
@@ -289,6 +307,7 @@ function applyChoices(
       : schema
 
   delete choiceSchema.oneOf
+  delete choiceSchema.anyOf
   choiceSchema.enum = choiceValues(field)
 }
 
@@ -344,43 +363,52 @@ function definitionForField(
         uiSchema: { "ui:widget": "textarea" },
       }
       break
+
     case "email":
       definition = {
         schema: { type: "string", format: "email", title },
       }
       break
+
     case "url":
       definition = {
         schema: { type: "string", format: "uri", title },
       }
       break
+
     case "color":
       definition = {
         schema: { type: "string", format: "color", title },
         uiSchema: { "ui:widget": "color" },
       }
       break
+
     case "date":
       definition = {
         schema: { type: "string", format: "date", title },
       }
       break
+
     case "time":
       definition = {
         schema: { type: "string", format: "time", title },
       }
       break
+
     case "datetime":
       definition = {
         schema: { type: "string", format: "date-time", title },
       }
       break
+
     case "number":
       definition = { schema: { type: "number", title } }
       break
+
     case "integer":
       definition = { schema: { type: "integer", title } }
       break
+
     case "range":
       definition = {
         schema: {
@@ -392,6 +420,7 @@ function definitionForField(
         uiSchema: { "ui:widget": "range" },
       }
       break
+
     case "rating":
       definition = {
         schema: {
@@ -403,9 +432,11 @@ function definitionForField(
         uiSchema: { "ui:widget": "RatingWidget" },
       }
       break
+
     case "boolean":
       definition = { schema: { type: "boolean", title } }
       break
+
     case "select":
       definition = {
         schema: {
@@ -416,6 +447,7 @@ function definitionForField(
         uiSchema: { "ui:widget": "select" },
       }
       break
+
     case "radio":
       definition = {
         schema: {
@@ -426,6 +458,7 @@ function definitionForField(
         uiSchema: { "ui:widget": "radio" },
       }
       break
+
     case "multiselect":
       definition = {
         schema: {
@@ -440,6 +473,7 @@ function definitionForField(
         uiSchema: { "ui:widget": "select" },
       }
       break
+
     case "checkboxes":
       definition = {
         schema: {
@@ -454,6 +488,7 @@ function definitionForField(
         uiSchema: { "ui:widget": "checkboxes" },
       }
       break
+
     case "checklist":
       definition = {
         schema: {
@@ -495,6 +530,7 @@ function definitionForField(
         },
       }
       break
+
     case "textList":
       definition = {
         schema: {
@@ -504,6 +540,7 @@ function definitionForField(
         },
       }
       break
+
     case "numberList":
       definition = {
         schema: {
@@ -513,9 +550,11 @@ function definitionForField(
         },
       }
       break
+
     case "text":
       definition = { schema: { type: "string", title } }
       break
+
     case "custom":
       throw new Error(
         "Custom fields require a preserved original definition",
@@ -555,18 +594,19 @@ export function createTodoRuleDefinition(
     }
   }
 
-  uiSchema["ui:order"] = fields.map((field) => field.propertyName)
+  uiSchema["ui:order"] = fields.map((field) => field.id)
 
   for (const field of fields) {
     const definition = definitionForField(field, labels)
-    properties[field.propertyName] = definition.schema
+
+    properties[field.id] = definition.schema
 
     if (definition.uiSchema) {
-      uiSchema[field.propertyName] = definition.uiSchema
+      uiSchema[field.id] = definition.uiSchema
     }
 
     if (field.required) {
-      required.push(field.propertyName)
+      required.push(field.id)
     }
   }
 

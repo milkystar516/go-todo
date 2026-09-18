@@ -62,7 +62,6 @@ interface TodoRuleFormProps {
 interface TodoRuleEditorChoice {
   id: string
   value: string
-  canChangeValue: boolean
 }
 
 type TodoRuleEditorField = Omit<TodoRuleFormField, "choices"> & {
@@ -90,18 +89,20 @@ function createEditorId() {
   return `editor-${nextEditorId}`
 }
 
+function createFieldId() {
+  return `field_${crypto.randomUUID().replaceAll("-", "")}`
+}
+
 function createChoice(): TodoRuleEditorChoice {
   return {
     id: createEditorId(),
     value: "",
-    canChangeValue: true,
   }
 }
 
 function createField(): TodoRuleEditorField {
   return {
-    id: createEditorId(),
-    propertyName: "",
+    id: createFieldId(),
     label: "",
     type: "text",
     required: false,
@@ -116,11 +117,9 @@ function createInitialFields(
   return (
     initialValue?.fields.map((field) => ({
       ...field,
-      id: createEditorId(),
       choices: field.choices.map((value) => ({
         id: createEditorId(),
         value,
-        canChangeValue: false,
       })),
       canChangeType: false,
     })) ?? []
@@ -149,26 +148,23 @@ export function TodoRuleForm({
   )
 
   const [ruleName, setRuleName] = useState(initialValue?.ruleName ?? "")
-  const [fields, setFields] = useState(() => createInitialFields(initialValue))
+  const [fields, setFields] = useState(() =>
+    createInitialFields(initialValue),
+  )
   const [formError, setFormError] = useState<string | null>(null)
 
   const previewRule = useMemo<TodoRuleSchema>(() => {
-    const previewFields = fields.map((field) => {
-      const label = field.label.trim()
-
-      return {
-        ...field,
-        propertyName: field.propertyName.trim(),
-        label,
-        choices: field.choices.map(
-          (choice, choiceIndex) =>
-            choice.value.trim() ||
-            t("admin.todoRules.form.choicePlaceholder", {
-              number: choiceIndex + 1,
-            }),
-        ),
-      }
-    })
+    const previewFields = fields.map((field) => ({
+      ...field,
+      label: field.label.trim(),
+      choices: field.choices.map(
+        (choice, choiceIndex) =>
+          choice.value.trim() ||
+          t("admin.todoRules.form.choicePlaceholder", {
+            number: choiceIndex + 1,
+          }),
+      ),
+    }))
 
     const definition = createTodoRuleDefinition(
       ruleName,
@@ -195,30 +191,23 @@ export function TodoRuleForm({
     update: Partial<Pick<TodoRuleFormField, "label" | "required">>,
   ) {
     setFields((currentFields) =>
-      currentFields.map((field) => {
-        if (field.id !== fieldId) {
-          return field
-        }
-
-        if (update.label === undefined) {
-          return {
-            ...field,
-            ...update,
-          }
-        }
-
-        return {
-          ...field,
-          ...update,
-          propertyName: update.label,
-        }
-      }),
+      currentFields.map((field) =>
+        field.id === fieldId
+          ? {
+              ...field,
+              ...update,
+            }
+          : field,
+      ),
     )
 
     setFormError(null)
   }
 
-  function updateFieldType(fieldId: string, type: TodoRuleFieldType) {
+  function updateFieldType(
+    fieldId: string,
+    type: TodoRuleFieldType,
+  ) {
     setFields((currentFields) =>
       currentFields.map((field) => {
         if (field.id !== fieldId || !field.canChangeType) {
@@ -254,14 +243,18 @@ export function TodoRuleForm({
     setFormError(null)
   }
 
-  function updateChoice(fieldId: string, choiceId: string, value: string) {
+  function updateChoice(
+    fieldId: string,
+    choiceId: string,
+    value: string,
+  ) {
     setFields((currentFields) =>
       currentFields.map((field) =>
         field.id === fieldId
           ? {
               ...field,
               choices: field.choices.map((choice) =>
-                choice.id === choiceId && choice.canChangeValue
+                choice.id === choiceId
                   ? {
                       ...choice,
                       value,
@@ -276,7 +269,10 @@ export function TodoRuleForm({
     setFormError(null)
   }
 
-  function removeChoice(fieldId: string, choiceId: string) {
+  function removeChoice(
+    fieldId: string,
+    choiceId: string,
+  ) {
     setFields((currentFields) =>
       currentFields.map((field) =>
         field.id === fieldId
@@ -302,7 +298,11 @@ export function TodoRuleForm({
   }
 
   function addField() {
-    setFields((currentFields) => [...currentFields, createField()])
+    setFields((currentFields) => [
+      ...currentFields,
+      createField(),
+    ])
+
     setFormError(null)
   }
 
@@ -326,14 +326,9 @@ export function TodoRuleForm({
       return
     }
 
-    const propertyNames = fields.map((field) => field.propertyName.trim())
-
-    if (new Set(propertyNames).size !== propertyNames.length) {
-      setFormError(t("admin.todoRules.form.fieldLabelDuplicate"))
-      return
-    }
-
-    const choiceFields = fields.filter((field) => isChoiceField(field.type))
+    const choiceFields = fields.filter((field) =>
+      isChoiceField(field.type),
+    )
 
     if (
       choiceFields.some(
@@ -348,7 +343,10 @@ export function TodoRuleForm({
 
     if (
       choiceFields.some((field) => {
-        const values = field.choices.map((choice) => choice.value.trim())
+        const values = field.choices.map((choice) =>
+          choice.value.trim(),
+        )
+
         return new Set(values).size !== values.length
       })
     ) {
@@ -356,16 +354,11 @@ export function TodoRuleForm({
       return
     }
 
-    const normalizedFields = fields.map((field) => {
-      const label = field.label.trim()
-
-      return {
-        ...field,
-        propertyName: field.propertyName.trim(),
-        label,
-        choices: field.choices.map((choice) => choice.value.trim()),
-      }
-    })
+    const normalizedFields = fields.map((field) => ({
+      ...field,
+      label: field.label.trim(),
+      choices: field.choices.map((choice) => choice.value.trim()),
+    }))
 
     const { contentSchema, uiSchema } = createTodoRuleDefinition(
       normalizedRuleName,
@@ -385,7 +378,10 @@ export function TodoRuleForm({
   return (
     <div className="space-y-6">
       <div className="grid items-start gap-6 xl:grid-cols-2">
-        <form id="todo-rule-definition-form" onSubmit={handleSubmit}>
+        <form
+          id="todo-rule-definition-form"
+          onSubmit={handleSubmit}
+        >
           <Card>
             <CardHeader>
               <CardTitle>
@@ -432,20 +428,27 @@ export function TodoRuleForm({
                         key={field.id}
                         field={field}
                         disabled={isPending}
-                        onChange={(update) => updateField(field.id, update)}
+                        onChange={(update) =>
+                          updateField(field.id, update)
+                        }
                         onTypeChange={
                           field.canChangeType
-                            ? (type) => updateFieldType(field.id, type)
+                            ? (type) =>
+                                updateFieldType(field.id, type)
                             : undefined
                         }
-                        onAddChoice={() => addChoice(field.id)}
+                        onAddChoice={() =>
+                          addChoice(field.id)
+                        }
                         onChoiceChange={(choiceId, value) =>
                           updateChoice(field.id, choiceId, value)
                         }
                         onRemoveChoice={(choiceId) =>
                           removeChoice(field.id, choiceId)
                         }
-                        onRemove={() => removeField(field.id)}
+                        onRemove={() =>
+                          removeField(field.id)
+                        }
                       />
                     ))}
                   </ItemGroup>
@@ -494,6 +497,7 @@ export function TodoRuleForm({
           disabled={isPending || fields.length === 0}
         >
           {isPending && <Spinner aria-hidden="true" />}
+
           {submitLabel ?? t("common.save")}
         </Button>
       </ItemActions>
@@ -554,8 +558,14 @@ function TodoRuleFieldEditor({
             <Input
               id={labelInputId}
               value={field.label}
-              placeholder={t("admin.todoRules.form.fieldLabelPlaceholder")}
-              onChange={(event) => onChange({ label: event.target.value })}
+              placeholder={t(
+                "admin.todoRules.form.fieldLabelPlaceholder",
+              )}
+              onChange={(event) =>
+                onChange({
+                  label: event.target.value,
+                })
+              }
               disabled={disabled}
               required
             />
@@ -563,7 +573,9 @@ function TodoRuleFieldEditor({
 
           {onTypeChange && (
             <Field>
-              <FieldLabel htmlFor={`todo-rule-field-type-${field.id}`}>
+              <FieldLabel
+                htmlFor={`todo-rule-field-type-${field.id}`}
+              >
                 {t("admin.todoRules.form.fieldType")}
               </FieldLabel>
 
@@ -593,7 +605,10 @@ function TodoRuleFieldEditor({
 
                   <ComboboxList>
                     {(item) => (
-                      <ComboboxItem key={item.value} value={item}>
+                      <ComboboxItem
+                        key={item.value}
+                        value={item}
+                      >
                         {item.label}
                       </ComboboxItem>
                     )}
@@ -608,7 +623,9 @@ function TodoRuleFieldEditor({
               id={requiredInputId}
               checked={field.required}
               onCheckedChange={(checked) =>
-                onChange({ required: checked === true })
+                onChange({
+                  required: checked === true,
+                })
               }
               disabled={disabled}
             />
@@ -633,9 +650,12 @@ function TodoRuleFieldEditor({
                   <Field key={choice.id}>
                     <ButtonGroup
                       className="w-full"
-                      aria-label={t("admin.todoRules.form.choiceLabel", {
-                        number: choiceIndex + 1,
-                      })}
+                      aria-label={t(
+                        "admin.todoRules.form.choiceLabel",
+                        {
+                          number: choiceIndex + 1,
+                        },
+                      )}
                     >
                       <Input
                         value={choice.value}
@@ -645,13 +665,19 @@ function TodoRuleFieldEditor({
                             number: choiceIndex + 1,
                           },
                         )}
-                        aria-label={t("admin.todoRules.form.choiceLabel", {
-                          number: choiceIndex + 1,
-                        })}
+                        aria-label={t(
+                          "admin.todoRules.form.choiceLabel",
+                          {
+                            number: choiceIndex + 1,
+                          },
+                        )}
                         onChange={(event) =>
-                          onChoiceChange(choice.id, event.target.value)
+                          onChoiceChange(
+                            choice.id,
+                            event.target.value,
+                          )
                         }
-                        disabled={disabled || !choice.canChangeValue}
+                        disabled={disabled}
                         required
                       />
 
@@ -665,7 +691,9 @@ function TodoRuleFieldEditor({
                             number: choiceIndex + 1,
                           },
                         )}
-                        onClick={() => onRemoveChoice(choice.id)}
+                        onClick={() =>
+                          onRemoveChoice(choice.id)
+                        }
                         disabled={disabled}
                       >
                         <Minus />

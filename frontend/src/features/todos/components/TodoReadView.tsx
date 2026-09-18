@@ -1,17 +1,20 @@
-import {
-  useTranslation,
-} from "react-i18next"
+import { useTranslation } from "react-i18next"
 
 import type {
-  Todo,
   TodoRuleSchema,
 } from "../../../api/types"
 import {
   TodoContentView,
 } from "./TodoContentView"
 
-interface TodoReadOnlyProps {
-  todo: Todo
+export interface TodoViewData {
+  title: string
+  due_at: string | null
+  content: Record<string, unknown>
+}
+
+interface TodoReadViewProps {
+  todo: TodoViewData
   rule: TodoRuleSchema
   showTitle?: boolean
 }
@@ -22,11 +25,7 @@ function formatDateTime(
 ) {
   const date = new Date(value)
 
-  if (
-    Number.isNaN(
-      date.getTime(),
-    )
-  ) {
+  if (Number.isNaN(date.getTime())) {
     return value
   }
 
@@ -39,21 +38,20 @@ function formatDateTime(
   ).format(date)
 }
 
-export function TodoReadOnly({
+export function TodoReadView({
   todo,
   rule,
   showTitle = true,
-}: TodoReadOnlyProps) {
+}: TodoReadViewProps) {
   const { t, i18n } =
     useTranslation()
 
-  const dueAt =
-    todo.due_at
-      ? formatDateTime(
-          todo.due_at,
-          i18n.language,
-        )
-      : null
+  const dueAt = todo.due_at
+    ? formatDateTime(
+        todo.due_at,
+        i18n.language,
+      )
+    : null
 
   return (
     <div className="space-y-4">
@@ -71,9 +69,7 @@ export function TodoReadOnly({
       {dueAt && (
         <div className="flex items-baseline justify-between gap-4 border-t pt-3 text-sm">
           <span className="text-muted-foreground">
-            {t(
-              "todos.form.dueAt",
-            )}
+            {t("todos.form.dueAt")}
           </span>
 
           <span>{dueAt}</span>

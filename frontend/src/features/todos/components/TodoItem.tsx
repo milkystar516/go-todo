@@ -62,8 +62,8 @@ import {
   TodoForm,
 } from "./TodoForm"
 import {
-  TodoReadOnly,
-} from "./TodoReadOnly"
+  TodoReadView,
+} from "./TodoReadView"
 
 interface TodoItemProps {
   todo: Todo
@@ -431,7 +431,7 @@ export function TodoItem({
               }
             />
           ) : (
-            <TodoReadOnly
+            <TodoReadView
               todo={todo}
               rule={rule}
               showTitle={
